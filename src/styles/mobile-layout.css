@@ -409,37 +409,4 @@
   .markdown-editor-preview {
     min-height: 160px;
   }
-
-  /* ----- Fit narrow dialogs -----
-     These rows assumed desktop-width dialogs (a fixed-width label beside a
-     200px select, or a select beside a free-flowing input); below this width
-     they no longer fit side by side without forcing the dialog to scroll
-     horizontally, so they wrap and the controls take the full row instead. */
-  .form-row {
-    flex-wrap: wrap;
-  }
-
-  .form-row label:first-child {
-    min-width: 100%;
-  }
-
-  .form-row > label:has(> select, > input) {
-    flex-wrap: wrap;
-  }
-
-  /* Inside such a label the control starts its own line, below the label
-     text, and shares it with the unit after it (e.g. "512 MiB") instead of
-     pushing the unit onto a line of its own. The basis leaves room for a
-     short unit but not for the label text. */
-  .form-row > label > select,
-  .form-row > label > input[type='number'] {
-    flex: 1 1 calc(100% - 4em);
-    width: auto;
-  }
-
-  .form-row select,
-  .form-row input[type='number'] {
-    width: 100%;
-    min-width: 0;
-  }
 }

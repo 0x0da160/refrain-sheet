@@ -29,6 +29,21 @@ export function formField(label: string, control: HTMLElement, hint?: string): H
   return el('div', { className: 'form-field' }, children);
 }
 
+/**
+ * A {@link formField} whose control has a live status line (what is wrong
+ * with the entry) right under it, before the hint.
+ */
+export function formFieldWithStatus(
+  label: string,
+  control: HTMLElement,
+  status: HTMLElement,
+  hint?: string,
+): HTMLElement {
+  const field = formField(label, control, hint);
+  control.after(status);
+  return field;
+}
+
 /** A checkbox or radio button with its label beside it, aligned on one row. */
 export function formCheck(input: HTMLInputElement, label: string): HTMLLabelElement {
   return el('label', { className: 'form-check' }, [input, el('span', { text: label })]);

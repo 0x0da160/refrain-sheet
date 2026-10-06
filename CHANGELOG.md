@@ -67,6 +67,14 @@ really is internal, rather than inventing an entry to satisfy it.
   open one forward. Formula help lists each function with its description
   and example stacked, so it reads in the narrow panel. Version History's
   button is now Save Settings.
+- Dialogs now look and read like the side panels: labels sit above their
+  fields, spacing follows the same rules, and the title and button row no
+  longer have a shaded band. Each dialog opens at one of three widths
+  (small for confirmations and one-field prompts, medium for short forms,
+  large for Settings and tables) instead of sizing to its text. In the
+  button row the button that carries out the action is always rightmost,
+  Cancel is just left of it, and other choices (Discard, Overwrite, Auto,
+  Clear List, Delete Comment, Shift Cells Right) stand apart at the left.
 - Dialog and side panel buttons are at least 80 px wide, and the spacing
   inside side panels follows one set of rules: fields 12 px apart, groups
   16 px apart, and the same padding as the panel title. It also follows the

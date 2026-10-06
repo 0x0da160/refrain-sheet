@@ -53,7 +53,7 @@ import { SheetOpsDialogs } from './sheet-ops';
 import { SqlQueryDialogs } from './sql';
 import { chooseVersionHistoryPanel } from './version-history-panel';
 import { DiffDialogs } from './diff';
-import { dialogButton, openDialog } from './shared';
+import { atStart, dialogButton, openDialog } from './shared';
 import type { LocalSettings } from '../../app/settings';
 
 export class Dialogs {
@@ -67,44 +67,49 @@ export class Dialogs {
   private readonly diff = new DiffDialogs();
 
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean> {
-    return openDialog(t('dialog.validation.title'), false, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.validation.intro', { name }) }));
-      const table = el('table', { className: 'diag-table' });
-      const head = el('tr', {}, [
-        el('th', { text: t('dialog.validation.row') }),
-        el('th', { text: t('dialog.validation.col') }),
-        el('th', { text: t('dialog.validation.problem') }),
-        el('th', { text: t('dialog.validation.description') }),
-      ]);
-      table.append(el('thead', {}, [head]));
-      const tbody = el('tbody');
-      for (const diag of summary.shown) {
-        tbody.append(
-          el('tr', {}, [
-            el('td', { text: String(diag.row) }),
-            el('td', { text: String(diag.column) }),
-            el('td', { text: t(`diag.${diag.type}`) }),
-            el('td', {
-              text: t(`diagDesc.${diag.type}`, { expected: diag.expected ?? 0, actual: diag.actual ?? 0 }),
+    return openDialog(
+      t('dialog.validation.title'),
+      false,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.validation.intro', { name }) }));
+        const table = el('table', { className: 'diag-table' });
+        const head = el('tr', {}, [
+          el('th', { text: t('dialog.validation.row') }),
+          el('th', { text: t('dialog.validation.col') }),
+          el('th', { text: t('dialog.validation.problem') }),
+          el('th', { text: t('dialog.validation.description') }),
+        ]);
+        table.append(el('thead', {}, [head]));
+        const tbody = el('tbody');
+        for (const diag of summary.shown) {
+          tbody.append(
+            el('tr', {}, [
+              el('td', { text: String(diag.row) }),
+              el('td', { text: String(diag.column) }),
+              el('td', { text: t(`diag.${diag.type}`) }),
+              el('td', {
+                text: t(`diagDesc.${diag.type}`, { expected: diag.expected ?? 0, actual: diag.actual ?? 0 }),
+              }),
+            ]),
+          );
+        }
+        table.append(tbody);
+        body.append(table);
+        if (summary.truncated > 0) {
+          body.append(
+            el('p', {
+              className: 'dialog-note',
+              text: t('dialog.validation.truncated', { n: summary.truncated }),
             }),
-          ]),
+          );
+        }
+        buttons.append(
+          dialogButton(t('dialog.validation.cancel'), false, false, () => close(false)),
+          dialogButton(t('dialog.validation.openAnyway'), true, true, () => close(true)),
         );
-      }
-      table.append(tbody);
-      body.append(table);
-      if (summary.truncated > 0) {
-        body.append(
-          el('p', {
-            className: 'dialog-note',
-            text: t('dialog.validation.truncated', { n: summary.truncated }),
-          }),
-        );
-      }
-      buttons.append(
-        dialogButton(t('dialog.validation.cancel'), false, false, () => close(false)),
-        dialogButton(t('dialog.validation.openAnyway'), true, true, () => close(true)),
-      );
-    });
+      },
+      'lg',
+    );
   }
 
   confirmUnsaved(names: string[]): Promise<'save' | 'discard' | 'cancel'> {
@@ -118,16 +123,19 @@ export class Dialogs {
             : t('dialog.unsaved.messageMany', { n: names.length, names: names.join(', ') });
         body.append(el('p', { text: message }));
         buttons.append(
-          dialogButton(t('dialog.unsaved.cancel'), false, false, () => close('cancel')),
-          dialogButton(
-            names.length === 1 ? t('dialog.unsaved.discard') : t('dialog.unsaved.discardAll'),
-            false,
-            false,
-            () => close('discard'),
+          atStart(
+            dialogButton(
+              names.length === 1 ? t('dialog.unsaved.discard') : t('dialog.unsaved.discardAll'),
+              false,
+              false,
+              () => close('discard'),
+            ),
           ),
+          dialogButton(t('dialog.unsaved.cancel'), false, false, () => close('cancel')),
           dialogButton(t('dialog.unsaved.save'), true, true, () => close('save')),
         );
       },
+      'sm',
     );
   }
 
@@ -138,11 +146,12 @@ export class Dialogs {
       (body, buttons, close) => {
         body.append(el('p', { text: t('dialog.changedOnDisk.message', { name }) }));
         buttons.append(
+          atStart(dialogButton(t('dialog.changedOnDisk.overwrite'), false, false, () => close('overwrite'))),
           dialogButton(t('dialog.changedOnDisk.cancel'), false, true, () => close('cancel')),
-          dialogButton(t('dialog.changedOnDisk.overwrite'), false, false, () => close('overwrite')),
           dialogButton(t('dialog.changedOnDisk.saveAs'), true, false, () => close('saveAs')),
         );
       },
+      'sm',
     );
   }
 
@@ -208,57 +217,62 @@ export class Dialogs {
    * requires pressing the explicit Apply button. All content is text-only.
    */
   confirmFlashFill(preview: FlashFillPreview): Promise<boolean> {
-    return openDialog(t('dialog.flashFill.title'), false, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.flashFill.op', { desc: preview.description }) }));
-      body.append(
-        el('p', {
-          text: t('dialog.flashFill.summary', { range: preview.range, n: preview.changeCount }),
-        }),
-      );
-      if (preview.overwriteCount > 0) {
+    return openDialog(
+      t('dialog.flashFill.title'),
+      false,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.flashFill.op', { desc: preview.description }) }));
         body.append(
           el('p', {
-            className: 'dialog-warning',
-            text: t('dialog.flashFill.overwriteWarning', { n: preview.overwriteCount }),
+            text: t('dialog.flashFill.summary', { range: preview.range, n: preview.changeCount }),
           }),
         );
-      }
-      const table = el('table', { className: 'diag-table' });
-      table.append(
-        el('thead', {}, [
-          el('tr', {}, [
-            el('th', { text: t('dialog.flashFill.col.cell') }),
-            el('th', { text: t('dialog.flashFill.col.before') }),
-            el('th', { text: t('dialog.flashFill.col.after') }),
-          ]),
-        ]),
-      );
-      const tbody = el('tbody');
-      for (const row of preview.sample) {
-        tbody.append(
-          el('tr', {}, [
-            el('td', { text: row.cell }),
-            el('td', { text: row.before }),
-            el('td', { text: row.after }),
+        if (preview.overwriteCount > 0) {
+          body.append(
+            el('p', {
+              className: 'dialog-warning',
+              text: t('dialog.flashFill.overwriteWarning', { n: preview.overwriteCount }),
+            }),
+          );
+        }
+        const table = el('table', { className: 'diag-table' });
+        table.append(
+          el('thead', {}, [
+            el('tr', {}, [
+              el('th', { text: t('dialog.flashFill.col.cell') }),
+              el('th', { text: t('dialog.flashFill.col.before') }),
+              el('th', { text: t('dialog.flashFill.col.after') }),
+            ]),
           ]),
         );
-      }
-      table.append(tbody);
-      body.append(table);
-      if (preview.changeCount > preview.sample.length) {
-        body.append(
-          el('p', {
-            className: 'dialog-note',
-            text: t('dialog.flashFill.sampleNote', { n: preview.changeCount - preview.sample.length }),
-          }),
+        const tbody = el('tbody');
+        for (const row of preview.sample) {
+          tbody.append(
+            el('tr', {}, [
+              el('td', { text: row.cell }),
+              el('td', { text: row.before }),
+              el('td', { text: row.after }),
+            ]),
+          );
+        }
+        table.append(tbody);
+        body.append(table);
+        if (preview.changeCount > preview.sample.length) {
+          body.append(
+            el('p', {
+              className: 'dialog-note',
+              text: t('dialog.flashFill.sampleNote', { n: preview.changeCount - preview.sample.length }),
+            }),
+          );
+        }
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.flashFill.note') }));
+        buttons.append(
+          dialogButton(t('dialog.flashFill.cancel'), false, true, () => close(false)),
+          dialogButton(t('dialog.flashFill.apply'), true, false, () => close(true)),
         );
-      }
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.flashFill.note') }));
-      buttons.append(
-        dialogButton(t('dialog.flashFill.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.flashFill.apply'), true, false, () => close(true)),
-      );
-    });
+      },
+      'lg',
+    );
   }
 
   /** See `FilterDialog.chooseFilter` for the full behavior contract. */
@@ -462,20 +476,30 @@ export class Dialogs {
    * reflexive Enter press.
    */
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean> {
-    return openDialog(title, false, (body, buttons, close) => {
-      body.append(el('p', { text: message }));
-      buttons.append(
-        dialogButton(cancelLabel, false, true, () => close(false)),
-        dialogButton(okLabel, true, false, () => close(true)),
-      );
-    });
+    return openDialog(
+      title,
+      false,
+      (body, buttons, close) => {
+        body.append(el('p', { text: message }));
+        buttons.append(
+          dialogButton(cancelLabel, false, true, () => close(false)),
+          dialogButton(okLabel, true, false, () => close(true)),
+        );
+      },
+      'sm',
+    );
   }
 
   showMessage(title: string, message: string): Promise<void> {
-    return openDialog<void>(title, undefined, (body, buttons, close) => {
-      body.append(el('p', { text: message }));
-      buttons.append(dialogButton(t('dialog.ok'), true, true, () => close(undefined)));
-    });
+    return openDialog<void>(
+      title,
+      undefined,
+      (body, buttons, close) => {
+        body.append(el('p', { text: message }));
+        buttons.append(dialogButton(t('dialog.ok'), true, true, () => close(undefined)));
+      },
+      'sm',
+    );
   }
 
   /** Help ▸ About, or Help ▸ Keyboard Shortcuts: each its own side panel (`help-panels.ts`). */

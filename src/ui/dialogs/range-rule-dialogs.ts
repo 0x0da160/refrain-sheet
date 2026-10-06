@@ -19,8 +19,8 @@ import { el } from '../dom';
 import { createIcon } from '../icon';
 import { ArrowDownAZ, Trash2 } from 'lucide';
 import { chooseDataValidation } from './data-validation-dialog';
-import { dialogButton, helpDetails, openDialog } from './shared';
-import { formCheck, formSection } from './form-layout';
+import { atStart, dialogButton, helpDetails, openDialog } from './shared';
+import { formCheck, formField, formSection } from './form-layout';
 import { openSidePanel } from './side-panel';
 
 export class RangeRuleDialogs {
@@ -192,25 +192,24 @@ export class RangeRuleDialogs {
           },
         }) as HTMLTextAreaElement;
         textArea.value = input.existing ?? '';
-        body.append(
-          el('div', { className: 'form-row' }, [
-            el('label', { text: t('dialog.cellComment.label') }),
-            textArea,
-          ]),
-        );
+        textArea.removeAttribute('aria-label');
+        body.append(formField(t('dialog.cellComment.label'), textArea));
 
-        buttons.append(dialogButton(t('dialog.cellComment.cancel'), false, true, () => close(null)));
         if (input.existing !== null) {
           buttons.append(
-            dialogButton(t('dialog.cellComment.clear'), false, false, () => close({ action: 'clear' })),
+            atStart(
+              dialogButton(t('dialog.cellComment.clear'), false, false, () => close({ action: 'clear' })),
+            ),
           );
         }
         buttons.append(
+          dialogButton(t('dialog.cellComment.cancel'), false, true, () => close(null)),
           dialogButton(t('dialog.cellComment.apply'), true, false, () =>
             close({ action: 'apply', text: textArea.value }),
           ),
         );
       },
+      'md',
     );
   }
 }

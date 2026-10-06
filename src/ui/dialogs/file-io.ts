@@ -11,7 +11,8 @@ import { setSuppressHistoryCapWarning } from '../../app/settings';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import { el } from '../dom';
-import { cellList, dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
+import { formCheck, formField, formGrid, formSection } from './form-layout';
+import { atStart, cellList, dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
 
 /**
  * File I/O and CSV/RSF conversion dialogs: save options, encoding/delimiter
@@ -30,46 +31,47 @@ export class FileIoDialogs {
    * refused rather than silently creating an unnamed file in the user's Drive.
    */
   promptDriveName(suggested: string): Promise<string | null> {
-    return openDialog<string | null>(t('dialog.driveName.title'), null, (body, buttons, close) => {
-      const inputId = 'drive-name-input';
-      const input = el('input', {
-        className: 'sheet-name-input',
-        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true' },
-      }) as HTMLInputElement;
-      input.value = suggested;
-      body.append(
-        el('label', { text: t('dialog.driveName.label'), attrs: { for: inputId } }),
-        input,
-        el('p', { className: 'dialog-note', text: t('dialog.driveName.note') }),
-      );
+    return openDialog<string | null>(
+      t('dialog.driveName.title'),
+      null,
+      (body, buttons, close) => {
+        const inputId = 'drive-name-input';
+        const input = el('input', {
+          className: 'sheet-name-input',
+          attrs: { type: 'text', id: inputId, 'data-autofocus': 'true' },
+        }) as HTMLInputElement;
+        input.value = suggested;
+        body.append(formField(t('dialog.driveName.label'), input, t('dialog.driveName.note')));
 
-      const okButton = dialogButton(t('dialog.driveName.ok'), true, false, () => submit());
-      const refresh = (): boolean => {
-        const ok = input.value.trim().length > 0;
-        okButton.disabled = !ok;
-        return ok;
-      };
-      const submit = (): void => {
-        if (refresh()) close(input.value.trim());
-      };
-      let composing = false;
-      input.addEventListener('compositionstart', () => {
-        composing = true;
-      });
-      input.addEventListener('compositionend', () => {
-        composing = false;
+        const okButton = dialogButton(t('dialog.driveName.ok'), true, false, () => submit());
+        const refresh = (): boolean => {
+          const ok = input.value.trim().length > 0;
+          okButton.disabled = !ok;
+          return ok;
+        };
+        const submit = (): void => {
+          if (refresh()) close(input.value.trim());
+        };
+        let composing = false;
+        input.addEventListener('compositionstart', () => {
+          composing = true;
+        });
+        input.addEventListener('compositionend', () => {
+          composing = false;
+          refresh();
+        });
+        input.addEventListener('input', () => {
+          if (!composing) refresh();
+        });
+        submitOnEnter(input, submit);
         refresh();
-      });
-      input.addEventListener('input', () => {
-        if (!composing) refresh();
-      });
-      submitOnEnter(input, submit);
-      refresh();
-      buttons.append(
-        dialogButton(t('dialog.driveName.cancel'), false, false, () => close(null)),
-        okButton,
-      );
-    });
+        buttons.append(
+          dialogButton(t('dialog.driveName.cancel'), false, false, () => close(null)),
+          okButton,
+        );
+      },
+      'sm',
+    );
   }
 
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
@@ -87,8 +89,7 @@ export class FileIoDialogs {
         for (const opt of options) {
           select.append(el('option', { text: opt.label, attrs: { value: opt.value } }));
         }
-        const row = el('div', { className: 'form-row' }, [el('label', { text: labelText }, [select])]);
-        return { row, select };
+        return { row: formField(labelText, select), select };
       };
 
       const keep = t('dialog.saveOptions.keep');
@@ -127,7 +128,7 @@ export class FileIoDialogs {
       encoding.select.addEventListener('change', updateState);
       updateState();
 
-      body.append(encoding.row, bom.row, lineEnding.row, reencodeWarning);
+      body.append(formSection(null, [encoding.row, bom.row, lineEnding.row, reencodeWarning]));
       if (downloadNote) {
         body.append(el('p', { className: 'dialog-note', text: downloadNote }));
       }
@@ -148,47 +149,62 @@ export class FileIoDialogs {
 
   /** Cancel is autofocused, not primary-styled — matches `confirmUndecodableEdit`'s convention for the same kind of fidelity-loss risk. */
   confirmUnrepresentable(encodingLabel: string, cells: UnrepresentableCell[]): Promise<boolean> {
-    return openDialog(t('dialog.unrepresentable.title'), false, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.unrepresentable.message', { encoding: encodingLabel }) }));
-      body.append(
-        el('p', {
-          className: 'dialog-note',
-          text: t('dialog.unrepresentable.list', {
-            list: cellList(cells, (i) => ` (${cells[i].chars.slice(0, 5).join(' ')})`),
+    return openDialog(
+      t('dialog.unrepresentable.title'),
+      false,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.unrepresentable.message', { encoding: encodingLabel }) }));
+        body.append(
+          el('p', {
+            className: 'dialog-note',
+            text: t('dialog.unrepresentable.list', {
+              list: cellList(cells, (i) => ` (${cells[i].chars.slice(0, 5).join(' ')})`),
+            }),
           }),
-        }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.unrepresentable.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.unrepresentable.continueNcr'), true, false, () => close(true)),
-      );
-    });
+        );
+        buttons.append(
+          dialogButton(t('dialog.unrepresentable.cancel'), false, true, () => close(false)),
+          dialogButton(t('dialog.unrepresentable.continueNcr'), true, false, () => close(true)),
+        );
+      },
+      'sm',
+    );
   }
 
   notifyNcr(reports: NcrCellReport[]): Promise<void> {
     const total = reports.reduce((sum, r) => sum + r.count, 0);
-    return openDialog<void>(t('dialog.ncrDone.title'), undefined, (body, buttons, close) => {
-      body.append(
-        el('p', {
-          text: t('dialog.ncrDone.message', {
-            count: total,
-            cells: reports.length,
-            list: cellList(reports, (i) => `: ${reports[i].count}`),
+    return openDialog<void>(
+      t('dialog.ncrDone.title'),
+      undefined,
+      (body, buttons, close) => {
+        body.append(
+          el('p', {
+            text: t('dialog.ncrDone.message', {
+              count: total,
+              cells: reports.length,
+              list: cellList(reports, (i) => `: ${reports[i].count}`),
+            }),
           }),
-        }),
-      );
-      buttons.append(dialogButton(t('dialog.ok'), true, true, () => close(undefined)));
-    });
+        );
+        buttons.append(dialogButton(t('dialog.ok'), true, true, () => close(undefined)));
+      },
+      'sm',
+    );
   }
 
   confirmUndecodableEdit(cells: Array<{ row: number; col: number }>): Promise<boolean> {
-    return openDialog(t('dialog.undecodableEdit.title'), false, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.undecodableEdit.message', { list: cellList(cells) }) }));
-      buttons.append(
-        dialogButton(t('dialog.undecodableEdit.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.undecodableEdit.continue'), true, false, () => close(true)),
-      );
-    });
+    return openDialog(
+      t('dialog.undecodableEdit.title'),
+      false,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.undecodableEdit.message', { list: cellList(cells) }) }));
+        buttons.append(
+          dialogButton(t('dialog.undecodableEdit.cancel'), false, true, () => close(false)),
+          dialogButton(t('dialog.undecodableEdit.continue'), true, false, () => close(true)),
+        );
+      },
+      'sm',
+    );
   }
 
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null> {
@@ -216,11 +232,9 @@ export class FileIoDialogs {
         }
         delimiterSelect.value = doc.delimiter;
         body.append(
-          el('div', { className: 'form-row' }, [
-            el('label', { text: t('dialog.reopen.encoding') }, [encodingSelect]),
-          ]),
-          el('div', { className: 'form-row' }, [
-            el('label', { text: t('dialog.reopen.delimiter') }, [delimiterSelect]),
+          formGrid([
+            formField(t('dialog.reopen.encoding'), encodingSelect),
+            formField(t('dialog.reopen.delimiter'), delimiterSelect),
           ]),
           el('p', {
             className: tab.doc.isDirty ? 'dialog-warning' : 'dialog-note',
@@ -283,16 +297,10 @@ export class FileIoDialogs {
   confirmHistoryCapExceeded(name: string, max: number): Promise<boolean> {
     return openDialog(t('dialog.historyCapExceeded.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.historyCapExceeded.message', { name, max }) }));
-      const checkboxId = 'history-cap-exceeded-suppress';
       const checkbox = el('input', {
-        attrs: { type: 'checkbox', id: checkboxId },
+        attrs: { type: 'checkbox', id: 'history-cap-exceeded-suppress' },
       }) as HTMLInputElement;
-      body.append(
-        el('div', { className: 'form-row' }, [
-          checkbox,
-          el('label', { text: t('dialog.historyCapExceeded.suppress'), attrs: { for: checkboxId } }),
-        ]),
-      );
+      body.append(formCheck(checkbox, t('dialog.historyCapExceeded.suppress')));
       buttons.append(
         dialogButton(t('dialog.historyCapExceeded.cancel'), false, true, () => close(false)),
         dialogButton(t('dialog.historyCapExceeded.ok'), true, false, () => {
@@ -328,8 +336,7 @@ export class FileIoDialogs {
         for (const opt of options) {
           select.append(el('option', { text: opt.label, attrs: { value: opt.value } }));
         }
-        const row = el('div', { className: 'form-row' }, [el('label', { text: labelText }, [select])]);
-        return { row, select };
+        return { row: formField(labelText, select), select };
       };
 
       const encoding = makeSelect(t('dialog.exportCsv.encoding'), [
@@ -371,7 +378,14 @@ export class FileIoDialogs {
       encoding.select.addEventListener('change', updateBom);
       updateBom();
 
-      body.append(encoding.row, bom.row, bomNote, delimiter.row, quoteStyle.row, lineEnding.row);
+      body.append(
+        formSection(null, [
+          formGrid([encoding.row, bom.row]),
+          bomNote,
+          formGrid([delimiter.row, quoteStyle.row]),
+          formGrid([lineEnding.row]),
+        ]),
+      );
       body.append(helpDetails(t('dialog.saveOptions.injectionWarning')));
 
       buttons.append(
@@ -480,7 +494,7 @@ export class FileIoDialogs {
           }),
         );
         buttons.append(
-          dialogButton(t('dialog.recentFiles.clear'), false, false, () => close('clear')),
+          atStart(dialogButton(t('dialog.recentFiles.clear'), false, false, () => close('clear'))),
           dialogButton(t('dialog.recentFiles.cancel'), false, false, () => close(null)),
         );
       },
@@ -494,28 +508,31 @@ export class FileIoDialogs {
    * confirmation of what the export will and will not contain.
    */
   chooseExportSheet(sheets: Array<{ id: string; name: string }>, currentId: string): Promise<string | null> {
-    return openDialog<string | null>(t('dialog.exportSheet.title'), null, (body, buttons, close) => {
-      const selectId = 'export-sheet-select';
-      const select = el('select', {
-        attrs: { id: selectId, 'data-autofocus': 'true' },
-      }) as HTMLSelectElement;
-      for (const sheet of sheets) {
-        const option = el('option', { text: sheet.name, attrs: { value: sheet.id } }) as HTMLOptionElement;
-        if (sheet.id === currentId) {
-          option.selected = true;
+    return openDialog<string | null>(
+      t('dialog.exportSheet.title'),
+      null,
+      (body, buttons, close) => {
+        const selectId = 'export-sheet-select';
+        const select = el('select', {
+          attrs: { id: selectId, 'data-autofocus': 'true' },
+        }) as HTMLSelectElement;
+        for (const sheet of sheets) {
+          const option = el('option', { text: sheet.name, attrs: { value: sheet.id } }) as HTMLOptionElement;
+          if (sheet.id === currentId) {
+            option.selected = true;
+          }
+          select.append(option);
         }
-        select.append(option);
-      }
-      body.append(
-        el('p', { text: t('dialog.exportSheet.message', { n: sheets.length }) }),
-        el('label', { text: t('dialog.exportSheet.label'), attrs: { for: selectId } }),
-        select,
-        el('p', { className: 'dialog-note', text: t('dialog.exportSheet.note') }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.exportSheet.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.exportSheet.ok'), true, false, () => close(select.value)),
-      );
-    });
+        body.append(
+          el('p', { text: t('dialog.exportSheet.message', { n: sheets.length }) }),
+          formField(t('dialog.exportSheet.label'), select, t('dialog.exportSheet.note')),
+        );
+        buttons.append(
+          dialogButton(t('dialog.exportSheet.cancel'), false, false, () => close(null)),
+          dialogButton(t('dialog.exportSheet.ok'), true, false, () => close(select.value)),
+        );
+      },
+      'sm',
+    );
   }
 }

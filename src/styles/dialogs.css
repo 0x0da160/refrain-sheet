@@ -13,12 +13,22 @@ dialog {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   padding: 0;
-  max-width: min(680px, 92vw);
+  /* Three widths (design system D-50); a person may still drag it wider. */
+  width: min(var(--dialog-w-md), calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   max-height: 86vh;
   overflow: hidden;
   font-size: var(--text-body);
   background: var(--bg-raised);
   color: var(--fg-default);
+}
+
+dialog[data-size='sm'] {
+  width: min(var(--dialog-w-sm), calc(100vw - 32px));
+}
+
+dialog[data-size='lg'] {
+  width: min(var(--dialog-w-lg), calc(100vw - 32px));
 }
 
 dialog::backdrop {
@@ -56,16 +66,17 @@ dialog::backdrop {
   user-select: none;
   touch-action: none;
   margin: 0;
-  padding: var(--inset) var(--space-4);
+  padding: var(--inset) var(--inset-inline);
   font-size: var(--text-title);
-  background: var(--bg-surface);
+  /* No shaded band (D-51): the title sits on the dialog's own surface, set
+     off by a rule, the same as a side panel's. */
   border-bottom: 1px solid var(--border-default);
 }
 
 .dialog-body {
   flex: 1 1 auto;
   min-height: 0;
-  padding: var(--inset) var(--space-4);
+  padding: var(--inset) var(--inset-inline);
   overflow: auto;
 }
 
@@ -138,9 +149,14 @@ dialog::backdrop {
   display: flex;
   justify-content: flex-end;
   gap: var(--button-gap);
-  padding: var(--inset) var(--space-4);
+  padding: var(--inset) var(--inset-inline);
   border-top: 1px solid var(--border-default);
-  background: var(--bg-surface);
+}
+
+/* An action that neither commits nor cancels stands apart at the far left
+   (D-49; atStart in shared.ts). */
+.dialog-buttons > .dialog-button-start {
+  margin-inline-end: auto;
 }
 
 .dialog-buttons button {
@@ -478,39 +494,14 @@ table.diag-table th {
   background: var(--bg-surface);
 }
 
-.form-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.form-row label:first-child {
-  min-width: 130px;
-}
-
-/* A label that wraps its own control (and unit) lays them out in a row with
-   the same gap as the form row, so the text never runs into the control. */
-.form-row > label:has(> select, > input) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.form-row select {
-  font: inherit;
-  padding: var(--space-1) var(--space-1-5);
-  min-width: 200px;
-}
-
-.form-row input[type='number'] {
-  font: inherit;
-  padding: var(--space-1) var(--space-1-5);
-  width: 8em;
-}
-
 .form-unit {
   color: var(--fg-muted);
+}
+
+/* The number keeps a short width so its unit stays beside it. */
+:is(.form-layout, dialog) .settings-size-row input {
+  flex: none;
+  width: 8em;
 }
 
 /* :is() lifts this over the panel's full-width field rule (form-layout.css). */

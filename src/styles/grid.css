@@ -407,6 +407,33 @@
   }
 }
 
+/* The print area (File > Print Area): a still dashed line, thinner and
+   quieter than the copy source's moving one. An edge outside the rendered
+   window is left open. */
+.print-area-outline {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 2;
+  border: 1px dashed var(--fg-muted);
+}
+
+.print-area-outline.open-top {
+  border-top-color: transparent;
+}
+
+.print-area-outline.open-bottom {
+  border-bottom-color: transparent;
+}
+
+.print-area-outline.open-left {
+  border-left-color: transparent;
+}
+
+.print-area-outline.open-right {
+  border-right-color: transparent;
+}
+
 /* While dragging, the whole grid shows the move cursor; an invalid drop shows
    not-allowed. The invalid state is also conveyed by a distinct outline
    (below), never by color alone. */

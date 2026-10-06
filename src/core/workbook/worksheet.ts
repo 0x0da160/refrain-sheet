@@ -4,6 +4,8 @@ import { cellStylesEqual, type CellStyle } from './cell-style';
 import type { CellConditionalFormat } from './conditional-format';
 import { shiftValidationsForDelete, shiftValidationsForInsert, type CellValidation } from './data-validation';
 import { shiftObjectsForDelete, shiftObjectsForInsert, type SheetObject } from './sheet-objects';
+import { shiftPrintAreaForDelete, shiftPrintAreaForInsert } from './print-area';
+import type { PrintArea } from '../print-layout';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from '../formula';
 import type { GridLookLayer } from '../grid-look';
@@ -131,6 +133,14 @@ export class Worksheet {
    * array and its objects as immutable: a change replaces the whole list.
    */
   objects: SheetObject[] = [];
+
+  /**
+   * The block of cells File > Print… prints for this worksheet when "Print
+   * area" is chosen (`print-area.ts`), or null for none. Persisted in the
+   * RSF container (`printArea`), changed only through undoable history
+   * entries, and moved with row/column insertion and deletion.
+   */
+  printArea: PrintArea | null = null;
 
   /**
    * Conditional-formatting rules that color a cell's background/text from its
@@ -568,6 +578,7 @@ export class Worksheet {
     this.rowHeights = insertRowHeights(this.rowHeights, at, prepared.length, heights);
     this.shiftAnnotationRows((row) => (row >= at ? row + prepared.length : row));
     this.validations = shiftValidationsForInsert(this.validations, 'row', at, prepared.length);
+    this.printArea = shiftPrintAreaForInsert(this.printArea, 'row', at, prepared.length);
     this.objects = shiftObjectsForInsert(this.objects, 'row', at, prepared.length);
     this.revision += 1;
     // The sort's stored range would otherwise silently drift against the
@@ -588,6 +599,7 @@ export class Worksheet {
     this.shiftAnnotationRows((row) => (row < index ? row : row < index + count ? null : row - count));
     this.rowHeights = deleteRowHeights(this.rowHeights, index, count);
     this.validations = shiftValidationsForDelete(this.validations, 'row', index, count);
+    this.printArea = shiftPrintAreaForDelete(this.printArea, 'row', index, count);
     this.objects = shiftObjectsForDelete(this.objects, 'row', index, count, this.data.length);
     this.revision += 1;
     this.sort = null;
@@ -607,6 +619,7 @@ export class Worksheet {
     }
     this.shiftAnnotationCols((col) => (col >= at ? col + count : col));
     this.validations = shiftValidationsForInsert(this.validations, 'col', at, count);
+    this.printArea = shiftPrintAreaForInsert(this.printArea, 'col', at, count);
     this.objects = shiftObjectsForInsert(this.objects, 'col', at, count);
     this.cols += count;
     this.revision += 1;
@@ -628,6 +641,7 @@ export class Worksheet {
     }
     this.shiftAnnotationCols((col) => (col < index ? col : col < index + count ? null : col - count));
     this.validations = shiftValidationsForDelete(this.validations, 'col', index, count);
+    this.printArea = shiftPrintAreaForDelete(this.printArea, 'col', index, count);
     this.cols -= count;
     if (this.cols === 0) {
       this.cols = 1;
@@ -716,6 +730,7 @@ export class Worksheet {
     copy.folderId = this.folderId;
     copy.paper = this.paper;
     copy.validations = this.validations.slice();
+    copy.printArea = this.printArea;
     copy.objects = this.objects.slice();
     copy.styles = this.styles.clone();
     copy.comments = this.comments.clone();
@@ -743,6 +758,7 @@ export class Worksheet {
     copy.folderId = this.folderId;
     copy.paper = this.paper;
     copy.validations = this.validations.slice();
+    copy.printArea = this.printArea;
     copy.objects = this.objects.slice();
     return copy;
   }

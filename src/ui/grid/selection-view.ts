@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * The cheap selection repaint: selected-cell highlighting, the fill and move
- * handles, and the copy-source outline — no window rebuild.
+ * handles, the copy-source outline, and the print-area outline — no window
+ * rebuild.
  *
  * A collaborator of the grid (see `./core.ts`): it owns no state of its own
  * beyond what is declared here, and reaches shared grid state through
@@ -13,6 +14,7 @@ import { t } from '../../app/i18n';
 import { rangeContains, type CellRange } from '../../core/clipboard';
 import { el } from '../dom';
 import type { GridCore } from './core';
+import { placePrintAreaOutline } from './print-area-outline';
 
 export class SelectionView {
   constructor(private readonly core: GridCore) {}
@@ -46,6 +48,7 @@ export class SelectionView {
     this.placeFillHandle(tab, range);
     this.placeMoveHandle(tab, range);
     this.placeCopySourceOutline();
+    placePrintAreaOutline(this.core.canvas, tab);
     this.core.editing.positionSink();
   }
   /** Mark the in-range, active, and anchor cells among the rendered ones. */

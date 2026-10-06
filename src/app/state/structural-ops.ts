@@ -119,7 +119,7 @@ export class StructuralOpsState {
       sheetId,
       ops: [
         ...this.state.filterClearOpsFor(doc),
-        validationsSnapshot(doc),
+        ...sheetSnapshots(doc),
         ...objectsSnapshots(doc),
         {
           type: 'rows',
@@ -218,7 +218,7 @@ export class StructuralOpsState {
       sheetId,
       ops: [
         ...this.state.filterClearOpsFor(doc),
-        validationsSnapshot(doc),
+        ...sheetSnapshots(doc),
         ...objectsSnapshots(doc),
         {
           type: 'cols',
@@ -748,13 +748,17 @@ export class StructuralOpsState {
 }
 
 /**
- * The active worksheet's data-validation rules as they are, placed ahead of
- * a deletion so undo restores the rules it shrank or removed (see the
- * `validations` operation).
+ * The active worksheet's data-validation rules and print area as they are,
+ * placed ahead of a deletion so undo restores what it shrank or removed (see
+ * the `validations` and `printArea` operations).
  */
-function validationsSnapshot(doc: RsfDocument): Operation {
-  const rules = doc.validations;
-  return { type: 'validations', before: rules, after: rules, sheetId: doc.activeSheetId };
+function sheetSnapshots(doc: RsfDocument): Operation[] {
+  const { validations: rules, printArea: area } = doc.activeSheet;
+  const sheetId = doc.activeSheetId;
+  return [
+    { type: 'validations', before: rules, after: rules, sheetId },
+    { type: 'printArea', before: area, after: area, sheetId },
+  ];
 }
 
 /**

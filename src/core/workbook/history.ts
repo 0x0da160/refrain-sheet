@@ -3,6 +3,7 @@ import type { CellStyle } from './cell-style';
 import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { LosslessDocument } from '../csv/lossless-document';
+import type { PrintArea } from '../print-layout';
 import type { SheetOrganization } from './sheet-folders';
 import type { SheetObject } from './sheet-objects';
 import type { Worksheet } from './worksheet';
@@ -150,6 +151,12 @@ export type Operation =
       after: readonly SheetObject[];
       sheetId?: string;
     }
+  /**
+   * Set or clear a worksheet's print area. Like `validations`, a structural
+   * entry carries a snapshot ahead of a deletion or move, so undo puts back
+   * an area the deletion shrank or removed.
+   */
+  | { type: 'printArea'; before: PrintArea | null; after: PrintArea | null; sheetId?: string }
   /** Whole-document swap for a structural edit on a still-unsaved new CSV (see above). */
   | {
       type: 'csvStructure';
@@ -194,7 +201,7 @@ function isEmpty(entry: HistoryEntry): boolean {
     if (op.type === 'filter' || op.type === 'wrap') {
       return op.before === op.after;
     }
-    if (op.type === 'validations' || op.type === 'objects') {
+    if (op.type === 'validations' || op.type === 'objects' || op.type === 'printArea') {
       return op.before === op.after;
     }
     if (op.type === 'sheets' || op.type === 'csvStructure') {

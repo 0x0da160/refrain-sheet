@@ -41,6 +41,8 @@ const LEFT_OUT = new Set<CommandId>([
   'file.newText',
   'file.importJsonTable',
   'file.print',
+  'file.setPrintArea',
+  'file.clearPrintArea',
   'edit.copyScreenshot',
   'edit.copyAsMarkdown',
   'edit.copyAsMarkdownNoHeader',

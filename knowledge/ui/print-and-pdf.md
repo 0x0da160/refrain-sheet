@@ -6,6 +6,8 @@ sources:
   - resource: ../../src/core/print-layout.ts
   - resource: ../../src/ui/print-view.ts
   - resource: ../../src/ui/dialogs/print-dialog.ts
+  - resource: ../../src/core/workbook/print-area.ts
+  - resource: ../../src/app/state/print-area.ts
   - resource: ../../src/styles/print.css
 status: stable
 ---
@@ -23,9 +25,10 @@ There is no keyboard shortcut: Ctrl+P stays the browser's (see
 
 ## What prints
 
-- **Current sheet**, **Selected cells**, or **Entire file** (every sheet,
-  each starting on a new page under its name; offered when the file has
-  more than one sheet).
+- **Current sheet**, **Selected cells**, **Print area**, or **Entire
+  file** (every sheet, each starting on a new page under its name; offered
+  when the file has more than one sheet). Within Entire file, a sheet with
+  a print area prints only its print area.
 - A grid prints down to its last row and across to its last column that
   hold anything (a selection prints exactly), with the displayed values —
   formula results and number formats — cell formatting, rich text,
@@ -54,6 +57,25 @@ There is no keyboard shortcut: Ctrl+P stays the browser's (see
   text. A CSV document prints as one grid.
 - Everything is rendered as text into a print-only layer
   (`.print-root`), never as HTML from the file.
+
+## Print area
+
+Each grid sheet can have one print area, a block of cells. **File > Print
+Area > Set Print Area to Selection** sets it and **Clear Print Area**
+removes it; choosing **Print area** in the print panel shows the range as
+text (`A1:F40`, any corner order, `$` allowed), and printing a typed range
+also sets it. On a protected file or a locked sheet that print uses the
+typed range without setting it, and the hint under the field says so.
+
+An `.rsf` sheet keeps its area in the file (the `printArea` key, see
+[json-document.md](../formats/rsf/json-document.md)), changed through
+undoable history entries; inserted, deleted and moved rows and columns
+move it, and undoing a delete gives back an area it shrank. A CSV file has
+nowhere to keep one, so its tab remembers the area until it is closed.
+When the sheet has a print area, the panel opens on **Print area**. The
+grid shows the area with a thin dashed outline (none while the sheet is
+sorted, because its rows are then out of document order). The active
+sheet's print area prints in its shown order, without filtered-out rows.
 
 ## Page settings
 

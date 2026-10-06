@@ -47,6 +47,13 @@ export function cellList(cells: Array<{ row: number; col: number }>, extra?: (i:
 export type DialogBuilder<T> = (body: HTMLElement, buttons: HTMLElement, close: (value: T) => void) => void;
 
 /**
+ * A dialog's width (design system D-50): `sm` for a confirmation or one
+ * short input, `md` (the default) for a form of a few fields, `lg` for a
+ * list, a table or a long form.
+ */
+export type DialogSize = 'sm' | 'md' | 'lg';
+
+/**
  * A corner grip appended to a dialog/popover so it can be resized (see
  * `makeResizable`, `src/ui/drag-resize.ts`). `aria-hidden` plus a `title`
  * tooltip mirrors the grid's pointer-only resize/fill/move handles
@@ -90,17 +97,25 @@ export function closeModal(dialog: HTMLDialogElement, restoreFocus: HTMLElement 
  * focus trap and Escape handling. All content is added via textContent.
  * The heading doubles as a drag handle and a corner grip makes it resizable
  * (`makeDraggable`/`makeResizable`); both are pointer-only and leave the
- * dialog centered until the user first grabs one of them.
+ * dialog centered until the user first grabs one of them. The body is laid
+ * out like every side panel's (`.form-layout`, design system D-47/D-48), and
+ * buttons go in the footer with the one that commits last, Cancel before
+ * it, and any other action marked with {@link atStart} (D-49).
  */
-export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T>): Promise<T> {
+export function openDialog<T>(
+  title: string,
+  fallback: T,
+  build: DialogBuilder<T>,
+  size: DialogSize = 'md',
+): Promise<T> {
   return new Promise((resolve) => {
-    const dialog = el('dialog', { attrs: { 'aria-labelledby': 'dialog-title' } });
+    const dialog = el('dialog', { attrs: { 'aria-labelledby': 'dialog-title', 'data-size': size } });
     const heading = el('h2', {
       className: 'dialog-title',
       text: title,
       attrs: { id: 'dialog-title', title: t('dialog.dragHandle') },
     });
-    const body = el('div', { className: 'dialog-body' });
+    const body = el('div', { className: 'dialog-body form-layout' });
     const buttons = el('div', { className: 'dialog-buttons' });
     const grip = resizeGrip();
     dialog.append(heading, body, buttons, grip);
@@ -168,5 +183,15 @@ export function dialogButton(
     attrs: { type: 'button', ...(autofocus ? { 'data-autofocus': 'true' } : {}) },
   });
   button.addEventListener('click', onClick);
+  return button;
+}
+
+/**
+ * Puts a footer button that neither commits nor cancels (Clear List,
+ * Discard, Overwrite…) at the footer's far left, apart from the two that
+ * do (design system D-49). Append it first.
+ */
+export function atStart(button: HTMLButtonElement): HTMLButtonElement {
+  button.classList.add('dialog-button-start');
   return button;
 }

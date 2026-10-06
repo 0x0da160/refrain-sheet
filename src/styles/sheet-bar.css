@@ -421,16 +421,12 @@
 }
 
 /* The worksheet-kind picker in the Add-worksheet dialog (#557) — a radio
-   group of icon+label options, one per `WorksheetKind`. Overrides
-   `.form-row`'s `min-width: 130px` on its first child, which is meant for a
-   leading field label, not one of several equal options here. */
+   group of icon+label options, one per `WorksheetKind`. */
 .sheet-kind-picker {
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1-5);
-}
-
-.sheet-kind-picker label:first-child {
-  min-width: 0;
 }
 
 .sheet-kind-picker-option {

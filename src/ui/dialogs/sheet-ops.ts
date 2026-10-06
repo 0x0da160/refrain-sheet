@@ -18,7 +18,8 @@ import {
   Table,
   type IconNode,
 } from 'lucide';
-import { dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
+import { formField, formFieldWithStatus } from './form-layout';
+import { atStart, dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
 
 /**
  * Worksheet-kind picker options for `promptSheetName`'s `mode === 'add'`
@@ -74,7 +75,7 @@ function kindPicker(initial: AddSheetKind, choose: (kind: AddSheetKind) => void)
   return el(
     'div',
     {
-      className: 'form-row sheet-kind-picker',
+      className: 'sheet-kind-picker',
       attrs: { role: 'radiogroup', 'aria-label': t('dialog.sheetName.kind') },
     },
     radios,
@@ -88,7 +89,7 @@ function fromCsvButton(choose: () => void): HTMLElement {
     el('span', { text: t('dialog.sheetName.fromCsv') }),
   ]);
   button.addEventListener('click', choose);
-  return el('div', { className: 'form-row' }, [button]);
+  return el('div', { className: 'form-inline' }, [button]);
 }
 
 /**
@@ -105,16 +106,21 @@ export class SheetOpsDialogs {
    * a color applies it and closes; "No color" removes it; Cancel keeps it.
    */
   chooseSheetTabColor(current: string | null): Promise<ColorDialogResult | null> {
-    return openDialog<ColorDialogResult | null>(t('dialog.tabColor.title'), null, (body, buttons, close) => {
-      const picker = buildColorPicker({
-        current,
-        noneLabel: t('colorPicker.none'),
-        onPick: (color) => close(color === null ? { action: 'clear' } : { action: 'apply', color }),
-      });
-      picker.id = 'sheet-tab-color-picker';
-      body.append(picker);
-      buttons.append(dialogButton(t('dialog.tabColor.cancel'), false, false, () => close(null)));
-    });
+    return openDialog<ColorDialogResult | null>(
+      t('dialog.tabColor.title'),
+      null,
+      (body, buttons, close) => {
+        const picker = buildColorPicker({
+          current,
+          noneLabel: t('colorPicker.none'),
+          onPick: (color) => close(color === null ? { action: 'clear' } : { action: 'apply', color }),
+        });
+        picker.id = 'sheet-tab-color-picker';
+        body.append(picker);
+        buttons.append(dialogButton(t('dialog.tabColor.cancel'), false, false, () => close(null)));
+      },
+      'sm',
+    );
   }
 
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */
@@ -126,11 +132,12 @@ export class SheetOpsDialogs {
         body.append(el('p', { text: t('dialog.insertCells.message', { rows, cols }) }));
         body.append(helpDetails(t('dialog.insertCells.note')));
         buttons.append(
+          atStart(dialogButton(t('dialog.insertCells.right'), false, false, () => close('right'))),
           dialogButton(t('dialog.insertCells.cancel'), false, true, () => close(null)),
-          dialogButton(t('dialog.insertCells.right'), false, false, () => close('right')),
           dialogButton(t('dialog.insertCells.down'), true, false, () => close('down')),
         );
       },
+      'sm',
     );
   }
 
@@ -210,10 +217,7 @@ export class SheetOpsDialogs {
         }
 
         body.append(
-          el('label', { text: t('dialog.sheetName.label'), attrs: { for: inputId } }),
-          input,
-          el('p', { className: 'dialog-note', text: t('dialog.sheetName.rules') }),
-          error,
+          formFieldWithStatus(t('dialog.sheetName.label'), input, error, t('dialog.sheetName.rules')),
         );
 
         // Composition state is tracked explicitly: `isComposing` is not set on
@@ -240,6 +244,7 @@ export class SheetOpsDialogs {
           okButton,
         );
       },
+      kindOptions ? 'md' : 'sm',
     );
   }
 
@@ -251,30 +256,35 @@ export class SheetOpsDialogs {
    * (they keep the data they show now).
    */
   confirmDeleteSheet(name: string, referenceCount: number, chartCount = 0): Promise<boolean> {
-    return openDialog<boolean>(t('dialog.deleteSheet.title'), false, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.deleteSheet.message', { name }) }));
-      if (referenceCount > 0) {
-        body.append(
-          el('p', {
-            className: 'dialog-note warn',
-            text: t('dialog.deleteSheet.references', { n: referenceCount }),
-          }),
+    return openDialog<boolean>(
+      t('dialog.deleteSheet.title'),
+      false,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.deleteSheet.message', { name }) }));
+        if (referenceCount > 0) {
+          body.append(
+            el('p', {
+              className: 'dialog-note warn',
+              text: t('dialog.deleteSheet.references', { n: referenceCount }),
+            }),
+          );
+        }
+        if (chartCount > 0) {
+          body.append(
+            el('p', {
+              className: 'dialog-note warn',
+              text: t('dialog.deleteSheet.charts', { n: chartCount }),
+            }),
+          );
+        }
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.deleteSheet.undo') }));
+        buttons.append(
+          dialogButton(t('dialog.deleteSheet.cancel'), false, true, () => close(false)),
+          dialogButton(t('dialog.deleteSheet.ok'), true, false, () => close(true)),
         );
-      }
-      if (chartCount > 0) {
-        body.append(
-          el('p', {
-            className: 'dialog-note warn',
-            text: t('dialog.deleteSheet.charts', { n: chartCount }),
-          }),
-        );
-      }
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.deleteSheet.undo') }));
-      buttons.append(
-        dialogButton(t('dialog.deleteSheet.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.deleteSheet.ok'), true, false, () => close(true)),
-      );
-    });
+      },
+      'sm',
+    );
   }
 
   /**
@@ -283,21 +293,26 @@ export class SheetOpsDialogs {
    * and Cancel is the default action, so data is never replaced by accident.
    */
   confirmRangeMoveOverwrite(input: RangeMoveConfirmInput): Promise<boolean> {
-    return openDialog<boolean>(t('dialog.moveRange.overwriteTitle'), false, (body, buttons, close) => {
-      body.append(
-        el('p', {
-          text: t('dialog.moveRange.overwriteMessage', {
-            target: input.target,
-            n: input.overwriteCount,
+    return openDialog<boolean>(
+      t('dialog.moveRange.overwriteTitle'),
+      false,
+      (body, buttons, close) => {
+        body.append(
+          el('p', {
+            text: t('dialog.moveRange.overwriteMessage', {
+              target: input.target,
+              n: input.overwriteCount,
+            }),
           }),
-        }),
-        el('p', { className: 'dialog-note', text: t('dialog.moveRange.overwriteUndo') }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.moveRange.overwriteOk'), true, false, () => close(true)),
-      );
-    });
+          el('p', { className: 'dialog-note', text: t('dialog.moveRange.overwriteUndo') }),
+        );
+        buttons.append(
+          dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(false)),
+          dialogButton(t('dialog.moveRange.overwriteOk'), true, false, () => close(true)),
+        );
+      },
+      'sm',
+    );
   }
 
   /**
@@ -312,52 +327,54 @@ export class SheetOpsDialogs {
     suggestion: string,
     validate: (text: string) => string | null,
   ): Promise<string | null> {
-    return openDialog<string | null>(t('dialog.moveRange.title'), null, (body, buttons, close) => {
-      const inputId = 'move-target-input';
-      const input = el('input', {
-        className: 'move-target-input',
-        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
-      }) as HTMLInputElement;
-      input.value = suggestion;
-      const error = el('p', {
-        className: 'dialog-error',
-        attrs: { role: 'status', 'aria-live': 'polite' },
-      });
-      const submit = (): void => {
-        if (!ok.disabled) {
-          close(input.value.trim());
-        }
-      };
-      const ok = dialogButton(t('dialog.moveRange.ok'), true, false, submit);
-      const refresh = (): void => {
-        const message = validate(input.value);
-        error.textContent = message ?? '';
-        ok.disabled = message !== null;
-        input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
-      };
-      let composing = false;
-      input.addEventListener('compositionstart', () => (composing = true));
-      input.addEventListener('compositionend', () => {
-        composing = false;
+    return openDialog<string | null>(
+      t('dialog.moveRange.title'),
+      null,
+      (body, buttons, close) => {
+        const inputId = 'move-target-input';
+        const input = el('input', {
+          className: 'move-target-input',
+          attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
+        }) as HTMLInputElement;
+        input.value = suggestion;
+        const error = el('p', {
+          className: 'dialog-error',
+          attrs: { role: 'status', 'aria-live': 'polite' },
+        });
+        const submit = (): void => {
+          if (!ok.disabled) {
+            close(input.value.trim());
+          }
+        };
+        const ok = dialogButton(t('dialog.moveRange.ok'), true, false, submit);
+        const refresh = (): void => {
+          const message = validate(input.value);
+          error.textContent = message ?? '';
+          ok.disabled = message !== null;
+          input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
+        };
+        let composing = false;
+        input.addEventListener('compositionstart', () => (composing = true));
+        input.addEventListener('compositionend', () => {
+          composing = false;
+          refresh();
+        });
+        input.addEventListener('input', () => {
+          if (!composing) refresh();
+        });
+        submitOnEnter(input, submit);
+        body.append(
+          el('p', { text: t('dialog.moveRange.message', { source }) }),
+          formFieldWithStatus(t('dialog.moveRange.label'), input, error, t('dialog.moveRange.hint')),
+        );
+        buttons.append(
+          dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(null)),
+          ok,
+        );
         refresh();
-      });
-      input.addEventListener('input', () => {
-        if (!composing) refresh();
-      });
-      submitOnEnter(input, submit);
-      body.append(
-        el('p', { text: t('dialog.moveRange.message', { source }) }),
-        el('label', { attrs: { for: inputId }, text: t('dialog.moveRange.label') }),
-        input,
-        error,
-        el('p', { className: 'dialog-note', text: t('dialog.moveRange.hint') }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(null)),
-        ok,
-      );
-      refresh();
-    });
+      },
+      'sm',
+    );
   }
 
   /**
@@ -367,51 +384,51 @@ export class SheetOpsDialogs {
    * cancels, and neither fires while an IME composition is in progress.
    */
   promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null> {
-    return openDialog<string | null>(t('dialog.goToCell.title'), null, (body, buttons, close) => {
-      const inputId = 'go-to-cell-input';
-      const input = el('input', {
-        className: 'move-target-input',
-        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
-      }) as HTMLInputElement;
-      input.value = suggestion;
-      const error = el('p', {
-        className: 'dialog-error',
-        attrs: { role: 'status', 'aria-live': 'polite' },
-      });
-      const submit = (): void => {
-        if (!ok.disabled) {
-          close(input.value.trim());
-        }
-      };
-      const ok = dialogButton(t('dialog.goToCell.ok'), true, false, submit);
-      const refresh = (): void => {
-        const message = validate(input.value);
-        error.textContent = message ?? '';
-        ok.disabled = message !== null;
-        input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
-      };
-      let composing = false;
-      input.addEventListener('compositionstart', () => (composing = true));
-      input.addEventListener('compositionend', () => {
-        composing = false;
+    return openDialog<string | null>(
+      t('dialog.goToCell.title'),
+      null,
+      (body, buttons, close) => {
+        const inputId = 'go-to-cell-input';
+        const input = el('input', {
+          className: 'move-target-input',
+          attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
+        }) as HTMLInputElement;
+        input.value = suggestion;
+        const error = el('p', {
+          className: 'dialog-error',
+          attrs: { role: 'status', 'aria-live': 'polite' },
+        });
+        const submit = (): void => {
+          if (!ok.disabled) {
+            close(input.value.trim());
+          }
+        };
+        const ok = dialogButton(t('dialog.goToCell.ok'), true, false, submit);
+        const refresh = (): void => {
+          const message = validate(input.value);
+          error.textContent = message ?? '';
+          ok.disabled = message !== null;
+          input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
+        };
+        let composing = false;
+        input.addEventListener('compositionstart', () => (composing = true));
+        input.addEventListener('compositionend', () => {
+          composing = false;
+          refresh();
+        });
+        input.addEventListener('input', () => {
+          if (!composing) refresh();
+        });
+        submitOnEnter(input, submit);
+        body.append(formFieldWithStatus(t('dialog.goToCell.label'), input, error, t('dialog.goToCell.hint')));
+        buttons.append(
+          dialogButton(t('dialog.goToCell.cancel'), false, true, () => close(null)),
+          ok,
+        );
         refresh();
-      });
-      input.addEventListener('input', () => {
-        if (!composing) refresh();
-      });
-      submitOnEnter(input, submit);
-      body.append(
-        el('label', { attrs: { for: inputId }, text: t('dialog.goToCell.label') }),
-        input,
-        error,
-        el('p', { className: 'dialog-note', text: t('dialog.goToCell.hint') }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.goToCell.cancel'), false, true, () => close(null)),
-        ok,
-      );
-      refresh();
-    });
+      },
+      'sm',
+    );
   }
 
   /**
@@ -420,52 +437,56 @@ export class SheetOpsDialogs {
    * or null when cancelled.
    */
   promptRowHeight(current: number): Promise<number | 'auto' | null> {
-    return openDialog<number | 'auto' | null>(t('dialog.rowHeight.title'), null, (body, buttons, close) => {
-      const inputId = 'row-height-input';
-      const input = el('input', {
-        attrs: {
-          type: 'number',
-          id: inputId,
-          min: String(MIN_ROW_HEIGHT),
-          max: String(MAX_ROW_HEIGHT),
-          step: '1',
-          inputmode: 'numeric',
-          'data-autofocus': 'true',
-        },
-      }) as HTMLInputElement;
-      input.value = String(current);
-      const value = (): number | null => {
-        const n = Number(input.value);
-        return input.value.trim() !== '' && Number.isFinite(n) && n >= MIN_ROW_HEIGHT && n <= MAX_ROW_HEIGHT
-          ? Math.round(n)
-          : null;
-      };
-      const submit = (): void => {
-        const n = value();
-        if (n !== null) {
-          close(n);
-        }
-      };
-      const ok = dialogButton(t('dialog.rowHeight.ok'), true, false, submit);
-      input.addEventListener('input', () => {
-        ok.disabled = value() === null;
-        input.setAttribute('aria-invalid', ok.disabled ? 'true' : 'false');
-      });
-      submitOnEnter(input, submit);
-      body.append(
-        el('label', { attrs: { for: inputId }, text: t('dialog.rowHeight.label') }),
-        input,
-        el('p', {
-          className: 'dialog-note',
-          text: t('dialog.rowHeight.hint', { min: MIN_ROW_HEIGHT, max: MAX_ROW_HEIGHT }),
-        }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.rowHeight.auto'), false, false, () => close('auto')),
-        dialogButton(t('dialog.rowHeight.cancel'), false, true, () => close(null)),
-        ok,
-      );
-    });
+    return openDialog<number | 'auto' | null>(
+      t('dialog.rowHeight.title'),
+      null,
+      (body, buttons, close) => {
+        const inputId = 'row-height-input';
+        const input = el('input', {
+          attrs: {
+            type: 'number',
+            id: inputId,
+            min: String(MIN_ROW_HEIGHT),
+            max: String(MAX_ROW_HEIGHT),
+            step: '1',
+            inputmode: 'numeric',
+            'data-autofocus': 'true',
+          },
+        }) as HTMLInputElement;
+        input.value = String(current);
+        const value = (): number | null => {
+          const n = Number(input.value);
+          return input.value.trim() !== '' && Number.isFinite(n) && n >= MIN_ROW_HEIGHT && n <= MAX_ROW_HEIGHT
+            ? Math.round(n)
+            : null;
+        };
+        const submit = (): void => {
+          const n = value();
+          if (n !== null) {
+            close(n);
+          }
+        };
+        const ok = dialogButton(t('dialog.rowHeight.ok'), true, false, submit);
+        input.addEventListener('input', () => {
+          ok.disabled = value() === null;
+          input.setAttribute('aria-invalid', ok.disabled ? 'true' : 'false');
+        });
+        submitOnEnter(input, submit);
+        body.append(
+          formField(
+            t('dialog.rowHeight.label'),
+            input,
+            t('dialog.rowHeight.hint', { min: MIN_ROW_HEIGHT, max: MAX_ROW_HEIGHT }),
+          ),
+        );
+        buttons.append(
+          atStart(dialogButton(t('dialog.rowHeight.auto'), false, false, () => close('auto'))),
+          dialogButton(t('dialog.rowHeight.cancel'), false, true, () => close(null)),
+          ok,
+        );
+      },
+      'sm',
+    );
   }
 
   /**
@@ -475,23 +496,28 @@ export class SheetOpsDialogs {
    * default action, and nothing is mutated until this resolves true.
    */
   confirmReplaceAllWorkbook(input: WorkbookReplaceConfirmInput): Promise<boolean> {
-    return openDialog<boolean>(t('dialog.replaceWorkbook.title'), false, (body, buttons, close) => {
-      body.append(
-        el('p', {
-          text: t('dialog.replaceWorkbook.message', {
-            matches: input.matches,
-            cells: input.cells,
-            sheets: input.sheets,
-            total: input.totalSheets,
+    return openDialog<boolean>(
+      t('dialog.replaceWorkbook.title'),
+      false,
+      (body, buttons, close) => {
+        body.append(
+          el('p', {
+            text: t('dialog.replaceWorkbook.message', {
+              matches: input.matches,
+              cells: input.cells,
+              sheets: input.sheets,
+              total: input.totalSheets,
+            }),
           }),
-        }),
-        el('p', { className: 'dialog-note', text: t('dialog.replaceWorkbook.scope') }),
-        el('p', { className: 'dialog-note', text: t('dialog.replaceWorkbook.undo') }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.replaceWorkbook.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.replaceWorkbook.ok'), true, false, () => close(true)),
-      );
-    });
+          el('p', { className: 'dialog-note', text: t('dialog.replaceWorkbook.scope') }),
+          el('p', { className: 'dialog-note', text: t('dialog.replaceWorkbook.undo') }),
+        );
+        buttons.append(
+          dialogButton(t('dialog.replaceWorkbook.cancel'), false, true, () => close(false)),
+          dialogButton(t('dialog.replaceWorkbook.ok'), true, false, () => close(true)),
+        );
+      },
+      'sm',
+    );
   }
 }

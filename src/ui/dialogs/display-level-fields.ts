@@ -17,6 +17,7 @@ import {
   type GridLookLayer,
 } from '../../core/grid-look';
 import { el } from '../dom';
+import { formField } from './form-layout';
 
 /** Option values and labels of each grid-look picker; `''` (not specified) comes first. */
 const LOOK_OPTIONS: Array<{
@@ -84,11 +85,7 @@ function picker(
     select.append(el('option', { text, attrs: { value: optionValue } }));
   }
   select.value = value;
-  const row = el('div', { className: 'form-row' }, [
-    el('label', { text: label, attrs: { for: id } }),
-    select,
-  ]);
-  return { row, select };
+  return { row: formField(label, select), select };
 }
 
 /** Build one level's pickers. Call {@link labelUnset} afterwards to name what "not specified" means. */

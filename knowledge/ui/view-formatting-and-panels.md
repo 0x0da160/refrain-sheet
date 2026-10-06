@@ -206,18 +206,21 @@ instead of separate popup layouts:
   an icon (the same one its menu item uses; an eye for previews) before
   the title, then the dock-side buttons, maximize, and a close (×) button,
   always in that order and size. No panel builds its own header.
-- **One form layout.** `openSidePanel`'s body (`.form-layout`, styled in
-  `src/styles/form-layout.css`) stacks `formSection`s; each `formField`
-  puts its label above a full-width control, side-by-side fields share a
-  `formGrid`, checkboxes/radios use `formCheck`, and every text field,
+- **One form layout.** Both `openSidePanel`'s and `openDialog`'s body
+  (`.form-layout`, styled in `src/styles/form-layout.css`) stack
+  `formSection`s; each `formField` puts its label above a full-width
+  control (`formFieldWithStatus` adds a live error line under it),
+  side-by-side fields share a `formGrid` (two columns at most in a
+  dialog), checkboxes/radios use `formCheck`, and every text field,
   select, and in-body button (`.panel-button`) is the same height. The
-  builders live in `src/ui/dialogs/form-layout.ts` and are meant for
-  dialogs as well as panels: design system 2.5.0 (D-47 to D-51 in
-  `design-system/v2/docs/decisions.md`) sets the rules both follow —
+  builders live in `src/ui/dialogs/form-layout.ts`. Design system 2.5.0
+  (D-47 to D-51 in `design-system/v2/docs/decisions.md`) sets the rules:
   label above the control, gaps from `--label-gap`, `--stack-gap` and
-  `--section-gap` only, the committing button rightmost, dialog widths
-  360 / 480 / 640px. Build new controls from these helpers rather than
-  ad-hoc rows.
+  `--section-gap` only, no shaded title or footer band, the committing
+  button last in the footer with Cancel just before it and any other
+  action marked `atStart` (far left), and a dialog width passed to
+  `openDialog` as `sm` / `md` (default) / `lg` (360 / 480 / 640px). Build
+  new controls from these helpers rather than ad-hoc rows.
 - **Dialog or panel.** Design system D-46: a modal dialog only for what
   must be answered before going on (a confirmation, a short input that
   starts an action, a pick-and-close choice, the OK/Cancel Settings);

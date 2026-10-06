@@ -7,6 +7,7 @@ import type { FolderPickerInput } from '../../app/ui-port';
 import { t } from '../../app/i18n';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { el } from '../dom';
+import { formFieldWithStatus } from './form-layout';
 import { dialogButton, openDialog, submitOnEnter } from './shared';
 
 /** Ask for a folder name; resolves with it trimmed, or null when cancelled. */
@@ -15,47 +16,48 @@ export function promptFolderName(
   current: string,
   validate: (name: string) => string | null,
 ): Promise<string | null> {
-  return openDialog<string | null>(t(`dialog.folderName.title.${mode}`), null, (body, buttons, close) => {
-    const input = el('input', {
-      className: 'sheet-name-input',
-      attrs: {
-        type: 'text',
-        id: 'folder-name-input',
-        maxlength: String(MAX_SHEET_NAME_LENGTH),
-        'aria-describedby': 'folder-name-error',
-        'data-autofocus': 'true',
-      },
-    }) as HTMLInputElement;
-    input.value = current;
-    const error = el('p', {
-      className: 'dialog-error',
-      attrs: { id: 'folder-name-error', role: 'status', 'aria-live': 'polite' },
-    });
-    const okButton = dialogButton(t(`dialog.folderName.ok.${mode}`), true, false, () => submit());
-    const refresh = (): boolean => {
-      const message = validate(input.value);
-      error.textContent = message ?? '';
-      okButton.disabled = message !== null;
-      return message === null;
-    };
-    const submit = (): void => {
-      if (refresh()) {
-        close(input.value.trim());
-      }
-    };
-    input.addEventListener('input', () => refresh());
-    submitOnEnter(input, submit);
-    body.append(
-      el('label', { text: t('dialog.folderName.label'), attrs: { for: 'folder-name-input' } }),
-      input,
-      error,
-    );
-    refresh();
-    buttons.append(
-      dialogButton(t('dialog.folderName.cancel'), false, false, () => close(null)),
-      okButton,
-    );
-  });
+  return openDialog<string | null>(
+    t(`dialog.folderName.title.${mode}`),
+    null,
+    (body, buttons, close) => {
+      const input = el('input', {
+        className: 'sheet-name-input',
+        attrs: {
+          type: 'text',
+          id: 'folder-name-input',
+          maxlength: String(MAX_SHEET_NAME_LENGTH),
+          'aria-describedby': 'folder-name-error',
+          'data-autofocus': 'true',
+        },
+      }) as HTMLInputElement;
+      input.value = current;
+      const error = el('p', {
+        className: 'dialog-error',
+        attrs: { id: 'folder-name-error', role: 'status', 'aria-live': 'polite' },
+      });
+      const okButton = dialogButton(t(`dialog.folderName.ok.${mode}`), true, false, () => submit());
+      const refresh = (): boolean => {
+        const message = validate(input.value);
+        error.textContent = message ?? '';
+        okButton.disabled = message !== null;
+        return message === null;
+      };
+      const submit = (): void => {
+        if (refresh()) {
+          close(input.value.trim());
+        }
+      };
+      input.addEventListener('input', () => refresh());
+      submitOnEnter(input, submit);
+      body.append(formFieldWithStatus(t('dialog.folderName.label'), input, error));
+      refresh();
+      buttons.append(
+        dialogButton(t('dialog.folderName.cancel'), false, false, () => close(null)),
+        okButton,
+      );
+    },
+    'sm',
+  );
 }
 
 /**
@@ -99,5 +101,6 @@ export function chooseFolder(input: FolderPickerInput): Promise<{ folderId: stri
         dialogButton(t('dialog.moveToFolder.ok'), true, false, () => close({ folderId: selected })),
       );
     },
+    'sm',
   );
 }

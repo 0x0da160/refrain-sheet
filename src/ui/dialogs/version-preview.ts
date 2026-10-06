@@ -86,14 +86,21 @@ function noOpUiPort(): UiPort {
 
 /** A plain error dialog for a snapshot that fails to decode, or decodes to a workbook with no worksheets at all. */
 function openDecodeFailedDialog(title: string): void {
-  void openDialog<void>(title, undefined, (body, buttons, close) => {
-    body.append(el('p', { className: 'dialog-note', text: t('dialog.versionHistoryPreview.decodeFailed') }));
-    buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
-  });
+  void openDialog<void>(
+    title,
+    undefined,
+    (body, buttons, close) => {
+      body.append(
+        el('p', { className: 'dialog-note', text: t('dialog.versionHistoryPreview.decodeFailed') }),
+      );
+      buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
+    },
+    'sm',
+  );
 }
 
 /**
- * Sheet ▸ File Version History…'s "Preview" action (#533), redesigned by
+ * File Version History's "Preview" action (#533), redesigned by
  * #536 into a full-screen, read-only book: the real virtualized `Grid` and
  * `SheetBar` against the snapshot's actual, evaluated content — every
  * worksheet, no row/column cap — instead of a bounded plain-HTML table of
@@ -105,8 +112,8 @@ function openDecodeFailedDialog(title: string): void {
  * edit path is refused centrally by `AppState` itself, with `noOpUiPort`
  * above suppressing what would otherwise be a "this book is protected"
  * warning dialog (see Commit 8 / `warnProtectedAndOfferUnlock`) on every
- * attempt. `Restore` (on the version-history dialog underneath, which this
- * stacks on top of rather than replaces) is completely unaffected — this
+ * attempt. `Restore` (in the version-history panel, which this opens over
+ * rather than replaces) is completely unaffected — this
  * view never touches it.
  *
  * Above the grid, `versionChangesBar` highlights what changed since

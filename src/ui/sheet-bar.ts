@@ -35,6 +35,7 @@ import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
 import { editNameInPlace } from './sheet-name-field';
 import { buildSheetListResizer } from './sheet-list-resizer';
+import { folderHeaderTitle, markActiveSheet } from './sheet-bar-active';
 
 /**
  * Context-menu actions for a worksheet. Every one is also a command in the
@@ -147,6 +148,8 @@ export class SheetBar {
    * rebuild it — which is what keeps a workbook with many worksheets cheap.
    */
   private renderedKey = '';
+  /** The active worksheet the strip last marked. */
+  private renderedActiveId = '';
   /** Folders shown closed, per workbook. Session-only: not saved in the file. */
   private readonly collapsed = new WeakMap<RsfDocument, Set<string>>();
   /** A tab's or folder's name is being typed on it; the strip waits until that ends. */
@@ -191,11 +194,20 @@ export class SheetBar {
     // whole row goes away instead of leaving an empty band under the grid.
     this.element.hidden = !isWorkbook(doc);
     const key = isWorkbook(doc)
-      ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}:${s.tabColor ?? ''}:${s.folderId ?? ''}`).join('')}|${JSON.stringify(doc.folders)}|${[...this.closedFolders(doc)].join()}`
+      ? `rsf|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}:${s.tabColor ?? ''}:${s.folderId ?? ''}`).join('')}|${JSON.stringify(doc.folders)}|${[...this.closedFolders(doc)].join()}`
       : 'csv';
-    if ((!force && key === this.renderedKey) || (this.renaming && !force)) {
+    if (this.renaming && !force) {
       return;
     }
+    if (!force && key === this.renderedKey) {
+      // Same tabs, maybe another active worksheet (a worksheet switch): move
+      // the active marks instead of rebuilding every tab.
+      if (isWorkbook(doc) && doc.activeSheetId !== this.renderedActiveId) {
+        this.markActive(doc);
+      }
+      return;
+    }
+    this.renderedActiveId = isWorkbook(doc) ? doc.activeSheetId : '';
     this.renaming = false;
     this.renderedKey = key;
     this.closeContextMenu();
@@ -239,7 +251,18 @@ export class SheetBar {
     this.strip.append(el('div', { className: 'sheet-add-buttons', attrs: { role: 'none' } }, [add, folder]));
     this.resizer.setAttribute('aria-label', t('sheets.resize'));
     this.resizer.title = t('sheets.resize');
-    // Keep the active worksheet visible when the strip scrolls horizontally.
+    this.scrollActiveIntoView();
+  }
+
+  /** Move the active marks as a full render would set them, and scroll to them. */
+  private markActive(doc: RsfDocument): void {
+    this.renderedActiveId = doc.activeSheetId;
+    markActiveSheet(this.strip, doc);
+    this.scrollActiveIntoView();
+  }
+
+  /** Keep the active worksheet visible when the strip scrolls. */
+  private scrollActiveIntoView(): void {
     // Guarded because scrollIntoView is not implemented in every environment.
     const activeTab = this.activeItem();
     if (activeTab && typeof activeTab.scrollIntoView === 'function') {
@@ -302,7 +325,6 @@ export class SheetBar {
     open: boolean,
     holdsActive: boolean,
   ): HTMLElement {
-    const title = t(open ? 'sheets.folder.close' : 'sheets.folder.open', { name: folder.name });
     const header = el(
       'button',
       {
@@ -311,9 +333,7 @@ export class SheetBar {
           type: 'button',
           'data-folder-id': folder.id,
           'aria-expanded': open ? 'true' : 'false',
-          title: holdsActive
-            ? `${title}\n${t('sheets.folder.holdsActive', { name: doc.activeSheet.name })}`
-            : title,
+          title: folderHeaderTitle(doc, folder, open, holdsActive),
           ...(holdsActive ? { 'aria-current': 'true' } : {}),
         },
       },

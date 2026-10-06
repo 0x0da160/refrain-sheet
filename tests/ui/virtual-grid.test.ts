@@ -6,6 +6,7 @@ import { ClipboardController } from '../../src/app/clipboard-controller';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { t } from '../../src/app/i18n';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { Worksheet } from '../../src/core/workbook/worksheet';
 import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../../src/ui/grid';
 import { doc, readBundledCss } from '../helpers';
 
@@ -1112,5 +1113,34 @@ describe('selection and change highlights', () => {
     tab.neverSaved = false; // what the first save does
     grid.refresh();
     expect(cellEl(grid, 0, 0).classList.contains('edited')).toBe(true);
+  });
+});
+
+describe('while a text worksheet hides the grid', () => {
+  it('paints nothing, then repaints the next grid worksheet in place', () => {
+    const rows = (prefix: string): string[][] =>
+      Array.from({ length: 200 }, (_, r) => [`${prefix}${r}`, 'x', 'y', 'z']);
+    const book = RsfDocument.fromSheetValues('book.rsf', [
+      { name: 'A', rows: rows('a'), columnCount: 4 },
+      { name: 'B', rows: rows('b'), columnCount: 4 },
+    ]);
+    book.insertSheetAt(1, Worksheet.markdown('m1', 'Notes', '# Notes'));
+    const { state, grid, tab } = setupRsf(book);
+    const firstRow = grid.element.querySelector('.vgrid-row');
+    expect(cellEl(grid, 0, 0).textContent).toBe('a0');
+
+    // The shell hides the grid while the Markdown worksheet is active.
+    grid.element.hidden = true;
+    state.setActiveSheet(tab, 'm1');
+    grid.refresh();
+    expect(grid.element.querySelector('.vgrid-row')).toBe(firstRow);
+    expect(cellEl(grid, 0, 0).textContent).toBe('a0');
+
+    // Back on a grid worksheet of the same shape: repainted, not rebuilt.
+    state.setActiveSheet(tab, book.sheetByName('B')!.id);
+    grid.element.hidden = false;
+    grid.refresh();
+    expect(grid.element.querySelector('.vgrid-row')).toBe(firstRow);
+    expect(cellEl(grid, 0, 0).textContent).toBe('b0');
   });
 });

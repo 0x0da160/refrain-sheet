@@ -38,6 +38,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- Switching sheets is faster, most of all to and from a Markdown, JSON,
+  YAML or text sheet: the grid is no longer redrawn while a text sheet
+  hides it, and the page is measured fewer times per switch.
+
 ## [0.9.27] - 2026-10-05
 
 ### Changed

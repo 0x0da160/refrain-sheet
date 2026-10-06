@@ -61,6 +61,12 @@ export class GridRenderer {
       return;
     }
     this.core.emptyEl.remove();
+    if (this.core.element.hidden) {
+      // A text worksheet is showing in the grid's place: nothing here is
+      // seen, and the next refresh after the grid is shown again repaints
+      // it (in place when the layout still matches the last grid shown).
+      return;
+    }
     if (tab.doc !== this.core.lastDoc) {
       this.core.editing.closeEditor(false);
       this.core.pointer.closeContextMenu();
@@ -365,6 +371,13 @@ export class GridRenderer {
     // work (the wrap-measure pass, scroll coalescing) that calls render while
     // the user is composing simply defers until composition ends.
     if (this.core.editor && this.core.composing) {
+      return;
+    }
+    // A text worksheet is showing in the grid's place (see `refresh`):
+    // background work that resolves meanwhile (a resize, a wrap pass) paints
+    // nothing anyone sees, and would record that worksheet's one-cell layout
+    // so the next grid worksheet had to be rebuilt instead of repainted.
+    if (this.core.element.hidden) {
       return;
     }
     const idx = this.core.metrics.heightIndex(tab);

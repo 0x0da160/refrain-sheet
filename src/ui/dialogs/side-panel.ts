@@ -45,6 +45,8 @@ let sidePanelSize = DEFAULT_SIDE_PANEL_SIZE;
  * way `sidePanelPosition`/`sidePanelSize` are, so opening the next panel
  * (Filter, then Sort, …) keeps whichever the user last chose. */
 let sidePanelMaximized = false;
+/** The dock reservation (`position:size`) the shell layout was last measured with. */
+let measuredReservation: string | null = null;
 
 /**
  * Smartphone-in-portrait viewports default to a bottom dock — there's little
@@ -272,7 +274,21 @@ function layoutSidePanels(position: SidePanelPosition, size: number): void {
   // menu bar's row or back (#596), so the top inset below must be measured
   // with the new reservation and the resulting layout.
   reserveAppEdge(position, size);
-  updateShellLayout();
+  // Measuring forces a layout of the whole page (an open text worksheet's
+  // editor and preview included) in the middle of a repaint, so it happens
+  // only when a panel is placed against the result. A left/right dock spans
+  // the full height and measures nothing: `installShellLayout`'s observer
+  // sees the app narrow and re-fits the tab row before the next paint. A
+  // top/bottom dock measures, except when the reservation is the one last
+  // measured — e.g. a worksheet switch closes one Markdown preview and opens
+  // the next at the same place.
+  const reservation = `${position}:${size}`;
+  if (sidePanelAxis(position) === 'horizontal' && typeof ResizeObserver !== 'undefined') {
+    measuredReservation = null;
+  } else if (reservation !== measuredReservation) {
+    updateShellLayout();
+    measuredReservation = reservation;
+  }
   for (const panel of openSidePanels) {
     placeDocked(panel, position, size);
   }
@@ -397,7 +413,21 @@ function clearAppEdgeReservation(): void {
   }
   app?.style.removeProperty('--dock-inset-top');
   app?.style.removeProperty('--dock-inset-bottom');
-  updateShellLayout();
+  // Nothing is placed against the released space, so the tab row needs no
+  // synchronous measuring: `installShellLayout`'s observer sees the app
+  // widen and re-fits it before the next paint. Until that frame the
+  // reservation last measured stays recorded, so a panel opening again at
+  // the same place in this task (a worksheet switch) skips the measuring.
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      if (openSidePanels.length === 0) {
+        measuredReservation = null;
+      }
+    });
+  } else {
+    measuredReservation = null;
+    updateShellLayout();
+  }
 }
 
 /**

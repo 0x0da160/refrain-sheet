@@ -344,12 +344,21 @@ describe('separation from the application document tabs', () => {
     expect(doc.sheets.map((s) => s.name)).toEqual(['B', 'A']);
   });
 
-  it('re-renders only when the worksheet set or active worksheet actually changes', () => {
+  it('re-renders only when the worksheet set actually changes', () => {
     const { bar, doc } = setup(['A', 'B']);
     const before = tabs(bar)[0];
     bar.render(); // no change: the existing nodes are kept
     expect(tabs(bar)[0]).toBe(before);
+    // Another active worksheet moves the active marks onto the same nodes.
     doc.setActiveSheetId(doc.sheets[1].id);
+    bar.render();
+    expect(tabs(bar)[0]).toBe(before);
+    expect(tabs(bar).map((el) => el.getAttribute('aria-selected'))).toEqual(['false', 'true']);
+    expect(tabs(bar).map((el) => el.getAttribute('tabindex'))).toEqual(['-1', '0']);
+    expect(tabs(bar)[1].classList.contains('active')).toBe(true);
+    expect(before.classList.contains('active')).toBe(false);
+    // A renamed worksheet rebuilds the tabs.
+    doc.sheets[0].name = 'C';
     bar.render();
     expect(tabs(bar)[0]).not.toBe(before);
   });

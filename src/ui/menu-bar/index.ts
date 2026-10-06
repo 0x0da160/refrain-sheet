@@ -114,6 +114,17 @@ export class MenuBar {
     this.render();
   }
 
+  /**
+   * Re-render only when a menu is open: a closed bar shows no state a
+   * worksheet switch changes, and rebuilding it (logotype, every top-level
+   * button) is a measurable part of switching worksheets.
+   */
+  refreshOpenMenu(): void {
+    if (this.openIndex !== null) {
+      this.render();
+    }
+  }
+
   render(): void {
     // Submenus live in document.body, so they must be torn down explicitly
     // before the list that owns them is rebuilt.

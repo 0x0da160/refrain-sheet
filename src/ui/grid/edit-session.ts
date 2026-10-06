@@ -24,6 +24,9 @@ import { RichCellEditor } from '../rich-cell-editor';
 import type { GridCore } from './core';
 
 export class EditSession {
+  /** The pending {@link positionSink} frame, if one is requested. */
+  private sinkFrame: number | null = null;
+
   constructor(private readonly core: GridCore) {}
 
   /** Attach the sink's IME and editing listeners (see `createSink`, `replaceSink`). */
@@ -392,11 +395,36 @@ export class EditSession {
   /**
    * While navigating, keep the hidden sink parked at the selected cell so the
    * IME candidate window opens next to the cell the composition will edit.
+   *
+   * Placing it measures the cell, which forces a synchronous layout; done in
+   * the middle of a repaint (a sheet switch rebuilds the grid, the formula
+   * bar, the status bar…) that layout is thrown away by the writes that
+   * follow and done again for the frame. So the measuring waits for the next
+   * animation frame, after every write of this repaint, and several requests
+   * in one task share it. Starting an edit places the sink itself, so a
+   * keystroke before that frame still edits the right cell.
    */
   positionSink(): void {
     if (this.core.editor) {
       return;
     }
+    const view = this.core.element.ownerDocument.defaultView;
+    if (!view || typeof view.requestAnimationFrame !== 'function') {
+      this.placeSinkAtSelection();
+      return;
+    }
+    if (this.sinkFrame !== null) {
+      return;
+    }
+    this.sinkFrame = view.requestAnimationFrame(() => {
+      this.sinkFrame = null;
+      if (!this.core.editor) {
+        this.placeSinkAtSelection();
+      }
+    });
+  }
+
+  private placeSinkAtSelection(): void {
     const tab = this.core.state.activeTab;
     const cell = tab?.selection ? this.core.pointer.cellAt(tab.selection.row, tab.selection.col) : null;
     if (cell) {

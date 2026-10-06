@@ -167,11 +167,18 @@ export function createSurfaces(
   };
   const applySourceSheetDisplay = wireSourceSheetDisplay(state, commands, sourceSheetViews);
   const refreshSourceSheetViews = (): void => {
+    // Opening or closing a text worksheet's preview panel measures the
+    // page. The grid (thousands of cells) stays hidden while that happens,
+    // whichever way the switch goes, and is shown only afterwards: it costs
+    // nothing to measure while hidden, and its own refresh repaints it.
+    const sourceActive = sourceSheetViews.some((view) => view.active);
+    if (sourceActive) {
+      grid.element.hidden = true;
+    }
     for (const view of sourceSheetViews) {
       view.refresh();
     }
     applySourceSheetDisplay();
-    const sourceActive = sourceSheetViews.some((view) => view.active);
     grid.element.hidden = sourceActive;
     // The formula bar's name box and input field only mean anything for a
     // grid (row/column cell addressing); a Markdown/JSON/YAML/text worksheet

@@ -74,7 +74,7 @@ export function subscribeSurfaces(
         // copy-source outline as the 'tabs'/'active' case above.
         s.clipboard.clearCopySource();
         s.grid.cancelEditing();
-        s.menuBar.render();
+        s.menuBar.refreshOpenMenu();
         s.sheetBar.render();
         refreshDocumentSurfaces(s, true);
         return;

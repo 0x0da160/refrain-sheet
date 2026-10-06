@@ -47,9 +47,11 @@ import { FileIoDialogs } from './file-io';
 import { FormatDialogs } from './format';
 import { chooseFont } from './font';
 import { FilterDialog } from './filter-dialog';
+import { showAboutPanel, showFormulaHelpPanel, showShortcutsPanel } from './help-panels';
 import { RangeRuleDialogs } from './range-rule-dialogs';
 import { SheetOpsDialogs } from './sheet-ops';
 import { SqlQueryDialogs } from './sql';
+import { chooseVersionHistoryPanel } from './version-history-panel';
 import { DiffDialogs } from './diff';
 import { dialogButton, openDialog } from './shared';
 import type { LocalSettings } from '../../app/settings';
@@ -439,13 +441,13 @@ export class Dialogs {
     return this.appSettings.chooseDisplayLanguage(current);
   }
 
-  /** See `AppSettingsDialogs.chooseVersionHistory` for the full behavior contract. */
+  /** See `chooseVersionHistoryPanel` (`version-history-panel.ts`). */
   chooseVersionHistory(
     current: boolean,
     maxOverride: number | null | undefined,
     history: readonly RsfHistorySnapshot[],
   ): Promise<VersionHistoryChoice | null> {
-    return this.appSettings.chooseVersionHistory(current, maxOverride, history);
+    return chooseVersionHistoryPanel(current, maxOverride, history);
   }
 
   /** See `FileIoDialogs.confirmHistoryCapExceeded` for the full behavior contract. */
@@ -476,14 +478,14 @@ export class Dialogs {
     });
   }
 
-  /** See `AppSettingsDialogs.showAbout` for the full behavior contract. */
+  /** Help ▸ About, or Help ▸ Keyboard Shortcuts: each its own side panel (`help-panels.ts`). */
   showAbout(section: 'about' | 'shortcuts' = 'about'): Promise<void> {
-    return this.appSettings.showAbout(section);
+    return section === 'shortcuts' ? showShortcutsPanel() : showAboutPanel();
   }
 
-  /** See `AppSettingsDialogs.showFormulaHelp` for the full behavior contract. */
+  /** See `showFormulaHelpPanel` (`help-panels.ts`). */
   showFormulaHelp(): Promise<void> {
-    return this.appSettings.showFormulaHelp();
+    return showFormulaHelpPanel();
   }
 
   /** See `SqlQueryDialogs.showSqlQuery` for the full behavior contract. */

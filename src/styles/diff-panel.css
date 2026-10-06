@@ -2,46 +2,13 @@
 
 /* ---------- Compare / Diff panel (Data > Compare / Diff…) ---------- */
 
-.diff-dialog .form-row {
-  align-items: flex-start;
-}
-
-.diff-column-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  margin: 0 0 var(--space-2);
-}
-
-.diff-column-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.diff-compare-columns {
-  margin-bottom: var(--space-2);
-}
-
 .diff-compare-columns summary {
   cursor: pointer;
   color: var(--fg-muted);
   margin-bottom: var(--space-1-5);
 }
 
-.diff-normalize-options {
-  display: flex;
-  gap: var(--space-3);
-  margin: 0 0 var(--space-2);
-}
-
-.diff-run-row {
-  justify-content: flex-end;
-}
-
 .diff-status {
-  min-height: 1.4em;
-  margin: 0 0 var(--space-2);
   line-height: 1.4;
 }
 
@@ -49,9 +16,10 @@
   color: var(--danger-text);
 }
 
+/* Wide results scroll sideways inside the panel; the panel body scrolls
+   down. */
 .diff-results {
-  overflow: auto;
-  max-height: 320px;
+  overflow-x: auto;
 }
 
 .diff-results:focus-visible {

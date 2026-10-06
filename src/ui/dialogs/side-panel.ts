@@ -628,6 +628,12 @@ export interface SidePanelOptions<T> {
   fallback: T;
   /** Applies a result while the panel stays open. */
   onApply?: (value: NonNullable<T>) => unknown;
+  /**
+   * Names a panel that is only ever open once (Help, Keyboard Shortcuts…):
+   * asking for it again while it is open expands the open one instead, and
+   * the new request resolves `fallback` at once.
+   */
+  key?: string;
 }
 
 /**
@@ -648,11 +654,22 @@ export interface SidePanelOptions<T> {
  * panel can close it as a side effect.
  */
 export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelBuilder<T>): Promise<T> {
+  const open = options.key
+    ? openSidePanels.find((p) => p.isConnected && p.dataset.panelKey === options.key)
+    : null;
+  if (open) {
+    applySidePanelPosition(open, dockedPosition, dockedSize);
+    focusWithoutKeyboard(open.querySelector<HTMLElement>('[data-autofocus]') ?? open);
+    return Promise.resolve(options.fallback);
+  }
   return new Promise((resolve) => {
     const panel = el('div', {
       className: 'side-panel',
       attrs: { role: 'dialog', 'aria-modal': 'false' },
     });
+    if (options.key) {
+      panel.dataset.panelKey = options.key;
+    }
     const chrome = buildSidePanelChrome(panel, {
       icon: options.icon,
       title: options.title,

@@ -60,6 +60,13 @@ really is internal, rather than inventing an entry to satisfy it.
 - Switching sheets is faster, most of all to and from a Markdown, JSON,
   YAML or text sheet: the grid is no longer redrawn while a text sheet
   hides it, and the page is measured fewer times per switch.
+- Help ▸ About, Keyboard Shortcuts and Formula and Function Help, Sheet ▸
+  File Version History, and Data ▸ Compare / Diff now open as side panels
+  beside the sheet instead of dialogs over it, so the sheet stays usable
+  while they are open. Each opens only once; choosing it again brings the
+  open one forward. Formula help lists each function with its description
+  and example stacked, so it reads in the narrow panel. Version History's
+  button is now Save Settings.
 - Dialog and side panel buttons are at least 80 px wide, and the spacing
   inside side panels follows one set of rules: fields 12 px apart, groups
   16 px apart, and the same padding as the panel title. It also follows the

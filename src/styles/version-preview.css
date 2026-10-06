@@ -43,9 +43,15 @@
   border-bottom: 1px solid var(--border-default);
 }
 
+/* Fixed columns, so every group's keys line up the same in a narrow panel. */
+.shortcut-table {
+  table-layout: fixed;
+}
+
 .shortcut-table td:first-child {
+  width: 45%;
   font-family: var(--font-code);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- What changed since the previous version ---------- */

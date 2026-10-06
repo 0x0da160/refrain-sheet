@@ -83,7 +83,7 @@ dialog::backdrop {
    holds in both light and dark; the native anchor keeps it keyboard- and
    screen-reader-accessible, and focus-visible draws the shared focus ring. */
 .about-links {
-  margin: 0 0 var(--space-2);
+  margin: 0;
   padding-left: var(--space-4);
   line-height: 1.6;
 }
@@ -513,9 +513,9 @@ table.diag-table th {
   color: var(--fg-muted);
 }
 
-.version-history-max-input {
-  font: inherit;
-  padding: var(--space-1) var(--space-1-5);
+/* :is() lifts this over the panel's full-width field rule (form-layout.css). */
+:is(.form-layout, dialog) .version-history-max-input {
+  flex: none;
   width: 6em;
 }
 
@@ -523,8 +523,6 @@ table.diag-table th {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 220px;
-  overflow-y: auto;
 }
 
 .version-history-entry {

@@ -8,6 +8,7 @@ sources:
   - resource: ../../src/ui/dialogs/shared.ts
   - resource: ../../src/ui/dialogs/side-panel.ts
   - resource: ../../src/ui/dialogs/form-layout.ts
+  - resource: ../../src/ui/dialogs/help-panels.ts
   - resource: ../../design-system/v2/docs/decisions.md
 status: stable
 generated:
@@ -222,7 +223,11 @@ instead of separate popup layouts:
   starts an action, a pick-and-close choice, the OK/Cancel Settings);
   everything used while looking at the sheet (reference text such as the
   shortcut list and formula help, settings adjusted while watching the
-  result, lists moved through) is a side panel.
+  result, lists moved through) is a side panel. Help ▸ About, Keyboard
+  Shortcuts and Formula and Function Help (`src/ui/dialogs/help-panels.ts`),
+  Sheet ▸ File Version History (`version-history-panel.ts`) and Data ▸
+  Compare / Diff (`diff.ts`) are panels. A panel opened with a `key` exists
+  once: asking for it again expands the open one.
 
 - **Dock position.** Buttons in the panel's header pick top, right,
   bottom, or left; a top/bottom dock sits below the menu bar and document

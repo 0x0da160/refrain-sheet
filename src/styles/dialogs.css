@@ -137,7 +137,7 @@ dialog::backdrop {
   flex: none;
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--button-gap);
   padding: var(--inset) var(--space-4);
   border-top: 1px solid var(--border-default);
   background: var(--bg-surface);
@@ -145,6 +145,7 @@ dialog::backdrop {
 
 .dialog-buttons button {
   min-height: var(--field-h);
+  min-width: var(--button-min-w);
   border: 1px solid var(--border-default);
   background: var(--bg-raised);
   color: var(--fg-default);
@@ -324,200 +325,6 @@ dialog::backdrop {
   outline-offset: 1px;
 }
 
-/* ---------- Side panel forms (openSidePanel's body) ----------
-   One layout grid for every panel's controls: sections stacked with one
-   gap, each field a label above a full-width control, every text field and
-   select the same height, and the same inset as the title and footer. */
-.side-panel-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-}
-
-.side-panel-form [hidden] {
-  display: none !important;
-}
-
-.side-panel-form p {
-  margin: 0;
-}
-
-.panel-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-/* A titled section starts a new group: a rule above it separates it from
-   whatever precedes it. */
-.panel-section:has(> .panel-section-title):not(:first-child) {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-default);
-}
-
-.panel-section-title {
-  margin: 0;
-  font-size: var(--text-body);
-  font-weight: var(--weight-bold);
-}
-
-.panel-lead {
-  font-weight: var(--weight-bold);
-}
-
-.panel-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.panel-field-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.panel-field-label {
-  color: var(--fg-muted);
-  font-size: var(--text-caption);
-  font-weight: var(--weight-bold);
-}
-
-/* Side-by-side fields (e.g. color / style / width) share the width evenly
-   and wrap onto another row when the panel is narrow. */
-.panel-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--space-2) var(--space-3);
-  align-items: end;
-}
-
-.panel-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1-5);
-}
-
-.panel-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1-5);
-}
-
-.panel-row-end {
-  justify-content: flex-end;
-}
-
-.panel-row-spread {
-  flex-wrap: nowrap;
-  justify-content: space-between;
-}
-
-.panel-choices {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.panel-choices-inline {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-}
-
-.panel-check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  min-height: 24px;
-  cursor: pointer;
-}
-
-.side-panel-form :where(input[type='checkbox'], input[type='radio']) {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-/* :where() keeps these at single-class specificity so a panel's own rule
-   (e.g. .sql-query-input's monospace font) still wins. */
-.side-panel-form
-  :where(input[type='text'], input[type='number'], input[type='search'], input:not([type]), select) {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: var(--field-h);
-  padding: 0 var(--space-1-5);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--fg-default);
-  font: inherit;
-}
-
-.side-panel-form :where(textarea) {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 96px;
-  padding: var(--space-1-5) var(--space-2);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--fg-default);
-  font: inherit;
-  resize: vertical;
-}
-
-.side-panel-form :where(input, select, textarea):disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.side-panel-form :where(input, select, textarea):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
-/* An empty note or live region (a status/error line with nothing to say
-   yet) takes no room in the layout, so it never leaves a stray gap; a live
-   region stays in the accessibility tree (visually hidden, not display:
-   none) so what it later says is still announced. */
-.side-panel-form .dialog-note:empty:not([aria-live]) {
-  display: none;
-}
-
-.side-panel-form [aria-live]:empty {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  min-height: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* A native color picker as one fixed-size swatch, not stretched. */
-.panel-swatch {
-  flex: none;
-  align-self: flex-start;
-  box-sizing: border-box;
-  width: 48px;
-  height: 28px;
-  padding: var(--space-0-5);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  cursor: pointer;
-}
-
 /* A secondary action inside a panel body (Add condition, Select all, Run
    Query, …): the same height and shape as the footer buttons. */
 .panel-button {
@@ -571,7 +378,7 @@ dialog::backdrop {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--button-gap);
 }
 
 .dialog-buttons-actions:empty {
@@ -590,7 +397,7 @@ dialog::backdrop {
 
 .side-panel .dialog-buttons {
   align-items: center;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--inset) var(--inset-inline);
 }
 
 .side-panel .dialog-buttons button {

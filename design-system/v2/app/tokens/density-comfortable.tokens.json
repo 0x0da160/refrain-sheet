@@ -43,7 +43,14 @@
         "value": 1.25,
         "unit": "rem"
       },
-      "$description": "Vertical gap between form rows"
+      "$description": "Vertical gap between fields in a form (D-48)"
+    },
+    "section-gap": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      },
+      "$description": "Vertical gap between form sections; a rule sits in it (D-48)"
     }
   }
 }

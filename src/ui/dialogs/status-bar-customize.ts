@@ -14,7 +14,8 @@ import { el } from '../dom';
 import { createIcon } from '../icon';
 import { installTooltips } from '../tooltip';
 import { dialogButton } from './shared';
-import { openSidePanel, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
+import { formSection } from './form-layout';
 
 type Groups = Record<StatusItemPlace, StatusItemId[]>;
 
@@ -107,7 +108,7 @@ export function customizeStatusBar(onChange: () => void): Promise<null> {
       body.append(
         el('p', { className: 'dialog-note', text: t('dialog.statusBar.note') }),
         ...STATUS_ITEM_PLACES.map((place) =>
-          panelSection(t(`dialog.statusBar.place.${place}`), [lists[place]]),
+          formSection(t(`dialog.statusBar.place.${place}`), [lists[place]]),
         ),
       );
       buttons.append(dialogButton(t('dialog.statusBar.reset'), false, false, () => save(null)));

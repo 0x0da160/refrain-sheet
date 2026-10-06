@@ -36,6 +36,7 @@
 }
 .rs-btn {
   min-block-size: var(--field-h);
+  min-inline-size: var(--button-min-w);
   padding-inline: var(--space-3);
   gap: var(--space-2);
   border-radius: var(--radius-md);
@@ -47,6 +48,7 @@
   inline-size: var(--control-h);
 }
 .rs-btn--icon {
+  min-inline-size: 0;
   inline-size: var(--field-h);
 }
 
@@ -139,42 +141,76 @@
   z-index: 1;
 }
 
-/* Dialog button order: the committing action is rightmost, the safe action
-   just before it. Label with the action ("削除"), plus the object when it
-   cannot be undone ("3 行を削除"); never "OK". */
+/* Dialog and panel button order (D-49): the committing action is
+   rightmost, the safe action just before it; an action that neither commits
+   nor cancels ("規則を解除") goes first, pushed to the left edge with
+   .rs-actions__start. Label with the action ("削除"), plus the object when
+   it cannot be undone ("3 行を削除"); never "OK". */
 .rs-actions {
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--button-gap);
+}
+.rs-actions__start {
+  margin-inline-end: auto;
 }
 
 /* =========================================================================
-   2. Forms
+   2. Forms (D-47, D-48)
    Label (what), helper (how), placeholder (example), validation (whether).
-   A placeholder is never a label.
+   A placeholder is never a label. The label sits above a full-width control
+   in dialogs and panels alike; fields are --stack-gap apart, sections
+   --section-gap apart with a rule.
    ========================================================================= */
+.rs-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+}
+.rs-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-gap);
+  min-inline-size: 0;
+}
+.rs-section:has(> .rs-section__title):not(:first-child) {
+  padding-block-start: var(--section-gap);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
+}
+.rs-section__title {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-bold);
+}
 .rs-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--label-gap);
+  min-inline-size: 0;
 }
-.rs-field + .rs-field {
-  margin-block-start: var(--stack-gap);
+.rs-field > .rs-input,
+.rs-field > .rs-select,
+.rs-field > .rs-textarea {
+  inline-size: 100%;
 }
-/* Label beside the control: the dense layout for panels. */
-.rs-field--inline {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
+/* Short related fields side by side: two columns in a dialog, as many
+   96px columns as fit in a panel. */
+.rs-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: var(--stack-gap) var(--field-col-gap);
+  align-items: end;
 }
-.rs-field--inline > .rs-label {
-  flex: 0 0 8em;
+.rs-dialog .rs-field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .rs-label {
-  font-size: var(--text-body);
-  line-height: var(--leading-body);
-  color: var(--fg-default);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  font-weight: var(--weight-bold);
+  color: var(--fg-muted);
 }
 .rs-label__optional {
   margin-inline-start: var(--space-1);
@@ -701,9 +737,9 @@
 .rs-dock {
   display: flex;
   flex-direction: column;
-  inline-size: clamp(16rem, 28vw, 32rem);
+  inline-size: var(--panel-w);
   min-block-size: 0;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-raised);
   border-inline-start: var(--stroke-thin) solid var(--border-default);
   z-index: var(--z-panel);
 }
@@ -739,10 +775,12 @@
   background-color: var(--overlay);
   z-index: var(--z-modal);
 }
+/* Three widths (D-50): --sm for a confirmation or one input, --md (the
+   default) for a form, --lg for a list or a table. */
 .rs-dialog {
   display: flex;
   flex-direction: column;
-  inline-size: min(32rem, calc(100vw - var(--space-8)));
+  inline-size: min(var(--dialog-w-md), calc(100vw - var(--space-8)));
   max-block-size: min(86dvh, 48rem);
   padding: 0;
   color: var(--fg-default);
@@ -752,8 +790,11 @@
   box-shadow: var(--shadow-lg);
   z-index: var(--z-modal);
 }
-.rs-dialog--wide {
-  inline-size: min(48rem, calc(100vw - var(--space-8)));
+.rs-dialog--sm {
+  inline-size: min(var(--dialog-w-sm), calc(100vw - var(--space-8)));
+}
+.rs-dialog--lg {
+  inline-size: min(var(--dialog-w-lg), calc(100vw - var(--space-8)));
 }
 .rs-dialog::backdrop {
   background-color: var(--overlay);
@@ -762,7 +803,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--inset) var(--inset-inline) var(--space-2);
+  padding: var(--inset) var(--inset-inline);
+  border-block-end: var(--stroke-thin) solid var(--border-default);
 }
 .rs-dialog__title {
   flex: 1;
@@ -775,10 +817,11 @@
   flex: 1;
   min-block-size: 0;
   overflow-y: auto;
-  padding: var(--space-2) var(--inset-inline);
+  padding: var(--inset) var(--inset-inline);
 }
 .rs-dialog__foot {
-  padding: var(--space-3) var(--inset-inline) var(--inset);
+  padding: var(--inset) var(--inset-inline);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
 }
 /* At or below --bp-md (the phone layout) a dialog becomes a bottom sheet. */
 @media (max-width: 43.75em) {

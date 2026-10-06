@@ -22,7 +22,7 @@ import {
 } from '../../core/sql-builder';
 import { el } from '../dom';
 import { createIcon } from '../icon';
-import { panelCheck, panelField } from './side-panel';
+import { formCheck, formField } from './form-layout';
 
 /** The most conditions, and the most totals, one builder holds. */
 const MAX_BUILDER_ROWS = 20;
@@ -134,15 +134,15 @@ function columnsPart(columns: string[], spec: SqlBuilderSpec, changed: () => voi
       spec.columns = columns.filter((name) => (name === column ? box.checked : spec.columns.includes(name)));
       changed();
     });
-    list.append(panelCheck(box, column));
+    list.append(formCheck(box, column));
   });
   const hint = grouped
     ? t('dialog.sqlQuery.builder.columnsGrouped')
     : t('dialog.sqlQuery.builder.columnsHint');
   const field = el('fieldset', { className: 'sql-builder-part' }, [
-    el('legend', { className: 'panel-field-label', text: t('dialog.sqlQuery.builder.columns') }),
+    el('legend', { className: 'form-field-label', text: t('dialog.sqlQuery.builder.columns') }),
     list,
-    el('p', { className: 'dialog-note panel-field-hint', text: hint }),
+    el('p', { className: 'dialog-note form-field-hint', text: hint }),
   ]);
   return field;
 }
@@ -155,7 +155,7 @@ function filtersPart(
   changed: () => void,
 ): HTMLElement {
   const part = el('fieldset', { className: 'sql-builder-part' }, [
-    el('legend', { className: 'panel-field-label', text: t('dialog.sqlQuery.builder.filters') }),
+    el('legend', { className: 'form-field-label', text: t('dialog.sqlQuery.builder.filters') }),
   ]);
   if (spec.filters.length > 1) {
     const match = keyed(
@@ -249,8 +249,8 @@ function totalsPart(columns: string[], spec: SqlBuilderSpec, changed: () => void
     changed();
   });
   const part = el('fieldset', { className: 'sql-builder-part' }, [
-    el('legend', { className: 'panel-field-label', text: t('dialog.sqlQuery.builder.summarize') }),
-    panelField(t('dialog.sqlQuery.builder.groupBy'), group),
+    el('legend', { className: 'form-field-label', text: t('dialog.sqlQuery.builder.summarize') }),
+    formField(t('dialog.sqlQuery.builder.groupBy'), group),
   ]);
   spec.totals.forEach((total, i) => {
     const fn = keyed(
@@ -333,8 +333,8 @@ function sortPart(columns: string[], spec: SqlBuilderSpec, changed: () => void):
   };
   by.addEventListener('change', update);
   direction.addEventListener('change', update);
-  return el('div', { className: 'panel-field' }, [
-    el('span', { className: 'panel-field-label', text: t('dialog.sqlQuery.builder.sortBy') }),
+  return el('div', { className: 'form-field' }, [
+    el('span', { className: 'form-field-label', text: t('dialog.sqlQuery.builder.sortBy') }),
     el('div', { className: 'sql-builder-row' }, [by, direction]),
   ]);
 }
@@ -354,5 +354,5 @@ function limitPart(spec: SqlBuilderSpec, emit: () => void): HTMLElement {
     spec.limit = limit.value.trim() !== '' && Number.isInteger(n) && n > 0 ? n : null;
     emit();
   });
-  return panelField(t('dialog.sqlQuery.builder.limit'), limit, t('dialog.sqlQuery.builder.limitHint'));
+  return formField(t('dialog.sqlQuery.builder.limit'), limit, t('dialog.sqlQuery.builder.limitHint'));
 }

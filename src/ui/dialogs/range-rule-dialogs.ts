@@ -20,7 +20,7 @@ import { createIcon } from '../icon';
 import { ArrowDownAZ, Trash2 } from 'lucide';
 import { chooseDataValidation } from './data-validation-dialog';
 import { dialogButton, helpDetails, openDialog } from './shared';
-import { panelCheck, panelSection } from './side-panel';
+import { formCheck, formSection } from './form-layout';
 import { openSidePanel } from './side-panel';
 
 export class RangeRuleDialogs {
@@ -43,16 +43,16 @@ export class RangeRuleDialogs {
         headerCheck.checked = input.headerRow;
         headerCheck.disabled = input.hasActiveSort;
         const intro: Node[] = [
-          el('p', { className: 'panel-lead', text: t('dialog.sort.range', { range: input.rangeLabel }) }),
-          panelCheck(headerCheck, t('dialog.sort.headerRow')),
+          el('p', { className: 'form-lead', text: t('dialog.sort.range', { range: input.rangeLabel }) }),
+          formCheck(headerCheck, t('dialog.sort.headerRow')),
         ];
         if (input.hasActiveSort) {
           intro.push(el('p', { className: 'dialog-note', text: t('dialog.sort.headerLocked') }));
         }
-        body.append(panelSection(null, intro));
+        body.append(formSection(null, intro));
 
-        const keysHost = el('div', { className: 'sort-keys panel-stack' });
-        const keysSection = panelSection(t('dialog.sort.keys'), [keysHost]);
+        const keysHost = el('div', { className: 'sort-keys form-stack' });
+        const keysSection = formSection(t('dialog.sort.keys'), [keysHost]);
         body.append(keysSection);
 
         type Row = { col: HTMLSelectElement; dir: HTMLSelectElement; wrap: HTMLElement };
@@ -137,7 +137,7 @@ export class RangeRuleDialogs {
         });
         addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
         keysSection.append(
-          el('div', { className: 'panel-row' }, [addBtn]),
+          el('div', { className: 'form-inline' }, [addBtn]),
           el('p', { className: 'dialog-note', text: t('dialog.sort.note') }),
           helpDetails(t('dialog.sort.help')),
         );

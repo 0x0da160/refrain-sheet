@@ -7,7 +7,8 @@ import { el } from '../dom';
 import { createIcon } from '../icon';
 import { installTooltips } from '../tooltip';
 import { dialogButton } from './shared';
-import { openSidePanel, panelField, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
+import { formField, formSection } from './form-layout';
 
 /**
  * View > Customize Toolbar…: the toolbar's commands in order, each movable up
@@ -122,9 +123,9 @@ export function customizeToolbar(available: readonly ToolbarCommand[], onChange:
       draw();
       body.append(
         el('p', { className: 'dialog-note', text: t('dialog.toolbar.note') }),
-        panelSection(t('dialog.toolbar.items'), [list]),
-        panelSection(null, [
-          panelField(t('dialog.toolbar.addLabel'), addSelect),
+        formSection(t('dialog.toolbar.items'), [list]),
+        formSection(null, [
+          formField(t('dialog.toolbar.addLabel'), addSelect),
           el('div', { className: 'toolbar-customize-add' }, [addButton]),
         ]),
       );

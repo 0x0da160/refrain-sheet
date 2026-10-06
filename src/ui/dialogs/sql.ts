@@ -24,7 +24,7 @@ import { el } from '../dom';
 import { createIcon } from '../icon';
 import { dialogButton } from './shared';
 import { sqlQueryBuilder } from './sql-builder';
-import { panelField, panelSection } from './side-panel';
+import { formField, formSection } from './form-layout';
 import { openSidePanel } from './side-panel';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
@@ -80,7 +80,7 @@ export class SqlQueryDialogs {
           refreshSyntaxStatus();
         });
         sourceSelect.addEventListener('change', () => builder.setColumns(input.columns(sourceSelect.value)));
-        body.append(panelSection(null, [builder.element]), editorSection);
+        body.append(formSection(null, [builder.element]), editorSection);
 
         // ----- Suggestions (keywords / functions / columns) -----
         const suggestionsWrap = suggestionsGroup();
@@ -441,7 +441,7 @@ function queryEditor(
     sourceSelect.append(el('option', { text: source.name, attrs: { value: source.id } }));
   }
   const queryLabel = el('label', {
-    className: 'panel-field-label',
+    className: 'form-field-label',
     text: t('dialog.sqlQuery.query'),
     attrs: { for: 'sql-query-text' },
   });
@@ -456,10 +456,10 @@ function queryEditor(
     },
   }) as HTMLTextAreaElement;
   queryText.value = 'SELECT * FROM data';
-  const editorSection = panelSection(null, [
-    panelField(t('dialog.sqlQuery.source'), sourceSelect),
-    el('div', { className: 'panel-field' }, [
-      el('div', { className: 'panel-field-header' }, [queryLabel, helpToggle]),
+  const editorSection = formSection(null, [
+    formField(t('dialog.sqlQuery.source'), sourceSelect),
+    el('div', { className: 'form-field' }, [
+      el('div', { className: 'form-field-header' }, [queryLabel, helpToggle]),
       helpPanel,
       queryText,
     ]),
@@ -515,7 +515,7 @@ function savedQueriesSection(
   });
   const savedListWrap = el('div', { className: 'sql-query-saved-list' });
   savedBody.append(
-    el('div', { className: 'panel-row sql-query-save-row' }, [saveNameInput, saveButton]),
+    el('div', { className: 'form-inline sql-query-save-row' }, [saveNameInput, saveButton]),
     saveError,
     savedListWrap,
   );
@@ -544,7 +544,7 @@ function runControls(
   onFormat: () => void,
   onRun: () => void,
 ): { runRow: HTMLElement; runButton: HTMLButtonElement } {
-  const runRow = el('div', { className: 'panel-row panel-row-end sql-query-run-row' });
+  const runRow = el('div', { className: 'form-inline form-inline-end sql-query-run-row' });
   const formatButton = dialogButton(t('dialog.sqlQuery.format'), false, false, onFormat);
   const runButton = dialogButton(t('dialog.sqlQuery.run'), true, false, onRun);
   formatButton.classList.add('panel-button');
@@ -573,5 +573,5 @@ function historySection(): { listsSection: HTMLElement; historyBody: HTMLElement
   const historyDetails = el('details', { className: 'sql-query-history' });
   const historyBody = el('div', { className: 'sql-query-history-body' });
   historyDetails.append(el('summary', { text: t('dialog.sqlQuery.history.title') }), historyBody);
-  return { listsSection: panelSection(null, [historyDetails]), historyBody };
+  return { listsSection: formSection(null, [historyDetails]), historyBody };
 }

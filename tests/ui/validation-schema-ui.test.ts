@@ -129,7 +129,7 @@ describe('the data-validation panel', () => {
     tick(checkbox(panel, t('dialog.dataValidation.integer')));
     tick(checkbox(panel, t('dialog.dataValidation.required')));
     tick(checkbox(panel, t('dialog.dataValidation.wholeColumns', { columns: 'B:B' })));
-    expect(panel.querySelector('.panel-lead')?.textContent).toBe(
+    expect(panel.querySelector('.form-lead')?.textContent).toBe(
       t('dialog.dataValidation.columnsRange', { columns: 'B:B' }),
     );
     button(panel, t('dialog.dataValidation.apply')).click();

@@ -16,7 +16,8 @@ import {
 import { el } from '../dom';
 import { CheckSquare } from 'lucide';
 import { dialogButton } from './shared';
-import { openSidePanel, panelCheck, panelField, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
+import { formCheck, formField, formSection, formGrid } from './form-layout';
 
 type Kind = ValidationRule['kind'];
 const KINDS: readonly Kind[] = ['list', 'number', 'textLength', 'date'];
@@ -33,7 +34,7 @@ export function chooseDataValidation(
   return openSidePanel<DataValidationDialogResult | null>(
     { title: t('dialog.dataValidation.title'), icon: CheckSquare, fallback: null, onApply },
     (body, buttons, apply) => {
-      const lead = el('p', { className: 'panel-lead' });
+      const lead = el('p', { className: 'form-lead' });
       const kinds = kindChoice(input.existing?.kind ?? 'list');
       const fields = ruleFields(input.existing);
       const options = optionFields(input);
@@ -100,11 +101,11 @@ function kindChoice(initial: Kind): {
     radio.checked = kind === initial;
     return radio;
   });
-  const section = panelSection(null, [
+  const section = formSection(null, [
     el(
       'div',
-      { className: 'panel-choices', attrs: { role: 'radiogroup' } },
-      KINDS.map((kind, i) => panelCheck(radios[i], label[kind])),
+      { className: 'form-choices', attrs: { role: 'radiogroup' } },
+      KINDS.map((kind, i) => formCheck(radios[i], label[kind])),
     ),
   ]);
   return { section, radios, current: () => KINDS[radios.findIndex((r) => r.checked)] ?? 'list' };
@@ -150,21 +151,21 @@ function ruleFields(existing: ValidationRule | null): {
     integerCheck.checked = existing.kind === 'number' && existing.integer === true;
   }
   const pair = (min: HTMLInputElement, max: HTMLInputElement): HTMLElement =>
-    el('div', { className: 'panel-grid' }, [
-      panelField(min.getAttribute('aria-label') ?? '', min),
-      panelField(max.getAttribute('aria-label') ?? '', max),
+    formGrid([
+      formField(min.getAttribute('aria-label') ?? '', min),
+      formField(max.getAttribute('aria-label') ?? '', max),
     ]);
   const sections: Record<Kind, HTMLElement> = {
-    list: panelSection(null, [
-      panelField(t('dialog.dataValidation.listValues'), listValues, t('dialog.dataValidation.listHint')),
+    list: formSection(null, [
+      formField(t('dialog.dataValidation.listValues'), listValues, t('dialog.dataValidation.listHint')),
       listTruncatedNote,
     ]),
-    number: panelSection(null, [
+    number: formSection(null, [
       pair(numberMin, numberMax),
-      panelCheck(integerCheck, t('dialog.dataValidation.integer')),
+      formCheck(integerCheck, t('dialog.dataValidation.integer')),
     ]),
-    textLength: panelSection(null, [pair(lengthMin, lengthMax)]),
-    date: panelSection(null, [
+    textLength: formSection(null, [pair(lengthMin, lengthMax)]),
+    date: formSection(null, [
       pair(dateMin, dateMax),
       el('p', { className: 'dialog-note', text: t('dialog.dataValidation.dateHint') }),
     ]),
@@ -199,20 +200,20 @@ function optionFields(input: DataValidationDialogInput): {
 } {
   const requiredCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
   requiredCheck.checked = input.required === true;
-  const options: Node[] = [panelCheck(requiredCheck, t('dialog.dataValidation.required'))];
+  const options: Node[] = [formCheck(requiredCheck, t('dialog.dataValidation.required'))];
   const columnsCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
   const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
   if (input.columns) {
     columnsCheck.checked = input.columns.checked;
     headerCheck.checked = input.columns.headerRow;
     options.push(
-      panelCheck(columnsCheck, t('dialog.dataValidation.wholeColumns', { columns: input.columns.label })),
-      panelCheck(headerCheck, t('dialog.dataValidation.skipHeader')),
+      formCheck(columnsCheck, t('dialog.dataValidation.wholeColumns', { columns: input.columns.label })),
+      formCheck(headerCheck, t('dialog.dataValidation.skipHeader')),
     );
   }
   const columns = (): string | null => (input.columns && columnsCheck.checked ? input.columns.label : null);
   return {
-    section: panelSection(null, options),
+    section: formSection(null, options),
     columnsCheck,
     headerCheck,
     columns,

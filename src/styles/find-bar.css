@@ -2,7 +2,7 @@
 
 /* ---------- Find and Replace panel ----------
    A dockable `.side-panel` like the comments and Filter/Sort panels; the
-   fields and checkboxes take their look from `.side-panel-form`
+   fields and checkboxes take their look from `.form-layout`
    (dialogs.css). This file styles only what is specific to it: the action
    button rows, the status lines, and the Find All result list. */
 

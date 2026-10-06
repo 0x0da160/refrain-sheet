@@ -320,6 +320,9 @@ function buildAppCss() {
   L.push('  /* ---------- inline padding (the same in every density) ---------- */');
   for (const [name, px, note] of A.inline) L.push(decl(name, rem(px), `${px}px — ${note}`));
   L.push('');
+  L.push('  /* ---------- layout of dialogs and panels (the same in every density) ---------- */');
+  for (const [name, px, note] of A.layout) L.push(decl(name, rem(px), `${px}px — ${note}`));
+  L.push('');
   L.push('  /* ---------- document colours: fixed in every theme ---------- */');
   for (const s of swatches) L.push(decl(s.name, s.hex));
   for (const [name, ref] of Object.entries(A.swatches.conditional)) L.push(decl(name, resolveRef(ref), ref));
@@ -508,6 +511,7 @@ function dtcgApp() {
     typography,
     data,
     grid: group('dimension', A.grid, 'px', (v) => v, (n) => n.replace('grid-', '')),
+    layout: group('dimension', A.layout, 'px', (v) => v, (n) => n),
     layer: Object.fromEntries([['$type', 'number'], ...A.layers.map(([n, v, note]) => [n.replace('z-', ''), { $value: v, $description: note }])]),
   };
 }
@@ -607,6 +611,9 @@ function docDensity() {
   const fixed = A.inline.map(([name, px, note]) => `<tr><th><code>--${name}</code></th>${A.density.modes.map(() => `<td class="num">${px}px</td>`).join('')}<td class="num">—</td><td>${esc(note)}</td></tr>`);
   return table(['トークン', ...A.density.modes.map((m) => `num:${m}${m === A.density.default ? '（既定）' : ''}`), 'num:タッチ', '用途'], [...rows, ...fixed]);
 }
+function docLayout() {
+  return table(['トークン', 'num:値', '用途'], A.layout.map(([name, px, note]) => `<tr><th><code>--${name}</code></th><td class="num">${px}px</td><td>${esc(note)}</td></tr>`));
+}
 function docAppScales() {
   return [
     scaleTable('グリッド', A.grid.map(([n, px, note]) => [`--${n}`, px, note]), (r) => `${r[1]}px`),
@@ -637,6 +644,7 @@ const DOCS = {
     swatches: docSwatches(),
     type: docAppType(),
     density: docDensity(),
+    layout: docLayout(),
     scales: docAppScales(),
     contrast: docContrast(audits.app),
   },

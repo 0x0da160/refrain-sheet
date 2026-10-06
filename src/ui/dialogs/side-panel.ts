@@ -660,7 +660,7 @@ export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelB
       onClose: () => finish(options.fallback),
     });
     panel.setAttribute('aria-labelledby', chrome.titleId);
-    const body = el('div', { className: 'dialog-body side-panel-form' });
+    const body = el('div', { className: 'dialog-body form-layout' });
     const buttons = el('div', { className: 'dialog-buttons' });
     const actions = el('div', { className: 'dialog-buttons-actions' });
     buttons.append(actions);
@@ -741,42 +741,4 @@ export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelB
     panel.addEventListener('keydown', onKeyDown);
     removeKeyListener = () => panel.removeEventListener('keydown', onKeyDown);
   });
-}
-
-/**
- * Lays out one labelled control in a side panel: the label on its own line
- * above a full-width control, so every field in every panel lines up on the
- * same left edge and grid instead of flowing inline at whatever width its
- * text happens to be.
- */
-export function panelField(label: string, control: HTMLElement, hint?: string): HTMLElement {
-  if (!control.id) {
-    control.id = `panel-field-${++sidePanelTitleSeq}`;
-  }
-  const children: Node[] = [
-    el('label', { className: 'panel-field-label', text: label, attrs: { for: control.id } }),
-    control,
-  ];
-  if (hint) {
-    children.push(el('p', { className: 'dialog-note panel-field-hint', text: hint }));
-  }
-  return el('div', { className: 'panel-field' }, children);
-}
-
-/** A checkbox or radio button with its label beside it, aligned on one row. */
-export function panelCheck(input: HTMLInputElement, label: string): HTMLLabelElement {
-  return el('label', { className: 'panel-check' }, [input, el('span', { text: label })]);
-}
-
-/**
- * A titled group of fields; consecutive sections are separated by the same
- * rule and spacing in every panel.
- */
-export function panelSection(title: string | null, children: Node[]): HTMLElement {
-  const section = el('section', { className: 'panel-section' });
-  if (title) {
-    section.append(el('h3', { className: 'panel-section-title', text: title }));
-  }
-  section.append(...children);
-  return section;
 }

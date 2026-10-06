@@ -225,6 +225,7 @@ function fileMenu(checks: MenuChecks): MenuDef {
           { labelKey: 'menu.file.newMarkdown', command: 'file.newMarkdown' },
           { labelKey: 'menu.file.newJson', command: 'file.newJson' },
           { labelKey: 'menu.file.newYaml', command: 'file.newYaml' },
+          { labelKey: 'menu.file.newText', command: 'file.newText' },
         ],
       },
       { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },

@@ -14,6 +14,7 @@ export const FILE_COMMANDS = {
   'file.newMarkdown': { run: (ctx) => ctx.commands.newTextDocument('markdown') },
   'file.newJson': { run: (ctx) => ctx.commands.newTextDocument('json') },
   'file.newYaml': { run: (ctx) => ctx.commands.newTextDocument('yaml') },
+  'file.newText': { run: (ctx) => ctx.commands.newTextDocument('text') },
   'file.open': {
     run: async (ctx) => {
       const files = await pickFiles(ctx.dom, getMaxFileSize());

@@ -38,6 +38,7 @@ const LEFT_OUT = new Set<CommandId>([
   'file.newMarkdown',
   'file.newJson',
   'file.newYaml',
+  'file.newText',
   'file.importJsonTable',
   'file.print',
   'edit.copyScreenshot',

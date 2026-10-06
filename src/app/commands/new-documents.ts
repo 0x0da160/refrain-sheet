@@ -12,12 +12,13 @@ import { getLocale, t } from '../i18n';
 import { CSV_EXTENSION } from './shared';
 
 /** The kinds of document File > New can create besides RSF and CSV. */
-export type NewTextFileKind = 'markdown' | 'json' | 'yaml';
+export type NewTextFileKind = 'markdown' | 'json' | 'yaml' | 'text';
 
 const NEW_TEXT_EXTENSIONS: Record<NewTextFileKind, string> = {
   markdown: '.md',
   json: '.json',
   yaml: '.yaml',
+  text: '.txt',
 };
 
 export class NewDocuments {
@@ -75,7 +76,8 @@ export class NewDocuments {
   }
 
   /**
-   * File > New Markdown / JSON / YAML (and the welcome screen's buttons):
+   * File > New Text File > Markdown / JSON / YAML / Plain Text (and the
+   * home screen's buttons):
    * create an empty document of that kind in a new active tab — the same
    * one-worksheet editor a `.md` / `.json` / `.yaml` file opens in. It has
    * no file yet, so the first save asks where to save it (or downloads it)

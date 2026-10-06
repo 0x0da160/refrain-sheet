@@ -1,15 +1,264 @@
 /* SPDX-License-Identifier: MIT */
 
-/* ----- Welcome screen (no document open) -----
+/* ----- Home screen (no document open) -----
    Shown on first launch and again whenever the last tab is closed. While it
    is visible the document-specific surfaces (tab strip, formula bar, find
    bar, grid) are hidden entirely, so no empty tab strip or stale document
-   state remains on screen. Layout, color, and spacing are Tailwind utility
-   classes on the elements themselves (src/ui/welcome-screen.ts); the
-   `welcome-*` class names that remain here are hooks for tests and
-   scripts/build/capture-landing-screenshots.mjs, not styling. */
+   state remains on screen. Built by src/ui/welcome-screen.ts: a centered
+   column of the header, the Open and New groups (side by side above the
+   phone width), the recent files, and the drop hint. `.welcome-action` and
+   `.welcome-text-action` are also hooks for tests, scripts/ui-check/ and
+   scripts/build/capture-landing-screenshots.mjs. */
+.welcome-screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+  background: var(--bg-surface);
+  padding: var(--space-10) var(--space-4);
+}
+
 .welcome-screen[hidden] {
   display: none;
+}
+
+.welcome-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+  max-width: 47rem;
+  margin: auto 0;
+}
+
+.welcome-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.welcome-header h1 {
+  margin: 0;
+}
+
+.welcome-logotype {
+  display: block;
+}
+
+.welcome-header p {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.welcome-groups {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-4);
+}
+
+.welcome-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: var(--stroke-thin) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  padding: var(--space-4);
+}
+
+.welcome-group-title {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+}
+
+.welcome-group-items {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.welcome-new-group .welcome-group-items {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.welcome-screen button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.welcome-screen button:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Open: full-width buttons, the file picker filled. */
+.welcome-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--field-h);
+  border: var(--stroke-thin) solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  padding: 0 var(--space-3);
+  text-align: start;
+}
+
+.welcome-open:hover {
+  background: var(--bg-hover);
+}
+
+.welcome-open.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.welcome-open.primary:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+/* New: tiles, the icon above the name. */
+.welcome-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-height: calc(var(--field-h) * 2.25);
+  border: var(--stroke-thin) solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  padding: var(--space-2);
+  text-align: center;
+}
+
+.welcome-new .welcome-icon {
+  color: var(--accent-text);
+}
+
+.welcome-new:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+}
+
+.welcome-icon {
+  flex: none;
+}
+
+/* Recent files: one row per file, name left, place and time right. */
+.welcome-recent-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.welcome-recent-section[hidden] {
+  display: none;
+}
+
+.welcome-recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.welcome-recent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--stroke-thin) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.welcome-recent-list li + li {
+  border-top: var(--stroke-thin) solid var(--border-default);
+}
+
+.welcome-recent-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--field-h);
+  border: 0;
+  background: transparent;
+  color: var(--fg-default);
+  padding: 0 var(--space-3);
+  text-align: start;
+}
+
+.welcome-recent-file:hover {
+  background: var(--bg-hover);
+}
+
+.welcome-recent-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-recent-where,
+.welcome-recent-time {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+}
+
+.welcome-recent-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent-text);
+  padding: var(--space-1) var(--space-1-5);
+}
+
+.welcome-recent-all:hover {
+  text-decoration: underline;
+}
+
+.welcome-drop {
+  margin: 0;
+  border: var(--stroke-medium) dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  color: var(--fg-muted);
+  padding: var(--space-3) var(--space-6);
+  text-align: center;
+}
+
+/* Phone width: one column, three New tiles per row → two. */
+@media (max-width: 43.75em) {
+  .welcome-screen {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .welcome-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .welcome-new-group .welcome-group-items {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .welcome-recent-time {
+    display: none;
+  }
 }
 
 /* Hide the document-specific surfaces while the welcome screen is up. */

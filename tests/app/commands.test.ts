@@ -14,6 +14,7 @@ import { encodeRsf } from '../rsf-single-sheet';
 import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/interchange/xlsx-export';
 import { asCsv, enc, utf8 } from '../helpers';
 import type { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { isWorkbook } from '../../src/core/editor-document';
 
 // Simulates a hosted build with Drive sync configured and a cached access
 // token, without going through the real Google Identity Services sign-in.
@@ -1090,6 +1091,11 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     expect(await commands.save(yaml, KEEP)).toBe(true);
     expect(yaml.fileSize).toBe(5);
     expect(yaml.textFile?.savedText).toBe('a: 1\n');
+    await commands.run('file.newText');
+    const text = state.activeTab!;
+    expect(text.name).toBe('untitled.txt');
+    expect(text.textFile).toMatchObject({ kind: 'text', encoding: 'utf-8', lineEnding: 'lf' });
+    expect(isWorkbook(text.doc) && text.doc.activeSheet.kind).toBe('text');
   });
 
   it('saves a new .rsf file instead once a second sheet is added, leaving the original alone', async () => {

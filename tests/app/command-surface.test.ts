@@ -20,6 +20,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'file.newMarkdown',
   'file.newJson',
   'file.newYaml',
+  'file.newText',
   'file.open',
   'file.openRecent',
   'file.importJsonTable',

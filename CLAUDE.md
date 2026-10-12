@@ -51,6 +51,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Rust tests                   | `npm run test:rust`                                                                  |
 | Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                     |
 | Build the landing site       | `npm run build:landing` (add `-- https://refrain-sheet.com/` for the production URL) |
+| Render landing ad banners    | `npm run build:ad-banners -- --fonts <dir>` (Noto Sans JP; → `docs/ad-banners/`)     |
 | Self-contained dist check    | `npm run check:dist`                                                                 |
 | Build the minimal edition    | `npm run build:minimal` (CSV-only edition → `dist-minimal/`; `src/app/edition.ts`)   |
 | Minimal dist check           | `npm run check:dist:minimal`                                                         |

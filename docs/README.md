@@ -1,6 +1,6 @@
 # docs/
 
-Three kinds of file live here. Deeper, durable knowledge belongs in
+Four kinds of file live here. Deeper, durable knowledge belongs in
 [`knowledge/`](../knowledge/index.md), not here.
 
 | Location                                                               | What it holds                                                              | Kept current by                                                       |
@@ -9,3 +9,4 @@ Three kinds of file live here. Deeper, durable knowledge belongs in
 | [`knip-baseline.md`](knip-baseline.md)                                 | Classified unused-code baseline                                            | `npm run check:knip`, the `cleanup-audit` skill                       |
 | [`changelog/`](changelog/)                                             | Archived `CHANGELOG.md` sections, one file per minor series                | `npm run changelog:archive`                                           |
 | [`proposals/`](proposals/)                                             | Proposals, drafts and gap analyses, each with a **Status** line at the top | Hand-maintained; move an adopted decision into `knowledge/decisions/` |
+| [`ad-banners/`](ad-banners/)                                           | Display-ad banners for the landing page (PNG, 1x and 2x)                   | `npm run build:ad-banners -- --fonts <dir>`                           |

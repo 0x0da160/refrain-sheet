@@ -24,6 +24,7 @@
     "ui:check": "node scripts/ui-check/index.mjs",
     "ui:check:minimal": "node scripts/ui-check/minimal.mjs",
     "capture:landing-screenshots": "node scripts/build/capture-landing-screenshots.mjs",
+    "build:ad-banners": "node scripts/build/ad-banners.mjs",
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--max-old-space-size=8192 vitest run",
     "bench": "vitest bench --run",

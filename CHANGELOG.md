@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.29] - 2026-10-14
+
 ### Added
 
 - Find and Replace works in Markdown, JSON, YAML and plain-text worksheets, not

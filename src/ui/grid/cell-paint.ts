@@ -109,9 +109,10 @@ function paintAlign(cell: HTMLElement, align: HorizontalAlign | undefined): void
  * `caretPositionFromPoint`, or the older `caretRangeFromPoint`); returns
  * null where neither is available (e.g. jsdom in tests) or the point misses
  * the cell's own text, so callers fall back to a sane default. The cell's
- * text is always a single text node (`paintCell` sets `textContent`
- * directly), so the returned offset is already the offset within the raw
- * cell value.
+ * value is the text of its text nodes in document order (a plain cell's text
+ * is split around find marks; a rich-text cell has one node per formatted
+ * part), so the returned offset is already the offset within the raw cell
+ * value.
  */
 export function caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY: number): number | null {
   const doc = cell.ownerDocument;
@@ -138,16 +139,15 @@ export function caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY
     if (!cell.contains(node)) {
       return null;
     }
-    // Plain cells hold one text node; a rich-text cell holds one per
-    // formatted part (`span.rich-run`), so add the parts before this one.
+    // Add the length of the value's text before this node.
     let before = 0;
-    for (const run of cell.querySelectorAll('.rich-run')) {
-      if (run.contains(node)) {
-        break;
+    for (const part of valueTextNodes(cell)) {
+      if (part === node) {
+        return before + offset;
       }
-      before += run.textContent?.length ?? 0;
+      before += part.data.length;
     }
-    return before + offset;
+    return null;
   }
   if (node === cell) {
     // The hit landed on the cell element itself (e.g. past the end of a
@@ -161,11 +161,20 @@ export function caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY
 
 /** Length of a rendered cell's own text (a header filter button adds none). */
 function cellTextLength(cell: HTMLElement): number {
-  let length = 0;
-  for (const child of cell.childNodes) {
-    if (child.nodeType === Node.TEXT_NODE || (child as Element).classList?.contains('rich-text-body')) {
-      length += child.textContent?.length ?? 0;
+  return valueTextNodes(cell).reduce((length, part) => length + part.data.length, 0);
+}
+
+/**
+ * The text nodes that carry a cell's value, in document order. A header
+ * filter button's glyph is not part of the value.
+ */
+function valueTextNodes(cell: HTMLElement): Text[] {
+  const walker = cell.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    if (!node.parentElement?.closest('button')) {
+      nodes.push(node as Text);
     }
   }
-  return length;
+  return nodes;
 }

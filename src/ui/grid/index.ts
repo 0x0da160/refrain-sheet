@@ -6,6 +6,7 @@ import type { FormulaRefRange } from '../../core/formula';
 import type { WrapMeasure } from '../../core/text-wrap';
 import type { SheetObject } from '../../core/workbook/sheet-objects';
 import type { FormulaLivePreview } from '../formula-bar';
+import type { FindHighlight } from '../find-marks';
 import {
   autoFitWidth,
   planAutoFit,
@@ -147,6 +148,19 @@ export class Grid {
    */
   setCellMarker(marker: ((row: number, col: number) => 'value' | 'format' | null) | null): void {
     this.core.cellMarker = marker;
+    this.refresh();
+  }
+
+  /**
+   * Paint the find panel's matches inside the active grid sheet's cells, the
+   * current match's cell emphasized; null removes them. Only the rendered cells
+   * are painted, from the same search the find panel shows.
+   */
+  setFindHighlight(highlight: FindHighlight | null): void {
+    if (highlight === null && this.core.findHighlight === null) {
+      return;
+    }
+    this.core.findHighlight = highlight;
     this.refresh();
   }
 

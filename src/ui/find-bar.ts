@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 import { isWorkbook } from '../core/editor-document';
 import { Search } from 'lucide';
-import type { AppState } from '../app/state';
+import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { cellLabel } from '../core/formula';
 import {
   compileQuery,
   MAX_PATTERN_LENGTH,
+  matchesInValue,
   replaceAllInValue,
+  replaceMatchInValue,
   searchDocument,
   searchWorkbook,
   type CompiledQuery,
   type SearchScope,
-  type SheetCellMatch,
 } from '../core/search';
+import type { Worksheet } from '../core/workbook/worksheet';
 import { formCheck, formField } from './dialogs/form-layout';
 import {
   applySidePanelPosition,
@@ -24,12 +26,26 @@ import {
   type SidePanelChrome,
 } from './dialogs/side-panel';
 import { clearChildren, el, focusWithoutKeyboard } from './dom';
+
+import { markedText } from './find-marks';
 import type { Grid } from './grid';
+import {
+  lineIndexOf,
+  lineStarts,
+  paintFindHighlights,
+  sameMatch,
+  snippetAround,
+  sourceAnchor,
+  type FoundMatch,
+  type SourceFindView,
+} from './find-occurrences';
+
+export type { SourceFindView } from './find-occurrences';
 
 /** The most rows the "Find All" list renders; the count line still reports every match. */
 const FIND_ALL_LIST_LIMIT = 1000;
 
-/** Longest cell text shown per row of the "Find All" list. */
+/** Most characters shown per row of the "Find All" list; a longer line shows a window around the match. */
 const RESULT_TEXT_LIMIT = 120;
 
 /**
@@ -49,10 +65,21 @@ const RESULT_TEXT_LIMIT = 120;
  * the first is announced explicitly, so crossing a worksheet boundary is never
  * silent.
  *
+ * **Source-text worksheets.** A Markdown, JSON, YAML or plain-text worksheet
+ * is one cell holding its whole text, so its matches are listed per
+ * occurrence: each is selected in that worksheet's editor, and Replace changes
+ * the occurrence that is selected. Grid cells keep one match per cell.
+ *
+ * **Highlights.** While the panel is open, every match's text is painted where
+ * it is shown: inside the editor of a source-text worksheet, in the text of a
+ * grid sheet's matching cells, and in the Find All rows. The current match
+ * stands out. Closing the panel removes them.
+ *
  * **What is searched.** Always the cell *input*: the formula expression for a
  * formula cell, never its calculated result. A replacement can therefore only
  * rewrite text the user actually typed — it can never overwrite a computed
- * value with a literal.
+ * value with a literal. For the same reason, a formula cell's result or a
+ * number-formatted value is not highlighted.
  *
  * **Staleness.** Results carry each match's stable worksheet id, never an index
  * or a name, and every navigation re-checks that the worksheet still exists and
@@ -82,8 +109,9 @@ export class FindBar {
    * results are represented the same way (one worksheet), so navigation and
    * replacement have exactly one code path.
    */
-  private matches: SheetCellMatch[] = [];
+  private matches: FoundMatch[] = [];
   private matchCount = 0;
+  private cellCount = 0;
   private sheetCount = 0;
   private aborted = false;
   private current = -1;
@@ -95,6 +123,7 @@ export class FindBar {
     private readonly state: AppState,
     private readonly commands: Commands,
     private readonly grid: Grid,
+    private readonly sourceViews: readonly SourceFindView[] = [],
   ) {
     this.findInput = el('input', { className: 'find-input', attrs: { type: 'text' } });
     this.replaceInput = el('input', { className: 'replace-input', attrs: { type: 'text' } });
@@ -224,6 +253,7 @@ export class FindBar {
     }
     this.element.hidden = true;
     releaseSidePanel(this.element);
+    this.paintHighlights();
     this.state.emit('view');
   }
 
@@ -289,6 +319,7 @@ export class FindBar {
   private clearResult(): void {
     this.matches = [];
     this.matchCount = 0;
+    this.cellCount = 0;
     this.sheetCount = 0;
     this.aborted = false;
     this.current = -1;
@@ -296,12 +327,16 @@ export class FindBar {
 
   private recompute(): void {
     const tab = this.state.activeTab;
+    // A recompute follows an edit or a new query, not a navigation: the match
+    // being shown stays the current one when it still exists.
+    const previous = this.current >= 0 ? this.matches[this.current] : undefined;
     this.errorEl.textContent = '';
     this.clearResult();
     this.updateScopeAvailability();
     if (!tab || this.findInput.value === '') {
       this.countEl.textContent = '';
       this.renderResults();
+      this.paintHighlights();
       return;
     }
     const query = this.compile();
@@ -313,12 +348,14 @@ export class FindBar {
         this.errorEl.textContent = t('find.invalidRegex', { error: query.error });
       }
       this.renderResults();
+      this.paintHighlights();
       return;
     }
     const doc = tab.doc;
     if (this.scope === 'workbook' && isWorkbook(doc)) {
       const result = searchWorkbook(doc.sheets, query);
-      this.matches = result.cells;
+      this.matches = this.occurrences(result.cells, query);
+      this.cellCount = result.cellCount;
       this.matchCount = result.matchCount;
       this.sheetCount = result.sheetCount;
       this.aborted = result.aborted;
@@ -326,19 +363,76 @@ export class FindBar {
       const result = searchDocument(doc, query);
       const sheetId = isWorkbook(doc) ? doc.activeSheetId : '';
       const sheetName = isWorkbook(doc) ? doc.activeSheet.name : '';
-      this.matches = result.cells.map((cell) => ({ ...cell, sheetId, sheetName }));
+      this.matches = this.occurrences(
+        result.cells.map((cell) => ({ ...cell, sheetId, sheetName })),
+        query,
+      );
+      this.cellCount = result.cellCount;
       this.matchCount = result.matchCount;
       this.sheetCount = result.cellCount > 0 ? 1 : 0;
       this.aborted = result.aborted;
+    }
+    if (previous) {
+      this.current = this.matches.findIndex((match) => sameMatch(match, previous));
     }
     this.renderCount();
     if (this.aborted) {
       this.errorEl.textContent = t('find.aborted');
     }
     this.renderResults();
+    this.paintHighlights();
   }
 
-  /** The match count line, naming the worksheet span in workbook scope. */
+  /** The worksheet a match lives on; null for a CSV document, which is a single grid. */
+  private sheetOf(match: FoundMatch): Worksheet | null {
+    const doc = this.state.activeTab?.doc;
+    if (!doc || !isWorkbook(doc)) {
+      return null;
+    }
+    return match.sheetId === '' ? doc.activeSheet : (doc.sheetById(match.sheetId) ?? null);
+  }
+
+  /** The input a match was found in: its cell's text, from its own worksheet. */
+  private valueOf(match: FoundMatch): string {
+    const sheet = this.sheetOf(match);
+    if (sheet) {
+      return sheet.getValue(match.row, match.col);
+    }
+    return this.state.activeTab?.doc.getValue(match.row, match.col) ?? '';
+  }
+
+  /**
+   * Expand the cell matches of source-text worksheets into one match per
+   * occurrence, each with its range. Grid cells keep their single match.
+   */
+  private occurrences(cells: readonly FoundMatch[], query: CompiledQuery): FoundMatch[] {
+    const out: FoundMatch[] = [];
+    for (const cell of cells) {
+      const sheet = this.sheetOf(cell);
+      if (!sheet || sheet.kind === 'grid') {
+        out.push(cell);
+        continue;
+      }
+      for (const range of matchesInValue(sheet.getValue(cell.row, cell.col), query)) {
+        out.push({ ...cell, count: 1, range });
+      }
+    }
+    return out;
+  }
+
+  /** Whether a match is on the worksheet the user is looking at (any match, for a CSV document). */
+  private onActiveSheet(match: FoundMatch): boolean {
+    const tab = this.state.activeTab;
+    const activeId = tab && isWorkbook(tab.doc) ? tab.doc.activeSheetId : '';
+    return match.sheetId === '' || match.sheetId === activeId;
+  }
+
+  /** The source-text editor showing the active worksheet, or null when the worksheet is a grid. */
+  private activeSource(): SourceFindView | null {
+    return this.sourceViews.find((view) => view.active) ?? null;
+  }
+
+  /** The match-count line, naming the worksheet span in workbook scope. */
   private renderCount(extra = ''): void {
     if (this.matches.length === 0) {
       this.countEl.textContent = t('find.none') + extra;
@@ -348,10 +442,10 @@ export class FindBar {
       this.scope === 'workbook'
         ? t('find.countWorkbook', {
             matches: this.matchCount,
-            cells: this.matches.length,
+            cells: this.cellCount,
             sheets: this.sheetCount,
           })
-        : t('find.count', { matches: this.matchCount, cells: this.matches.length });
+        : t('find.count', { matches: this.matchCount, cells: this.cellCount });
     this.countEl.textContent = base + extra;
   }
 
@@ -375,18 +469,25 @@ export class FindBar {
     if (!show) {
       return;
     }
-    const tab = this.state.activeTab;
-    const doc = tab?.doc;
     const workbook = this.scope === 'workbook';
+    const query = this.compile();
+    // Line starts are computed once per source text, not once per row.
+    const starts = new Map<string, number[]>();
     const shown = this.matches.slice(0, FIND_ALL_LIST_LIMIT);
     shown.forEach((match, index) => {
-      const ref = cellLabel(match.row, match.col);
-      let value = '';
-      if (doc) {
-        const sheet = isWorkbook(doc) && match.sheetId !== '' ? doc.sheetById(match.sheetId) : null;
-        value = sheet ? sheet.getValue(match.row, match.col) : doc.getValue(match.row, match.col);
+      const value = this.valueOf(match);
+      // An occurrence shows only itself; a grid cell shows its first match's line, with all its matches marked.
+      const ranges = match.range ? [match.range] : matchesInValue(value, query);
+      const [anchor = { start: 0, end: 0 }] = ranges;
+      let ref = cellLabel(match.row, match.col);
+      if (match.range) {
+        const key = `${match.sheetId}|${match.row}|${match.col}`;
+        const sheetStarts = starts.get(key) ?? lineStarts(value);
+        starts.set(key, sheetStarts);
+        const line = lineIndexOf(sheetStarts, match.range.start);
+        ref = `${line + 1}:${match.range.start - sheetStarts[line] + 1}`;
       }
-      const snippet = value.length > RESULT_TEXT_LIMIT ? `${value.slice(0, RESULT_TEXT_LIMIT)}…` : value;
+      const snippet = snippetAround(value, anchor, ranges, RESULT_TEXT_LIMIT);
       const header: Node[] = [el('span', { className: 'find-result-ref', text: ref })];
       if (workbook && match.sheetName !== '') {
         header.push(el('span', { className: 'find-result-sheet', text: match.sheetName }));
@@ -406,7 +507,7 @@ export class FindBar {
         },
         [
           el('div', { className: 'find-result-header' }, header),
-          el('div', { className: 'find-result-text', text: snippet }),
+          el('div', { className: 'find-result-text' }, markedText(snippet.text, snippet.marks)),
         ],
       );
       const activate = () => this.goTo(index);
@@ -442,22 +543,43 @@ export class FindBar {
     }
   }
 
+  /** Paint the find highlights where the matches are shown (see `paintFindHighlights`). */
+  private paintHighlights(): void {
+    const tab = this.state.activeTab;
+    const query = this.isOpen && tab && this.findInput.value !== '' ? this.compile() : null;
+    const active = query !== null && query.ok ? query : null;
+    paintFindHighlights(this.grid, this.sourceViews, {
+      query: active,
+      source: active ? this.activeSource() : null,
+      matches: this.matches,
+      current: this.current,
+      activeSheetId: tab && isWorkbook(tab.doc) ? tab.doc.activeSheetId : '',
+    });
+  }
+
   /**
    * True when a recorded match still points at a live cell. Worksheets are
    * resolved by their stable id, so a rename or reorder is harmless and a
    * deletion is detected rather than followed.
    */
-  private isLive(match: SheetCellMatch): boolean {
+  private isLive(match: FoundMatch): boolean {
     const tab = this.state.activeTab;
     if (!tab) {
       return false;
     }
     const doc = tab.doc;
+    let live: boolean;
     if (!isWorkbook(doc)) {
-      return match.row < doc.rowCount && match.col < doc.fieldCount(match.row);
+      live = match.row < doc.rowCount && match.col < doc.fieldCount(match.row);
+    } else {
+      const sheet = match.sheetId === '' ? doc.activeSheet : doc.sheetById(match.sheetId);
+      live = sheet !== undefined && sheet !== null && sheet.contains(match.row, match.col);
     }
-    const sheet = match.sheetId === '' ? doc.activeSheet : doc.sheetById(match.sheetId);
-    return sheet !== undefined && sheet !== null && sheet.contains(match.row, match.col);
+    if (!live || !match.range) {
+      return live;
+    }
+    // An occurrence is still there only while its text is unchanged in place.
+    return this.valueOf(match).slice(match.range.start, match.range.end) === match.range.text;
   }
 
   /** Recompute when any recorded match went stale; false if nothing is left. */
@@ -477,10 +599,8 @@ export class FindBar {
     if (!target || !this.ensureLive()) {
       return;
     }
-    // A recompute may have reordered the list: find the same cell again.
-    const found = this.matches.findIndex(
-      (m) => m.sheetId === target.sheetId && m.row === target.row && m.col === target.col,
-    );
+    // A recompute may have reordered the list: find the same match again.
+    const found = this.matches.findIndex((m) => sameMatch(m, target));
     if (found < 0) {
       return;
     }
@@ -489,10 +609,10 @@ export class FindBar {
   }
 
   /**
-   * Move to the next/previous matching cell, wrapping across worksheets.
-   * `notice` prefixes the status line when the caller needs to explain *why*
-   * navigation happened (e.g. Replace was pressed off a match) — this keeps
-   * that case visibly distinct from an ordinary Next/Previous move.
+   * Move to the next/previous match, wrapping across worksheets. `notice`
+   * prefixes the status line when the caller needs to explain *why* navigation
+   * happened (e.g. Replace was pressed off a match) — this keeps that case
+   * visibly distinct from an ordinary Next/Previous move.
    */
   next(direction: 1 | -1, notice = ''): void {
     if (!this.isOpen) {
@@ -500,10 +620,16 @@ export class FindBar {
       return;
     }
     const tab = this.state.activeTab;
+    // Typed text still waiting to commit is part of the text being searched.
+    this.activeSource()?.flushCommit();
     if (!tab || !this.ensureLive()) {
       return;
     }
-    if (this.current < 0 && tab.selection) {
+    const source = this.activeSource();
+    if (source) {
+      const { selectionStart: start, selectionEnd: end } = source.editor.textarea;
+      this.current = sourceAnchor(this.matches, (m) => this.onActiveSheet(m), { start, end }, direction);
+    } else if (this.current < 0 && tab.selection) {
       // Start from the selection: the first match at or after it, on the
       // active worksheet, so "Next" continues from where the user is looking.
       const activeId = isWorkbook(tab.doc) ? tab.doc.activeSheetId : '';
@@ -520,7 +646,7 @@ export class FindBar {
     this.reveal(this.matches[this.current], wrapped, notice);
   }
 
-  private reveal(match: SheetCellMatch, wrapped: boolean, notice = ''): void {
+  private reveal(match: FoundMatch, wrapped: boolean, notice = ''): void {
     const tab = this.state.activeTab;
     if (!tab) {
       return;
@@ -529,13 +655,19 @@ export class FindBar {
       // Cross-worksheet navigation: activate the sheet first, then reveal.
       this.state.setActiveSheet(tab, match.sheetId);
     }
-    this.grid.reveal(match.row, match.col);
+    // Paint first: the source editor scrolls to the mark painted as current.
+    this.paintHighlights();
+    if (match.range) {
+      this.activeSource()?.editor.revealMatch(match.range.start, match.range.end);
+    } else {
+      this.grid.reveal(match.row, match.col);
+    }
     this.renderCount(notice + this.positionSuffix(match, wrapped));
     this.markCurrentResult();
   }
 
   /** " — 3 of 12 on Sheet2" / " (wrapped to the first match)". */
-  private positionSuffix(match: SheetCellMatch, wrapped: boolean): string {
+  private positionSuffix(match: FoundMatch, wrapped: boolean): string {
     const position =
       this.scope === 'workbook' && match.sheetName !== ''
         ? t('find.positionSheet', {
@@ -547,10 +679,18 @@ export class FindBar {
     return position + (wrapped ? t('find.wrapped') : '');
   }
 
-  /** Replace every occurrence in the currently selected matching cell, then advance. */
+  /**
+   * Replace the match the sheet has selected, then move on: the one occurrence
+   * in a source-text worksheet, or every match in the selected grid cell.
+   */
   private replaceCurrent(): void {
     const tab = this.state.activeTab;
     if (!tab) return;
+    const source = this.activeSource();
+    if (source) {
+      this.replaceOccurrence(tab, source);
+      return;
+    }
     if (this.matches.length === 0) this.recompute();
     const query = this.compile();
     if (!query.ok || this.matches.length === 0) return;
@@ -576,9 +716,56 @@ export class FindBar {
     this.next(1);
   }
 
+  /**
+   * Replace the occurrence the editor has selected, then select the next one. A
+   * selection that is not a match is not replaced: the find moves to the next
+   * match and says so, the same as a grid cell that is not a match.
+   */
+  private replaceOccurrence(tab: Tab, source: SourceFindView): void {
+    const query = this.compile();
+    if (!query.ok) return;
+    source.flushCommit();
+    this.recompute();
+    const ta = source.editor.textarea;
+    const hit = this.matches.find(
+      (m) =>
+        m.range !== undefined &&
+        this.onActiveSheet(m) &&
+        m.range.start === ta.selectionStart &&
+        m.range.end === ta.selectionEnd,
+    );
+    if (!hit?.range) {
+      this.next(1, t('find.notOnMatch'));
+      return;
+    }
+    const value = this.valueOf(hit);
+    const replaced = replaceMatchInValue(value, hit.range, query, this.replaceInput.value);
+    // editCell reports an unchanged value as false, so only a real change is checked for refusal.
+    if (replaced !== value && !this.state.editCell(tab, hit.row, hit.col, replaced, 'history.replaceCell')) {
+      return; // refused (read-only or locked); the refusal has said why
+    }
+    // The inserted text is the replacement's own length, however it expanded.
+    const inserted = replaced.length - value.length + (hit.range.end - hit.range.start);
+    const after = hit.range.start + inserted;
+    this.recompute();
+    // The next occurrence after the replaced one; past the last, wrap to the first on this text.
+    const found = this.matches.findIndex(
+      (m) => m.range !== undefined && this.onActiveSheet(m) && m.range.start >= after,
+    );
+    const index =
+      found >= 0 ? found : this.matches.findIndex((m) => m.range !== undefined && this.onActiveSheet(m));
+    if (index < 0) {
+      return; // none left on this text; the recompute has said so
+    }
+    this.current = index;
+    this.reveal(this.matches[index], found < 0);
+  }
+
   private async replaceAll(): Promise<void> {
     const query = this.compile();
     if (!query.ok) return;
+    // Typed text still waiting to commit joins the document first, so it is replaced too.
+    this.activeSource()?.flushCommit();
     const scope = this.scope;
     const report = await this.commands.replaceAll(query, this.replaceInput.value, scope);
     if (!report.confirmed) {
@@ -587,6 +774,7 @@ export class FindBar {
     }
     this.clearResult();
     this.renderResults();
+    this.paintHighlights();
     this.countEl.textContent =
       scope === 'workbook'
         ? t('find.replacedAllWorkbook', {

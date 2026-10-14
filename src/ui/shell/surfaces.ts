@@ -121,7 +121,8 @@ export function createSurfaces(
   // The worksheet strip of the active RSF workbook, rendered below the grid —
   // a separate surface from the document tab strip above it.
   const sheetBar = new SheetBar(state, commands);
-  const findBar = new FindBar(state, commands, grid);
+  const sourceSheetViews = [markdownSheetView, jsonSheetView, yamlSheetView, textSheetView];
+  const findBar = new FindBar(state, commands, grid, sourceSheetViews);
   const welcome = new WelcomeScreen(commands);
   const formulaBar = createFormulaBar(state, commands, grid);
   const statusBar = new StatusBar(
@@ -137,7 +138,6 @@ export function createSurfaces(
   );
   // A Markdown/JSON/YAML/text worksheet shows its editor's line/column in
   // the status bar instead of a grid size and cell reference.
-  const sourceSheetViews = [markdownSheetView, jsonSheetView, yamlSheetView, textSheetView];
   statusBar.editorCaret = () => sourceSheetViews.find((view) => view.active)?.editor.caret() ?? null;
   for (const view of sourceSheetViews) {
     view.editor.onCaretChange = (caret) => {

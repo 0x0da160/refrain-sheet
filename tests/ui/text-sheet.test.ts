@@ -218,3 +218,13 @@ describe('TextSheetView', () => {
     expect(view.element.querySelector('textarea')!.getAttribute('aria-label')).toBeTruthy();
   });
 });
+
+describe('TextSheetView follows edits made elsewhere', () => {
+  it('shows a change made elsewhere, such as Undo or Replace All, in the textarea', () => {
+    const { view, state, tab } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    expect(state.editCell(tab, 0, 0, 'changed elsewhere')).toBe(true);
+    view.refresh();
+    expect(textarea.value).toBe('changed elsewhere');
+  });
+});

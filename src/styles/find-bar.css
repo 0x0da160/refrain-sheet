@@ -124,3 +124,18 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Matched text, wherever a match is shown (a grid cell, a source editor's
+   overlay, a Find All row): every match is marked, the current one with the
+   accent. Both pairs are checked by `npm run check:contrast`. */
+mark.find-hit {
+  background: var(--warning-subtle);
+  color: var(--fg-default);
+  border-radius: 2px;
+}
+
+mark.find-hit-current {
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}

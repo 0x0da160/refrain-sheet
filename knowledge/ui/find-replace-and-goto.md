@@ -1,7 +1,7 @@
 ---
 type: ui-concept
 title: Find, Replace, and Go to Cell
-description: The Find and Replace side panel, Find Next / Find All with its result list, match case, bounded regex mode, Replace vs Replace All, and RSF's workbook-wide search scope.
+description: The Find and Replace side panel, Find Next / Find All with its result list, match case, bounded regex mode, Replace vs Replace All, occurrence search and highlights in text worksheets, and RSF's workbook-wide search scope.
 sources:
   - resource: ../../README.md
 status: stable
@@ -31,8 +31,9 @@ the panel.
 
 - **Find Next / Find Previous** (buttons, **F3 / Shift+F3** from anywhere,
   or Enter / Shift+Enter in the find field) move the selection to the
-  next/previous matching cell with wrap-around, starting from the current
-  selection. F3 opens the panel if it is closed.
+  next/previous matching cell (or, in a text worksheet, occurrence) with
+  wrap-around, starting from the current selection. F3 opens the panel if it
+  is closed.
 - **Find All** lists every matching cell under the buttons: its reference,
   its worksheet in workbook scope, and its text. Clicking a row (or Enter /
   Space on it) selects and reveals that cell; the current match is marked
@@ -63,7 +64,39 @@ the panel.
 
 **Replace** replaces the occurrences in the currently selected matching
 cell, then advances to the next match. **Replace All** replaces every match
-in scope as **one undoable operation**.
+in scope as **one undoable operation**. In a text worksheet, Replace changes
+only the selected occurrence (see the next section).
+
+## Text, Markdown, JSON, and YAML worksheets
+
+A text, Markdown, JSON, or YAML worksheet holds its whole text in one cell,
+so the panel searches the text itself and treats **each occurrence** as a
+match, where a grid treats each cell as one.
+
+- **Next / Previous** select the next or previous occurrence in the editor
+  and scroll it into view; keyboard focus stays in the panel. Next continues
+  from the end of the selection and Previous from its start, so a caret the
+  user moved by hand is respected. Past either end the search wraps, and the
+  count line says so.
+- **Find All** lists each occurrence by its line and column (such as `2:9`),
+  with its line shown and that occurrence marked. A line longer than 120
+  characters shows a window around the occurrence.
+- **Highlights** shade every occurrence in the editor and outline the current
+  one. Above 2,000 occurrences in one text, only the current one is shaded.
+  Typing drops the shading until the text commits, about 0.7 seconds after
+  the last keystroke, and the shading then returns.
+- **Replace** changes the selected occurrence and selects the next one,
+  wrapping within this text. If the selection is not on an occurrence, Replace
+  changes nothing and moves to the next one, saying so in the count line.
+- **Replace All** commits typing still waiting in the editor, then changes
+  every occurrence in scope as **one** undoable step. In workbook scope that
+  includes every other worksheet.
+
+A grid cell keeps one match per cell, and the cell's occurrences are shaded in
+its text. Some matches are found and counted but not shaded, because the find
+reads a cell's input while the cell shows something else: a formula cell (the
+formula is searched, its result is shown), a number with a number format, and
+a rich-text cell.
 
 ## Workbook-wide scope (RSF)
 

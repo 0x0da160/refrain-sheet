@@ -34,6 +34,8 @@ import {
 } from './formula-ref-overlay';
 import { malformedFieldTooltip, paintCellStyle } from './cell-paint';
 import { richTextNodes } from '../rich-text-render';
+import { matchesInValue } from '../../core/search';
+import { markedText } from '../find-marks';
 import type { GridCore, RenderWindow } from './core';
 
 /** The tooltip of each header boundary's + (see `CellBuilder.insertButton`). */
@@ -375,6 +377,7 @@ export class CellBuilder {
       preview && preview.row === row && preview.col === col ? preview.value : doc.getDisplayValue(row, col);
     const button = this.headerFilterButton(tab, row, col);
     const rich = this.richRuns(tab, row, col, value);
+    const marks = rich ? null : this.findMarks(tab, row, col, value);
     cell.classList.toggle('rich-text', rich !== null);
     if (rich) {
       // Rich text: one span per formatted part (text only, never HTML).
@@ -387,16 +390,8 @@ export class CellBuilder {
       const body = el('span', { className: 'rich-text-body' }, spans);
       cell.replaceChildren(body, ...(button ? [button] : []));
       cell.classList.toggle('has-filter-button', button !== null);
-    } else if (button) {
-      // A header-row filter cell: its text node plus the button (the text
-      // stays the first child, so caret hit-testing keeps working).
-      cell.replaceChildren(value, button);
-      cell.classList.add('has-filter-button');
     } else {
-      cell.classList.remove('has-filter-button');
-      if (cell.textContent !== value || cell.childElementCount > 0) {
-        cell.textContent = value;
-      }
+      this.setPlainContent(cell, value, marks, button);
     }
     const mark = this.core.cellMarker?.(row, col) ?? null;
     cell.classList.toggle('diff-value', mark === 'value');
@@ -445,6 +440,49 @@ export class CellBuilder {
         cell.classList.remove('cell-underline');
       }
     }
+  }
+
+  /**
+   * A plain cell's content: its text, split around find marks when there are
+   * any. A header-row filter cell keeps its text node first, then its button,
+   * so caret hit-testing keeps working.
+   */
+  private setPlainContent(
+    cell: HTMLElement,
+    value: string,
+    marks: Node[] | null,
+    button: HTMLButtonElement | null,
+  ): void {
+    if (button) {
+      cell.replaceChildren(...(marks ?? [value]), button);
+      cell.classList.add('has-filter-button');
+      return;
+    }
+    cell.classList.remove('has-filter-button');
+    if (marks) {
+      cell.replaceChildren(...marks);
+    } else if (cell.textContent !== value || cell.childElementCount > 0) {
+      cell.textContent = value;
+    }
+  }
+
+  /**
+   * The find highlight for a plain cell's text, or null when nothing to paint.
+   * Only the cell's input is searched, so a cell that shows something else (a
+   * formula's result, a number format) is not marked.
+   */
+  private findMarks(tab: Tab, row: number, col: number, shown: string): Node[] | null {
+    const highlight = this.core.findHighlight;
+    if (!highlight || tab.doc.getValue(row, col) !== shown) {
+      return null;
+    }
+    const matches = matchesInValue(shown, highlight.query);
+    if (matches.length === 0) {
+      return null;
+    }
+    const current = highlight.current;
+    const emphasized = current !== null && current.row === row && current.col === col;
+    return markedText(shown, matches, () => emphasized);
   }
 
   /**

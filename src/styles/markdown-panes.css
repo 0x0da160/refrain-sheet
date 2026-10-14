@@ -42,6 +42,36 @@
   flex-direction: column;
 }
 
+/* Find highlights behind a source editor's text (`SourceEditor.setMatches`).
+   The overlay is a sibling under the textarea in the same pane; while it
+   shows, the textarea gives its background up to the overlay. */
+.source-editor-pane {
+  position: relative;
+  isolation: isolate;
+}
+
+.source-editor-pane > .markdown-editor-source {
+  position: relative;
+  z-index: 1;
+}
+
+.source-editor-marks {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+.source-editor-marks mark.find-hit,
+.source-editor-marks mark.find-hit-current {
+  color: transparent;
+}
+
+.markdown-editor-source.find-matches {
+  background: transparent;
+}
+
 .markdown-editor-source {
   flex: 1;
   min-height: 320px;

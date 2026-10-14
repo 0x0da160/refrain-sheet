@@ -4,8 +4,10 @@ import {
   compileQuery,
   countMatchesInValue,
   expandTemplate,
+  matchesInValue,
   MAX_PATTERN_LENGTH,
   replaceAllInValue,
+  replaceMatchInValue,
   searchDocument,
 } from '../../src/core/search';
 import { doc } from '../helpers';
@@ -118,5 +120,41 @@ describe('expandTemplate', () => {
     const match = pattern.exec('abbc');
     expect(match).not.toBeNull();
     expect(expandTemplate('[$&]', match as RegExpExecArray)).toBe('[bb]');
+  });
+});
+
+describe('occurrences of a query in one value', () => {
+  it('lists each occurrence with its range, in order', () => {
+    const query = compileQuery({ text: 'cat', matchCase: false, regex: false });
+    const found = matchesInValue('Cat dog cat', query);
+    expect(found.map((m) => [m.start, m.end, m.text])).toEqual([
+      [0, 3, 'Cat'],
+      [8, 11, 'cat'],
+    ]);
+  });
+
+  it('finds exactly as many occurrences as the count does, empty regex matches included', () => {
+    const samples = [
+      { text: 'banana', query: { text: 'an', matchCase: true, regex: false } },
+      { text: 'bab', query: { text: 'a*', matchCase: true, regex: true } },
+      { text: 'x1 y22 z333', query: { text: '\\d+', matchCase: true, regex: true } },
+    ];
+    for (const { text, query } of samples) {
+      const compiled = compileQuery(query);
+      expect(matchesInValue(text, compiled)).toHaveLength(countMatchesInValue(text, compiled));
+    }
+  });
+
+  it('replaces one occurrence, expanding regex references only in that occurrence', () => {
+    const query = compileQuery({ text: 'x(\\d)', matchCase: true, regex: true });
+    const [first, second] = matchesInValue('x1 x2', query);
+    expect(replaceMatchInValue('x1 x2', first, query, 'y$1')).toBe('y1 x2');
+    expect(replaceMatchInValue('x1 x2', second, query, 'y$1')).toBe('x1 y2');
+  });
+
+  it('replaces a plain-text occurrence with the replacement taken literally', () => {
+    const query = compileQuery({ text: 'cat', matchCase: false, regex: false });
+    const [, second] = matchesInValue('Cat cat', query);
+    expect(replaceMatchInValue('Cat cat', second, query, '$1')).toBe('Cat $1');
   });
 });

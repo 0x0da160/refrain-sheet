@@ -101,7 +101,10 @@ export class MarkdownSheetView {
       indentUnit: '\t',
     });
     this.textarea = this.editor.textarea;
-    this.sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
+    this.sourcePane = el('div', { className: 'markdown-editor-pane source-editor-pane' }, [
+      this.editor.marks,
+      this.textarea,
+    ]);
     const visualPane = el('div', { className: 'markdown-editor-pane markdown-visual-pane' }, [
       this.visual.element,
     ]);

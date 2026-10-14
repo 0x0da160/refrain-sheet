@@ -42,7 +42,10 @@ export class TextSheetView {
       indentUnit: '\t',
     });
     this.textarea = this.editor.textarea;
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
+    const sourcePane = el('div', { className: 'markdown-editor-pane source-editor-pane' }, [
+      this.editor.marks,
+      this.textarea,
+    ]);
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
     this.element = el('div', { className: 'text-sheet-view' }, [panes]);
@@ -83,6 +86,10 @@ export class TextSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
+      this.editor.setValue(sheet.plainText);
+    } else if (this.commitTimer === null && sheet.plainText !== this.textarea.value) {
+      // Changed from elsewhere (Undo, Redo, Replace All) with no edit of ours
+      // pending: show it, or a later commit would write the old text back.
       this.editor.setValue(sheet.plainText);
     }
     // A locked worksheet is read-only here too, not only a protected file:

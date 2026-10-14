@@ -98,6 +98,77 @@ export function countMatchesInValue(value: string, query: CompiledQuery): number
   return count;
 }
 
+/**
+ * One occurrence of a query inside a cell value, as UTF-16 offsets into that
+ * value. Regex mode keeps the match so a replacement can expand `$1`-style
+ * references.
+ */
+export interface ValueMatch {
+  start: number;
+  end: number;
+  /** The matched text, exactly as it appears in the value. */
+  text: string;
+  exec: RegExpExecArray | null;
+}
+
+/**
+ * Every occurrence of a compiled query inside one cell value, in order. It
+ * finds exactly what {@link countMatchesInValue} counts (empty regex matches
+ * included), so `matchesInValue(v, q).length === countMatchesInValue(v, q)`.
+ */
+export function matchesInValue(value: string, query: CompiledQuery): ValueMatch[] {
+  const found: ValueMatch[] = [];
+  if (!query.ok) {
+    return found;
+  }
+  if (query.kind === 'text') {
+    const haystack = query.matchCase ? value : value.toLowerCase();
+    const needle = query.matchCase ? query.needle : query.needle.toLowerCase();
+    let from = 0;
+    for (;;) {
+      const idx = haystack.indexOf(needle, from);
+      if (idx < 0) break;
+      found.push({
+        start: idx,
+        end: idx + needle.length,
+        text: value.slice(idx, idx + needle.length),
+        exec: null,
+      });
+      from = idx + needle.length;
+    }
+    return found;
+  }
+  const pattern = query.pattern;
+  pattern.lastIndex = 0;
+  for (;;) {
+    const m = pattern.exec(value);
+    if (!m) break;
+    found.push({ start: m.index, end: m.index + m[0].length, text: m[0], exec: m });
+    if (m[0].length === 0) {
+      pattern.lastIndex += 1;
+      if (pattern.lastIndex > value.length) break;
+    }
+  }
+  return found;
+}
+
+/**
+ * The value with one occurrence (from {@link matchesInValue}) replaced, the
+ * replacement expanded the same way {@link replaceAllInValue} expands it.
+ */
+export function replaceMatchInValue(
+  value: string,
+  match: ValueMatch,
+  query: CompiledQuery,
+  replacement: string,
+): string {
+  if (!query.ok) {
+    return value;
+  }
+  const insert = query.kind === 'regex' && match.exec ? expandTemplate(replacement, match.exec) : replacement;
+  return value.slice(0, match.start) + insert + value.slice(match.end);
+}
+
 interface CellMatch {
   row: number;
   col: number;

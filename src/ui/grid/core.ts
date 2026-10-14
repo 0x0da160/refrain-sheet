@@ -30,6 +30,7 @@ import { el } from '../dom';
 import { onKeyboardOpenChange, onKeyboardResize } from '../popup';
 import type { FormulaAutocomplete, FormulaFieldRef } from '../formula-autocomplete';
 import type { FormulaLivePreview } from '../formula-bar';
+import type { FindHighlight } from '../find-marks';
 import { createIcon } from '../icon';
 import { EdgeAutoScroller } from './auto-scroll';
 import { createSink } from './dom-support';
@@ -227,6 +228,8 @@ export class GridCore {
    * changes), painted as a `diff-<mark>` class; null paints none.
    */
   cellMarker: ((row: number, col: number) => 'value' | 'format' | null) | null = null;
+  /** The find panel's matches on the active grid sheet, painted inside their cells; null paints none. */
+  findHighlight: FindHighlight | null = null;
   /** Floating note shown when a referenced range extends beyond the viewport. */
   readonly refIndicator: HTMLElement;
   /** `pointerType` of the most recent pointer gesture the grid handled,

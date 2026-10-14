@@ -90,7 +90,10 @@ export class YamlSheetView {
     });
     this.textarea = this.editor.textarea;
     this.problemBar = new SourceProblemBar(this.textarea, validateYaml, 'sourceCheck.validYaml');
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
+    const sourcePane = el('div', { className: 'markdown-editor-pane source-editor-pane' }, [
+      this.editor.marks,
+      this.textarea,
+    ]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
     // Opens only: the preview panel closes from its header × alone.
@@ -214,6 +217,11 @@ export class YamlSheetView {
       this.bound = { tab, sheetId: sheet.id };
       this.editor.setValue(sheet.yamlText);
       this.formatPending = false;
+      this.renderPreview();
+    } else if (this.commitTimer === null && sheet.yamlText !== this.textarea.value) {
+      // Changed from elsewhere (Undo, Redo, Replace All) with no edit of ours
+      // pending: show it, or a later commit would write the old text back.
+      this.editor.setValue(sheet.yamlText);
       this.renderPreview();
     }
     // A locked worksheet is read-only here too, not only a protected file:

@@ -38,6 +38,24 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- Find and Replace works in Markdown, JSON, YAML and plain-text worksheets, not
+  only in grids and CSV files. Find Next and Find Previous step through each
+  occurrence in the text, Find All lists every occurrence by line and column,
+  Replace changes the occurrence that is selected, and Replace All changes them
+  all as one undoable step.
+- Find shades its matches: every occurrence in a text worksheet's editor, with
+  the current one outlined, and the matching text in grid cells, with the
+  current cell's matches standing out. In one text, past 2,000 occurrences only
+  the current one is shaded.
+
+### Fixed
+
+- Undo, Redo and Replace All now update an open text, JSON or YAML worksheet's
+  editor at once. Before, the editor kept the old text, and leaving it could
+  write that old text back over the change.
+
 ## [0.9.28] - 2026-10-06
 
 ### Added

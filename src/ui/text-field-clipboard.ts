@@ -9,18 +9,21 @@
  * commands so the edit fires `input` (and is committed and undoable like
  * typing). The toolbar keeps focus in the editor while clicked; a menu takes
  * it, so the editor last used is remembered ({@link rememberTextEditors}) and
- * focused again, which brings back its selection.
+ * focused again, which brings back its selection. A Markdown sheet's formatted
+ * view edits in editable blocks rather than a text field, so those count too.
  */
 
-/** The source-sheet text editor that last had focus. */
-let lastEditor: HTMLTextAreaElement | HTMLInputElement | null = null;
+/** The source-sheet text editor that last had focus: a text field, or an editable block. */
+let lastEditor: HTMLElement | null = null;
 
 /** Remember the last text editor focused inside `roots` (the source-sheet views). */
 export function rememberTextEditors(doc: Document, roots: readonly HTMLElement[]): void {
   doc.addEventListener('focusin', (event) => {
     const target = event.target;
     if (
-      (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) &&
+      (target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLInputElement ||
+        (target instanceof HTMLElement && target.isContentEditable)) &&
       roots.some((root) => root.contains(target))
     ) {
       lastEditor = target;
@@ -53,13 +56,17 @@ function selectedText(doc: Document, field: HTMLElement): string {
   if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) {
     return field.value.slice(field.selectionStart ?? 0, field.selectionEnd ?? 0);
   }
-  return doc.getSelection()?.toString() ?? '';
+  // An editable block's selection is the document's: only a selection inside the block is its text.
+  const selection = doc.getSelection();
+  return selection && field.contains(selection.anchorNode) ? selection.toString() : '';
 }
 
 function isReadOnly(field: HTMLElement): boolean {
-  return field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement
-    ? field.readOnly || field.disabled
-    : false;
+  if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) {
+    return field.readOnly || field.disabled;
+  }
+  // An editable block stops being editable when its sheet is locked or the file is protected.
+  return !field.isContentEditable;
 }
 
 /**

@@ -26,6 +26,13 @@ export interface SourceFindView {
   readonly editor: SourceEditor;
   /** Commit typed text still waiting for its debounce, so the find sees what the user sees. */
   flushCommit(): void;
+  /**
+   * Show the text Find works in, for a view that shows it another way (a
+   * Markdown sheet's formatted view). Takes no focus.
+   */
+  showTextForFind?(): void;
+  /** Undo `showTextForFind` once Find has closed. */
+  releaseTextForFind?(): void;
 }
 
 export function sameMatch(a: FoundMatch, b: FoundMatch): boolean {

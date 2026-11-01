@@ -38,6 +38,25 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- A Markdown sheet now opens in its Formatted view (見たまま), showing the
+  document as it reads, instead of its Markdown text. The Markdown button on
+  its toolbar still shows the text, and that choice holds for every Markdown
+  sheet until the page is reloaded.
+- Find on a Markdown sheet in the Formatted view shows the sheet's Markdown
+  text while the find panel is open, so its matches are marked and selected
+  where you can see them, and goes back to the Formatted view when the panel
+  closes.
+
+### Fixed
+
+- Edit > Cut, Copy and Paste from the menu now act on the text selected in a
+  Markdown sheet's Formatted view. Before, they only asked you to click in the
+  text first.
+- Clicking a Markdown sheet's tab while it shows the Formatted view now puts
+  the caret in the document, so typing goes straight into it.
+
 ## [0.9.29] - 2026-10-14
 
 ### Added

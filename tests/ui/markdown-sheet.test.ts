@@ -4,13 +4,16 @@
  * The docked Markdown worksheet view (`MarkdownSheetView`, #486, #502): the
  * source textarea filling its pane (not a cramped default-sized box), and
  * the preview toggle, which opens/closes the preview's dockable
- * `panelElement` side panel.
+ * `panelElement` side panel. A sheet opens formatted (見たまま); Find shows its
+ * Markdown text while it is open and gives the formatted view back on close.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import type { Worksheet } from '../../src/core/workbook/worksheet';
+import type { Grid } from '../../src/ui/grid';
+import { FindBar } from '../../src/ui/find-bar';
 import { MarkdownSheetView } from '../../src/ui/markdown-sheet';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -77,6 +80,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
 function setup(): {
   view: MarkdownSheetView;
   state: AppState;
+  commands: Commands;
   tab: Tab;
   workbook: RsfDocument;
   notes: Worksheet;
@@ -90,8 +94,29 @@ function setup(): {
   const tab = state.addTab('book.rsf', workbook, null);
   const view = new MarkdownSheetView(state, commands);
   view.refresh();
-  return { view, state, tab, workbook, notes };
+  return { view, state, commands, tab, workbook, notes };
 }
+
+/** The Markdown and formatted (見たまま) mode buttons, in that order. */
+function modeButtons(view: MarkdownSheetView): [HTMLButtonElement, HTMLButtonElement] {
+  const [markdown, formatted] = Array.from(
+    view.element.querySelectorAll<HTMLButtonElement>('.markdown-mode-button'),
+  );
+  return [markdown, formatted];
+}
+
+/** The find panel over `view`, built the way the shell builds it. */
+function findPanel(view: MarkdownSheetView, state: AppState, commands: Commands): FindBar {
+  const grid = { reveal: vi.fn(), setFindHighlight: vi.fn(), refresh: vi.fn() } as unknown as Grid;
+  const findBar = new FindBar(state, commands, grid, [view]);
+  document.body.append(view.element, view.panelElement, findBar.element);
+  return findBar;
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  document.body.textContent = '';
+});
 
 describe('MarkdownSheetView', () => {
   it('applies the chosen display theme to the preview and the Formatted editor, and remembers it', () => {
@@ -136,13 +161,25 @@ describe('MarkdownSheetView', () => {
     expect(textarea.classList.contains('markdown-editor-source')).toBe(true);
   });
 
-  it('opens the preview panel by default', () => {
+  it('opens formatted (見たまま) by default, with the Markdown text and the preview panel hidden', () => {
     const { view } = setup();
+    const [markdownButton, formattedButton] = modeButtons(view);
+    expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('false');
+    const sourcePane = view.element.querySelector('.markdown-editor-source')!.parentElement as HTMLElement;
+    expect(sourcePane.hidden).toBe(true);
+    expect(view.panelElement.hidden).toBe(true);
+  });
+
+  it('opens the preview panel once the sheet shows its Markdown text', () => {
+    const { view } = setup();
+    view.setMode('source');
     expect(view.panelElement.hidden).toBe(false);
   });
 
   it('never closes the preview from the toolbar button: it is disabled while open and reopens after ×', () => {
     const { view } = setup();
+    view.setMode('source');
     const toggle = view.element.querySelector('.markdown-preview-toggle') as HTMLButtonElement;
     expect(toggle.disabled).toBe(true);
 
@@ -160,6 +197,7 @@ describe('MarkdownSheetView', () => {
 
   it('closes the preview panel when its own close button is clicked', () => {
     const { view } = setup();
+    view.setMode('source');
     const closeBtn = view.panelElement.querySelector('.side-panel-close-btn') as HTMLButtonElement;
 
     closeBtn.click();
@@ -207,6 +245,7 @@ describe('MarkdownSheetView', () => {
 
   it('hides the preview panel when the active worksheet is no longer a Markdown sheet', () => {
     const { view, state, tab, workbook } = setup();
+    view.setMode('source');
     expect(view.panelElement.hidden).toBe(false);
 
     state.setActiveSheet(tab, workbook.sheets[0].id);
@@ -217,6 +256,7 @@ describe('MarkdownSheetView', () => {
 
   it('reopens the preview panel on returning to a Markdown sheet if it was left open', () => {
     const { view, state, tab, workbook, notes } = setup();
+    view.setMode('source');
 
     state.setActiveSheet(tab, workbook.sheets[0].id);
     view.refresh();
@@ -227,21 +267,12 @@ describe('MarkdownSheetView', () => {
     expect(view.panelElement.hidden).toBe(false);
   });
 
-  it('switches to the formatted view, edits there, and saves Markdown text', async () => {
-    const { view, state, tab, workbook, notes } = setup();
-    await new Commands(state, stubUi(), document).commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
+  it('edits the formatted view, saves Markdown text, and shows that text on request', async () => {
+    const { view, state, commands, tab, workbook, notes } = setup();
+    await commands.commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
     view.refresh();
-    const [markdownButton, formattedButton] = Array.from(
-      view.element.querySelectorAll<HTMLButtonElement>('.markdown-mode-button'),
-    );
-    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
-
-    formattedButton.click();
+    const [markdownButton, formattedButton] = modeButtons(view);
     expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
-    expect((view.element.querySelector('.markdown-editor-source')!.parentElement as HTMLElement).hidden).toBe(
-      true,
-    );
-    expect(view.panelElement.hidden).toBe(true);
     const visual = view.element.querySelector('.markdown-visual')!;
     expect(visual.querySelector('h1')!.textContent).toBe('Plan');
 
@@ -257,9 +288,86 @@ describe('MarkdownSheetView', () => {
     expect(visual.querySelector('p')!.textContent).toBe('Draft');
 
     markdownButton.click();
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
     expect((view.element.querySelector('.markdown-editor-source') as HTMLTextAreaElement).value).toBe(
       '# Plan\n\nDraft',
     );
     expect(view.panelElement.hidden).toBe(false);
+  });
+
+  it('shows the Markdown text while Find is open on a formatted sheet, then gives the formatted view back', async () => {
+    const { view, state, commands, tab } = setup();
+    await commands.commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
+    view.refresh();
+    vi.useFakeTimers();
+    const findBar = findPanel(view, state, commands);
+    const [markdownButton, formattedButton] = modeButtons(view);
+
+    findBar.open(false);
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
+    const sourcePane = view.element.querySelector('.markdown-editor-source')!.parentElement as HTMLElement;
+    expect(sourcePane.hidden).toBe(false);
+    // No preview opens beside Find: in the shared dock it would collapse the find panel.
+    expect(view.panelElement.hidden).toBe(true);
+    expect((view.element.querySelector('.markdown-preview-toggle') as HTMLButtonElement).hidden).toBe(true);
+    expect(findBar.element.classList.contains('collapsed')).toBe(false);
+
+    findBar.close();
+    expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
+    expect(sourcePane.hidden).toBe(true);
+  });
+
+  it('shows the Markdown text when Find moves to an occurrence on a formatted sheet', async () => {
+    const { view, state, commands, tab } = setup();
+    await commands.commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
+    view.refresh();
+    vi.useFakeTimers();
+    const findBar = findPanel(view, state, commands);
+    const [markdownButton, formattedButton] = modeButtons(view);
+    findBar.open(false);
+    // The user takes the formatted view back while Find is open...
+    formattedButton.click();
+    expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
+
+    // ...and Next shows the text again, because the occurrence is in it.
+    const findInput = findBar.element.querySelector<HTMLInputElement>('input[type="text"]')!;
+    findInput.value = 'Draft';
+    findInput.dispatchEvent(new Event('input'));
+    vi.advanceTimersByTime(200);
+    findBar.next(1);
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
+
+    findBar.close();
+    expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('keeps the Markdown text after Find closes when the user picks it while Find shows it', async () => {
+    const { view, state, commands, tab } = setup();
+    await commands.commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
+    view.refresh();
+    vi.useFakeTimers();
+    const findBar = findPanel(view, state, commands);
+    const [markdownButton] = modeButtons(view);
+    findBar.open(false);
+
+    markdownButton.click();
+    findBar.close();
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
+    expect(view.panelElement.hidden).toBe(false);
+  });
+
+  it('keeps the formatted view after Find closes when the user picks it while Find shows the text', async () => {
+    const { view, state, commands, tab } = setup();
+    await commands.commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
+    view.refresh();
+    vi.useFakeTimers();
+    const findBar = findPanel(view, state, commands);
+    const [markdownButton, formattedButton] = modeButtons(view);
+    findBar.open(false);
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
+
+    formattedButton.click();
+    findBar.close();
+    expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
   });
 });

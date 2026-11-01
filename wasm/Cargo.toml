@@ -27,7 +27,7 @@ miniz_oxide = "=0.9.1"
 # 0.9.x needs Rust 1.87+ (rust-toolchain.toml). The frozen .rsf fixtures
 # (tests/core/rsf-fixtures.test.ts) pin the encoder's output byte-for-byte, so a
 # bump that changes the compressed bytes fails there before it can ship.
-ruzstd = "=0.9.0"
+ruzstd = "=0.9.1"
 # lz4_flex: pure-Rust LZ4 with the Frame format (frame feature, default on).
 lz4_flex = "=0.14.0"
 

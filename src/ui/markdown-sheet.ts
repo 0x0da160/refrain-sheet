@@ -61,6 +61,9 @@ const COMMIT_DEBOUNCE_MS = 600;
  * document, edited in place; each edit writes the Markdown text back into
  * the textarea and commits through the same debounce, so what is saved is
  * always the Markdown text. The preview panel is hidden while it is on.
+ * A sheet opens in visual mode (見たまま). The user's own choice of mode holds
+ * until the page reloads; Find alone shows the text while it is open
+ * (`showTextForFind`), since its matches are found and marked there.
  *
  * The source textarea and the preview pane keep their scroll positions in
  * sync proportionally in both directions (`syncScroll`, see
@@ -82,7 +85,10 @@ export class MarkdownSheetView {
   private readonly formatTools: HTMLElement;
   private readonly blockKindSelect: HTMLSelectElement;
   private readonly themeSelect: HTMLSelectElement;
-  private mode: MarkdownMode = 'source';
+  /** Formatted (見たまま) at first; the user's own choice of mode then holds until the page reloads. */
+  private mode: MarkdownMode = 'visual';
+  /** Set while Find has the text up in place of a formatted sheet; `releaseTextForFind` gives the formatted view back. */
+  private textForFind = false;
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
@@ -288,9 +294,41 @@ export class MarkdownSheetView {
 
   /** Switch between the Markdown text and the formatted, editable document. */
   setMode(mode: MarkdownMode): void {
-    if (mode === this.mode) {
+    // The user's own choice ends any switch Find made, even one that changes nothing.
+    this.textForFind = false;
+    if (mode !== this.mode) {
+      this.switchMode(mode);
+      (mode === 'visual' ? this.visual.element : this.textarea).focus();
       return;
     }
+    // The same mode, now the user's own: a Markdown view Find had up gets its preview back.
+    this.applyMode();
+    this.updatePanelVisibility();
+  }
+
+  /**
+   * Show the Markdown text while Find works in it: a formatted sheet switches
+   * to its text until Find closes (`releaseTextForFind`). Takes no focus, so
+   * the find field keeps it, and opens no preview panel: one more panel in the
+   * dock would collapse Find's.
+   */
+  showTextForFind(): void {
+    if (this.mode === 'visual') {
+      this.textForFind = true;
+      this.switchMode('source');
+    }
+  }
+
+  /** Bring the formatted view back when Find closes, if Find is what switched it. */
+  releaseTextForFind(): void {
+    if (this.textForFind) {
+      this.textForFind = false;
+      this.switchMode('visual');
+    }
+  }
+
+  /** Show `mode` without moving the focus. */
+  private switchMode(mode: MarkdownMode): void {
     this.mode = mode;
     if (mode === 'visual') {
       this.visual.load(this.textarea.value);
@@ -298,7 +336,6 @@ export class MarkdownSheetView {
     }
     this.applyMode();
     this.updatePanelVisibility();
-    (mode === 'visual' ? this.visual.element : this.textarea).focus();
   }
 
   private applyMode(): void {
@@ -306,7 +343,8 @@ export class MarkdownSheetView {
     this.sourcePane.hidden = visual;
     (this.visual.element.parentElement as HTMLElement).hidden = !visual;
     this.formatTools.hidden = !visual;
-    this.previewToggle.hidden = visual;
+    // While Find has the text up, the preview stays as the formatted view left it: closed.
+    this.previewToggle.hidden = visual || this.textForFind;
     for (const [mode, button] of Object.entries(this.modeButtons)) {
       button.setAttribute('aria-pressed', String(mode === this.mode));
     }
@@ -319,9 +357,9 @@ export class MarkdownSheetView {
     this.updatePreviewToggle();
   }
 
-  /** Reconciles the panel's actual open/closed state with `previewVisible && active`. */
+  /** Reconciles the panel's actual open/closed state with `previewVisible && active`, in the user's own Markdown view. */
   private updatePanelVisibility(): void {
-    const shouldShow = this.previewVisible && this.active && this.mode === 'source';
+    const shouldShow = this.previewVisible && this.active && this.mode === 'source' && !this.textForFind;
     if (shouldShow === !this.panelElement.hidden) {
       return;
     }
@@ -353,7 +391,11 @@ export class MarkdownSheetView {
 
   /** Put the keyboard in the editor shown now (the text, or the formatted document). */
   focusEditor(): void {
-    (this.mode === 'visual' ? this.visual.element : this.textarea).focus({ preventScroll: true });
+    if (this.mode === 'visual') {
+      this.visual.focusStart();
+    } else {
+      this.textarea.focus({ preventScroll: true });
+    }
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
@@ -363,6 +405,8 @@ export class MarkdownSheetView {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
+      // Find's switch to the text was for this sheet only: the formatted view is back when it is shown again.
+      this.releaseTextForFind();
       this.updatePanelVisibility();
       return;
     }

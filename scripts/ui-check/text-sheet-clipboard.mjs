@@ -22,6 +22,17 @@ export async function checkTextSheetClipboard(page) {
   await page.waitForSelector('.sheet-kind-picker', { timeout: 5_000 });
   await page.click('label[data-kind="markdown"]');
   await page.locator('dialog[open] button.primary').click();
+  // A new Markdown sheet opens in its formatted view, and the text box is hidden
+  // there, so the check confirms that default and then picks the Markdown mode.
+  try {
+    await page.waitForSelector('.markdown-visual-pane .markdown-visual', {
+      state: 'visible',
+      timeout: 5_000,
+    });
+  } catch {
+    return ['text-sheet-clipboard: a new Markdown sheet does not open in its formatted view'];
+  }
+  await page.locator('.markdown-mode-switch .markdown-mode-button').first().click();
   const editor = page.locator('textarea.markdown-sheet-source');
   try {
     await editor.waitFor({ timeout: 5_000 });

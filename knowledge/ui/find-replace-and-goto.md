@@ -73,6 +73,14 @@ A text, Markdown, JSON, or YAML worksheet holds its whole text in one cell,
 so the panel searches the text itself and treats **each occurrence** as a
 match, where a grid treats each cell as one.
 
+A Markdown worksheet opens in its formatted view, which does not show the
+text as text. Opening the panel, or moving to an occurrence, switches such a
+worksheet to its Markdown text (`showTextForFind` in
+`src/ui/markdown-sheet.ts`) without opening its preview panel, which would
+collapse the find panel in the shared dock. Closing the panel or leaving the
+worksheet switches it back, unless the user picked a mode while the panel
+was open.
+
 - **Next / Previous** select the next or previous occurrence in the editor
   and scroll it into view; keyboard focus stays in the panel. Next continues
   from the end of the selection and Previous from its start, so a caret the

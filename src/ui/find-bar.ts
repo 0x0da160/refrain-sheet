@@ -244,6 +244,7 @@ export class FindBar {
     const target = replaceMode && this.findInput.value !== '' ? this.replaceInput : this.findInput;
     focusWithoutKeyboard(target);
     target.select();
+    this.activeSourceForFind();
     this.scheduleRecompute();
   }
 
@@ -253,6 +254,7 @@ export class FindBar {
     }
     this.element.hidden = true;
     releaseSidePanel(this.element);
+    for (const view of this.sourceViews) view.releaseTextForFind?.();
     this.paintHighlights();
     this.state.emit('view');
   }
@@ -430,6 +432,13 @@ export class FindBar {
   /** The source-text editor showing the active worksheet, or null when the worksheet is a grid. */
   private activeSource(): SourceFindView | null {
     return this.sourceViews.find((view) => view.active) ?? null;
+  }
+
+  /** `activeSource`, showing the text Find marks: a formatted Markdown sheet shows its Markdown until Find closes. */
+  private activeSourceForFind(): SourceFindView | null {
+    const source = this.activeSource();
+    source?.showTextForFind?.();
+    return source;
   }
 
   /** The match-count line, naming the worksheet span in workbook scope. */
@@ -625,7 +634,7 @@ export class FindBar {
     if (!tab || !this.ensureLive()) {
       return;
     }
-    const source = this.activeSource();
+    const source = this.activeSourceForFind();
     if (source) {
       const { selectionStart: start, selectionEnd: end } = source.editor.textarea;
       this.current = sourceAnchor(this.matches, (m) => this.onActiveSheet(m), { start, end }, direction);
@@ -655,10 +664,11 @@ export class FindBar {
       // Cross-worksheet navigation: activate the sheet first, then reveal.
       this.state.setActiveSheet(tab, match.sheetId);
     }
+    const source = match.range ? this.activeSourceForFind() : null;
     // Paint first: the source editor scrolls to the mark painted as current.
     this.paintHighlights();
     if (match.range) {
-      this.activeSource()?.editor.revealMatch(match.range.start, match.range.end);
+      source?.editor.revealMatch(match.range.start, match.range.end);
     } else {
       this.grid.reveal(match.row, match.col);
     }
@@ -686,7 +696,7 @@ export class FindBar {
   private replaceCurrent(): void {
     const tab = this.state.activeTab;
     if (!tab) return;
-    const source = this.activeSource();
+    const source = this.activeSourceForFind();
     if (source) {
       this.replaceOccurrence(tab, source);
       return;

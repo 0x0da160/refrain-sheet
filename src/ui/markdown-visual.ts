@@ -502,7 +502,19 @@ export class MarkdownVisualEditor {
   /** Show the source afresh and focus block `index`. */
   private reload(index: number): void {
     this.load(this.source);
-    const target = this.blocks[Math.min(index, this.blocks.length - 1)];
+    this.focusBlock(Math.min(index, this.blocks.length - 1));
+  }
+
+  /** Put the keyboard at the start of the document, where a text sheet's editor takes it. */
+  focusStart(): void {
+    if (this.blocks.length > 0) {
+      this.focusBlock(0);
+    }
+  }
+
+  /** Focus block `index`'s text, with the caret at its start. */
+  private focusBlock(index: number): void {
+    const target = this.blocks[index];
     const editable =
       target.element.contentEditable === 'true'
         ? target.element

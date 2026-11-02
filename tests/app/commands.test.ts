@@ -160,6 +160,23 @@ function diskHandle(name: string, initial: Uint8Array) {
   };
 }
 
+/** What the browser's Save dialog is asked for: the name it suggests and the file type it offers. */
+interface SaveDialogOptions {
+  suggestedName: string;
+  types: Array<{ description: string }>;
+}
+
+/**
+ * Stands in for the browser's Save dialog: the "user" names the file `chosen`,
+ * and that file is an in-memory disk the save writes into.
+ */
+function withSaveDialog(chosen: string) {
+  const disk = diskHandle(chosen, new Uint8Array(0));
+  const dialog = vi.fn(async (_options: SaveDialogOptions) => disk.handle);
+  vi.stubGlobal('showSaveFilePicker', dialog);
+  return { disk, dialog };
+}
+
 function setup(ui: UiPort = stubUi()) {
   const state = new AppState();
   const commands = new Commands(state, ui, document);
@@ -1118,19 +1135,6 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
   });
 
   describe('saving a new Markdown, JSON, YAML, or text file', () => {
-    interface SaveDialogOptions {
-      suggestedName: string;
-      types: Array<{ description: string }>;
-    }
-
-    /** Stands in for the browser's Save dialog; the "user" names the file `chosen`. */
-    function withSaveDialog(chosen: string) {
-      const disk = diskHandle(chosen, new Uint8Array(0));
-      const dialog = vi.fn(async (_options: SaveDialogOptions) => disk.handle);
-      vi.stubGlobal('showSaveFilePicker', dialog);
-      return { disk, dialog };
-    }
-
     let downloads: MockInstance;
     beforeEach(() => {
       // A download is an anchor click on an object URL; neither may happen.
@@ -1261,6 +1265,106 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     expect(tab.textFile).toBeNull();
     expect(tab.doc.getValue(0, 1)).toBe('x');
     expect(tab.doc.getValue(1, 0)).toBe('2');
+  });
+});
+
+describe('saving a new CSV file', () => {
+  let downloads: MockInstance;
+  beforeEach(() => {
+    // A download is an anchor click on an object URL; neither may happen while the dialog is there.
+    URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    downloads = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {});
+  });
+  afterEach(() => {
+    downloads.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('the first save asks for the file name, and later saves overwrite that file', async () => {
+    const { disk, dialog } = withSaveDialog('sales.csv');
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.run('file.newCsv');
+    const tab = state.activeTab!;
+    expect(tab.handle).toBeNull();
+    state.editCell(tab, 0, 0, 'item');
+
+    // The dialog opens inside the save call, before anything is awaited, and nothing is written until it is answered.
+    const first = commands.save(tab, KEEP);
+    expect(dialog).toHaveBeenCalledTimes(1);
+    expect(dialog.mock.calls[0][0].suggestedName).toBe('untitled.csv');
+    expect(dialog.mock.calls[0][0].types[0].description).toBe('CSV');
+    expect(disk.writes()).toBe(0);
+    expect(await first).toBe(true);
+
+    expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('item\n');
+    expect(tab.handle).toBe(disk.handle);
+    expect(tab.name).toBe('sales.csv');
+    expect(tab.neverSaved).toBe(false);
+    expect(tab.doc.isDirty).toBe(false);
+    expect(ui.notify).toHaveBeenCalledWith(t('notify.savedOverwrite'), 'info');
+
+    // The second save goes into the same file: no dialog, no download.
+    state.editCell(tab, 0, 0, 'items');
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(dialog).toHaveBeenCalledTimes(1);
+    expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('items\n');
+    expect(disk.writes()).toBe(2);
+    expect(ui.confirmChangedOnDisk).not.toHaveBeenCalled();
+    expect(downloads).not.toHaveBeenCalled();
+  });
+
+  it('cancelling the Save dialog saves nothing and leaves the new file unsaved', async () => {
+    const dialog = vi.fn(async () => {
+      throw new DOMException('The user aborted a request.', 'AbortError');
+    });
+    vi.stubGlobal('showSaveFilePicker', dialog);
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.run('file.newCsv');
+    const tab = state.activeTab!;
+    state.editCell(tab, 0, 0, 'draft');
+    expect(await commands.save(tab, KEEP)).toBe(false);
+    expect(dialog).toHaveBeenCalledTimes(1);
+    expect(tab.handle).toBeNull();
+    expect(tab.name).toBe('untitled.csv');
+    expect(tab.neverSaved).toBe(true);
+    expect(tab.doc.isDirty).toBe(true);
+    expect(downloads).not.toHaveBeenCalled();
+    expect(ui.notify).not.toHaveBeenCalled();
+  });
+
+  it('downloads under the tab name when the browser has no Save dialog', async () => {
+    vi.stubGlobal('showSaveFilePicker', undefined);
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.run('file.newCsv');
+    const tab = state.activeTab!;
+    state.editCell(tab, 0, 0, 'hi');
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(downloads).toHaveBeenCalledTimes(1);
+    expect(tab.handle).toBeNull();
+    expect(tab.doc.isDirty).toBe(false);
+    expect(ui.notify).toHaveBeenCalledWith(t('notify.savedDownload', { name: 'untitled.csv' }), 'info');
+  });
+
+  it('Save with Options names the download only when the browser has no Save dialog', async () => {
+    withSaveDialog('sales.csv');
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    const { parts } = commands as unknown as { parts: { fileIo: FileIoCommands } };
+    await commands.run('file.newCsv');
+    const tab = state.activeTab!;
+    await parts.fileIo.saveWithOptions(tab);
+    expect(ui.chooseSaveOptions).toHaveBeenLastCalledWith(tab, null);
+
+    vi.stubGlobal('showSaveFilePicker', undefined);
+    await parts.fileIo.saveWithOptions(tab);
+    expect(ui.chooseSaveOptions).toHaveBeenLastCalledWith(
+      tab,
+      t('save.downloadNote', { name: 'untitled.csv' }),
+    );
   });
 });
 

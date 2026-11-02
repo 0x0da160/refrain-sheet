@@ -61,6 +61,15 @@ export function fileSystemAccessAvailable(): boolean {
 }
 
 /**
+ * True when the browser has a Save dialog, where a file that does not exist
+ * yet (a new document) is named and then written. Without it, saving such a
+ * file downloads it.
+ */
+export function saveFilePickerAvailable(): boolean {
+  return typeof (globalThis as FilePickerCapableWindow).showSaveFilePicker === 'function';
+}
+
+/**
  * Read a file's bytes into memory, enforcing the size limit first. When the
  * file is larger than `maxSize` its bytes are never read; the returned entry
  * is flagged `tooLarge` so the caller can report it without allocating.

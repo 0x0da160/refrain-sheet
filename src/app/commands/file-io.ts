@@ -26,6 +26,7 @@ import {
   requestSaveHandle,
   sameFileStamp,
   saveBytes,
+  saveFilePickerAvailable,
   type OpenedFile,
   type SaveOutcome,
   type SavePickerKind,
@@ -106,7 +107,9 @@ export class FileIoCommands {
     if (!isCsv(tab.doc)) {
       return;
     }
-    const willDownload = tab.handle ? null : t('save.downloadNote', { name: tab.name });
+    // A tab with no file yet is named in the Save dialog wherever the browser has one.
+    const canSaveToFile = tab.handle !== null || saveFilePickerAvailable();
+    const willDownload = canSaveToFile ? null : t('save.downloadNote', { name: tab.name });
     const options = await this.ui.chooseSaveOptions(tab, willDownload);
     if (!options) {
       return;
@@ -117,7 +120,9 @@ export class FileIoCommands {
   /**
    * Save a tab. CSV: a normal save (all options "keep") with no edits writes
    * the originally loaded bytes verbatim; with edits, only edited field
-   * ranges are reserialized. RSF: the document is saved in the versioned
+   * ranges are reserialized. A new CSV (File > New CSV) has no file yet, so
+   * its first save opens the browser's Save dialog, and the file picked there
+   * is the tab's file from then on. RSF: the document is saved in the versioned
    * .rsf JSON format (never silently into the original .csv).
    * Returns true when the file was actually saved.
    */
@@ -171,7 +176,14 @@ export class FileIoCommands {
       ncrReports = result.ncrReplacements;
     }
 
-    const target = await this.confirmDiskUnchanged(tab, tab.handle);
+    // A tab with no file yet (File > New CSV) opens the Save dialog here, where
+    // the file is named. The dialog must open inside the user's click or key
+    // press, so this comes before any await that is not a click.
+    const acquired = await this.acquireSaveHandle(tab, 'csv');
+    if (!acquired.ok) {
+      return false;
+    }
+    const target = await this.confirmDiskUnchanged(tab, acquired.handle);
     if (!target.ok) {
       return false;
     }

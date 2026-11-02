@@ -44,6 +44,7 @@ the other.
   no file behind it: its first Save opens the browser's Save dialog, where the
   file is named, and the tab keeps the file picked so later saves overwrite
   it. A browser without the File System Access API downloads it instead.
+  **File > New CSV** works the same way for a blank CSV.
 - **JSON as a table** (`src/core/interchange/json-import.ts`):
   **File > Import JSON as Table…** accepts a `.json`
   file containing a top-level array of flat (non-nested) objects — one

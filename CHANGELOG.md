@@ -45,6 +45,11 @@ really is internal, rather than inventing an entry to satisfy it.
   that writes to the file you chose. Before, each Save downloaded another copy
   and the name was never asked. A browser without that dialog (Firefox, Safari)
   still downloads the file.
+- Saving a new CSV file (File > New CSV) now asks for its file name too. The
+  first Save opens the browser's Save dialog, and every Save after that writes
+  to the file you chose. Before, each Save downloaded another copy and the name
+  was never asked. A browser without that dialog (Firefox, Safari) still
+  downloads the file.
 
 ### Added
 

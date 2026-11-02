@@ -58,9 +58,10 @@ export class NewDocuments {
    * point is to start editing. Unlike `newDocument`'s RSF workbook, the tab
    * is not force-marked dirty: `LosslessDocument.isDirty` tracks actual
    * edits, so an untouched new CSV closes silently, exactly like opening a
-   * real file and not touching it. Its filename and location are chosen on
-   * the first save (as `.csv`). Creating it never mutates any other open
-   * document.
+   * real file and not touching it. Its filename and location are chosen in
+   * the browser's Save dialog on the first save (as `.csv`; a browser without
+   * one downloads it), and later saves overwrite the file picked there.
+   * Creating it never mutates any other open document.
    */
   newCsvDocument(): Tab {
     this.newCsvDocCount += 1;

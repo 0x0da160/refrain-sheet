@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import {
   ArrowDown,
+  BotMessageSquare,
   BringToFront,
   ChartColumn,
   Circle,
@@ -237,6 +238,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'object.bringToFront': BringToFront,
   'object.sendToBack': SendToBack,
   'help.formula': FunctionSquare,
+  'view.aiAssistant': BotMessageSquare,
   'help.shortcuts': Keyboard,
   'help.about': Info,
 };

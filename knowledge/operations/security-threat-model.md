@@ -83,6 +83,38 @@ Google Drive sync.
 - **Same encoders as a local save.** An upload reuses the ordinary save
   path, so CSV fidelity is not weakened by the network path.
 
+## Exception: opt-in AI assistant (hosted build only)
+
+The hosted build also offers an **opt-in** AI assistant (View > AI
+Assistant): a small language model (Qwen2.5-0.5B-Instruct, GGUF Q4_K_M)
+run in the browser by `@wllama/wllama` (llama.cpp compiled to
+WebAssembly, in a Web Worker).
+
+- **Nothing is fetched until the user asks.** Page load and opening the
+  panel make no request; the panel only lists what the browser already
+  stores. The model file is downloaded from Hugging Face only when the
+  user presses Download AI Model (`src/app/ai/engine.ts`), and kept in the
+  Origin Private File System so later visits start it with no download.
+  Delete AI Model removes it.
+- **The sheet never leaves the browser.** Inference runs locally; the only
+  remote host is the model download. The model's replies are rendered as
+  text, and a proposed edit is a list of `cell → value` pairs the user must
+  approve; it is applied through the command layer as one undoable
+  `bulkEdit`, under the usual write guards (`src/app/commands/ai-assistant.ts`).
+- **Hosted build only, compiled out of the offline build.** The panel and
+  runtime are gated on `__OFFLINE_BUILD__`; `npm run check:dist` fails if the
+  offline bundle contains `wllama` or a Hugging Face host, or ships any
+  `ai-runtime/` file.
+- **CSP.** The hosted policy gains `connect-src 'self' https://huggingface.co
+https://*.hf.co` (the runtime's own WebAssembly from `ai-runtime/`, the
+  model, and Hugging Face's download CDN) and `worker-src blob:` (the
+  runtime's worker). `script-src` gains nothing. `check:dist:hosted` allows
+  exactly the three versioned `ai-runtime/` files and nothing else there.
+- **Model integrity.** The file is fetched by its fixed Hugging Face URL over
+  HTTPS from the model's official repository; the app does not pin a
+  checksum. A tampered model can only produce bad text or bad proposals,
+  which the user reviews before anything is applied.
+
 ### The hosted / offline build split
 
 The two artifacts are built separately so a hosted-only CSP relaxation can

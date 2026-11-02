@@ -166,6 +166,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'view.stickyFirstColumn',
   'view.freezeAtSelection',
   'view.commentsPanel',
+  'view.aiAssistant',
   'view.fullscreen',
   'view.zoom.in',
   'view.zoom.out',

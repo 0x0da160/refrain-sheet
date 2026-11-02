@@ -162,6 +162,11 @@ export interface MenuChecks {
    * — there is nothing the user could do to enable it there.
    */
   driveAvailable: () => boolean;
+  /**
+   * Whether the AI assistant exists here: the hosted build, served over
+   * http(s). Elsewhere its menu item is left out, like the Drive submenu.
+   */
+  aiAvailable?: () => boolean;
 }
 
 /**
@@ -556,6 +561,9 @@ function viewMenu(checks: MenuChecks): MenuDef {
         checked: checks.sheetTabsVertical,
       },
       { labelKey: 'menu.view.commentsPanel', command: 'view.commentsPanel' },
+      ...(checks.aiAvailable?.()
+        ? [{ labelKey: 'menu.view.aiAssistant', command: 'view.aiAssistant' } as const]
+        : []),
       // Menu only: F11 stays the browser's own full screen, which a page
       // cannot reliably take over in every browser.
       { labelKey: 'menu.view.fullscreen', command: 'view.fullscreen', checked: checks.fullscreen },

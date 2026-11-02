@@ -45,13 +45,17 @@ describe('offline CSP', () => {
 });
 
 describe('hosted CSP', () => {
-  it('grants only Google origins, and only ones on the allowlist', () => {
+  it('grants only Google (Drive) and Hugging Face (AI model) origins, and only ones on the allowlist', () => {
     const hosted = buildCsp('hosted');
     const allowed = allowedOrigins('hosted');
     expect(allowed.length).toBeGreaterThan(0);
-    for (const origin of allowed) {
-      expect(origin, `${origin} must be a Google origin`).toMatch(
-        /^https:\/\/([a-z*.]+\.)?(google|googleapis|googleusercontent|gstatic)\.com$/,
+    // The two non-origin sources the AI assistant needs: its runtime files
+    // on the app's own origin, and the Web Worker it builds from a blob.
+    const sources = allowed.filter((source) => !source.startsWith('https://'));
+    expect(sources.sort()).toEqual(["'self'", 'blob:']);
+    for (const origin of allowed.filter((source) => source.startsWith('https://'))) {
+      expect(origin, `${origin} must be a Google or Hugging Face origin`).toMatch(
+        /^https:\/\/(([a-z*.]+\.)?(google|googleapis|googleusercontent|gstatic)\.com|huggingface\.co|\*\.hf\.co)$/,
       );
     }
     // Every origin the policy names must come from the allowlist — the same
@@ -89,6 +93,19 @@ describe('hosted CSP', () => {
   it('keeps the keyword grant out of the origin allowlist', () => {
     // Mixing the two would let a keyword ride in under an "origin" review.
     expect(allowedOrigins('hosted')).not.toContain("'unsafe-inline'");
+  });
+
+  it('lets the AI runtime reach only its own files, the model host, and a blob worker', () => {
+    const hosted = buildCsp('hosted');
+    const connectSrc = /connect-src ([^;]+)/.exec(hosted)![1].split(' ');
+    expect(connectSrc).toEqual(
+      expect.arrayContaining(["'self'", 'https://huggingface.co', 'https://*.hf.co']),
+    );
+    expect(hosted).toContain('worker-src blob:');
+    // blob: is a worker source only: scripts are never loaded from blobs.
+    expect(/script-src ([^;]+)/.exec(hosted)![1]).not.toContain('blob:');
+    expect(buildCsp('offline')).not.toContain('worker-src');
+    expect(buildCsp('offline')).not.toContain('hf.co');
   });
 
   it('adds frame-src for the Picker iframe, which the offline policy never gains', () => {

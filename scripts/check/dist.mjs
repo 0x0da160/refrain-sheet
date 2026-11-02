@@ -13,7 +13,10 @@
 //      file permits for the mode,
 //   5./6. the offline bundle carries no Google credential and no Google
 //      endpoint at all (the Drive client is compiled out of it),
-//   7. the JS bundle stays within a size budget.
+//   7. the JS bundle stays within a size budget,
+//   8. the AI assistant's runtime (hosted build only) is compiled out of the
+//      offline bundle, and in the hosted build ships only as the exact
+//      ai-runtime/ files the app fetches after the user starts the model.
 //
 // Usage:
 //   node scripts/check/dist.mjs [--dir <path>] [--mode offline|hosted]
@@ -83,9 +86,26 @@ function walk(dir) {
   return out;
 }
 
-const files = walk(dist);
+const allFiles = walk(dist);
 
-// 1. No .wasm asset may ship with the distribution.
+// The AI assistant's inference runtime (@wllama/wllama) is too large to embed,
+// so the hosted build serves its files from ai-runtime/ (vite.config.ts). They
+// are fetched only after the user starts the AI model, never on page load.
+// Only the exact files the app asks for are allowed there, and only in the
+// hosted build; the offline build must carry none of them.
+const AI_RUNTIME_DIR = join(dist, 'ai-runtime');
+const wllamaVersion = JSON.parse(
+  readFileSync(join(root, 'node_modules', '@wllama', 'wllama', 'package.json'), 'utf8'),
+).version;
+const expectedAiRuntime = [
+  `wllama-${wllamaVersion}.wasm`,
+  `wllama-compat-${wllamaVersion}.wasm`,
+  `wllama-compat-${wllamaVersion}.js`,
+];
+const aiRuntimeFiles = allFiles.filter((f) => f.startsWith(AI_RUNTIME_DIR + '/'));
+const files = allFiles.filter((f) => !aiRuntimeFiles.includes(f));
+
+// 1. No .wasm asset may ship with the distribution (the AI runtime aside, check 8).
 const wasmFiles = files.filter((f) => f.endsWith('.wasm'));
 if (wasmFiles.length > 0) {
   fail(`found .wasm files in ${targetDir}: ${wasmFiles.join(', ')} — the binary must be embedded`);
@@ -281,6 +301,33 @@ if (jsBytes > MAX_JS_BYTES) {
   );
 } else {
   ok(`JS bundle is ${jsBytes} bytes (budget ${MAX_JS_BYTES})`);
+}
+
+// 8. The AI assistant exists only in the hosted build. The offline bundle must
+// not contain its inference runtime or the model host at all (it is compiled
+// out through __OFFLINE_BUILD__, src/ui/shell/ui-port.ts), and must ship no
+// ai-runtime/ files. The hosted build must ship exactly the runtime files the
+// app fetches (src/app/ai/model.ts), and nothing else in that directory.
+if (mode === 'offline') {
+  if (aiRuntimeFiles.length > 0) {
+    fail(`the offline build ships AI runtime files: ${aiRuntimeFiles.join(', ')}`);
+  } else {
+    ok('offline build ships no AI runtime files');
+  }
+  const aiTraces = [...new Set(bundle.match(/huggingface\.co|\bhf\.co\b|wllama/g) ?? [])];
+  if (aiTraces.length > 0) {
+    fail(`the offline bundle contains the AI assistant (${aiTraces.join(', ')}) — it must be compiled out`);
+  } else {
+    ok('offline bundle contains no AI assistant (compiled out)');
+  }
+} else {
+  const shipped = aiRuntimeFiles.map((f) => f.slice(AI_RUNTIME_DIR.length + 1)).sort();
+  const expected = [...expectedAiRuntime].sort();
+  if (JSON.stringify(shipped) !== JSON.stringify(expected)) {
+    fail(`ai-runtime/ holds [${shipped.join(', ')}], expected exactly [${expected.join(', ')}]`);
+  } else {
+    ok(`ai-runtime/ holds exactly the AI runtime files (${expected.join(', ')})`);
+  }
 }
 
 if (/<script[^>]*type="module"/.test(indexHtml)) {

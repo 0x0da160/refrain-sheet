@@ -25,6 +25,35 @@ import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
 /** The favicon master; the build emits it as dist/favicon.svg (no copy is kept in the repo). */
 const FAVICON_MASTER = 'design-system/v2/foundations/icons/favicon.svg';
 
+/**
+ * The AI assistant's inference runtime (`@wllama/wllama`, hosted build only;
+ * src/app/ai/model.ts). Its WebAssembly files are too large to embed, so the
+ * hosted build serves them from `ai-runtime/` next to the app, named by
+ * version so a new release never pairs new code with an old cached file.
+ * They are fetched only when the user starts the AI model. The offline build
+ * never emits them (scripts/check/dist.mjs fails if it does).
+ */
+const WLLAMA_VERSION: string = JSON.parse(
+  readFileSync('node_modules/@wllama/wllama/package.json', 'utf8'),
+).version;
+const AI_RUNTIME_FILES: ReadonlyArray<{ fileName: string; source: string; type: string }> = [
+  {
+    fileName: `ai-runtime/wllama-${WLLAMA_VERSION}.wasm`,
+    source: 'node_modules/@wllama/wllama/esm/wasm/wllama.wasm',
+    type: 'application/wasm',
+  },
+  {
+    fileName: `ai-runtime/wllama-compat-${WLLAMA_VERSION}.wasm`,
+    source: 'node_modules/@wllama/wllama-compat/wasm/wllama.wasm',
+    type: 'application/wasm',
+  },
+  {
+    fileName: `ai-runtime/wllama-compat-${WLLAMA_VERSION}.js`,
+    source: 'node_modules/@wllama/wllama-compat/wasm/wllama.js',
+    type: 'text/javascript',
+  },
+];
+
 export default defineConfig(({ command, mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
   // `vite build` — both mean the offline policy. Only an explicit
@@ -53,6 +82,7 @@ export default defineConfig(({ command, mode }) => {
       // The CSV-only minimal edition (src/app/edition.ts): offline policy,
       // its own output directory. Dev and Vitest keep the full edition.
       __MINIMAL_BUILD__: JSON.stringify(command === 'build' && mode === 'minimal'),
+      __WLLAMA_VERSION__: JSON.stringify(WLLAMA_VERSION),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
       __DRIVE_API_KEY__: hostedEnv('VITE_GOOGLE_DRIVE_API_KEY'),
     },
@@ -83,6 +113,25 @@ export default defineConfig(({ command, mode }) => {
         },
         generateBundle() {
           this.emitFile({ type: 'asset', fileName: 'favicon.svg', source: readFileSync(FAVICON_MASTER) });
+        },
+      },
+      {
+        name: 'ai-runtime',
+        configureServer(server) {
+          for (const file of AI_RUNTIME_FILES) {
+            server.middlewares.use(`/${file.fileName}`, (_req, res) => {
+              res.setHeader('Content-Type', file.type);
+              res.end(readFileSync(file.source));
+            });
+          }
+        },
+        generateBundle() {
+          if (buildMode !== 'hosted') {
+            return;
+          }
+          for (const file of AI_RUNTIME_FILES) {
+            this.emitFile({ type: 'asset', fileName: file.fileName, source: readFileSync(file.source) });
+          }
         },
       },
       {

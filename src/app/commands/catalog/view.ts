@@ -5,6 +5,8 @@
  * None of them touches document content or CSV bytes.
  */
 import { workbookOf } from '../../../core/editor-document';
+import { aiAssistantAvailable } from '../../ai/model';
+import { aiAssistantInput } from '../ai-assistant';
 import type { GridLook } from '../../../core/grid-look';
 import { getBrowserGridLook, setBrowserGridLook } from '../../grid-look';
 import { resolveGridLook, showsProportionalFont } from '../../state/view-layers';
@@ -147,6 +149,16 @@ export const VIEW_COMMANDS = {
       tab.freeze !== null ||
       (tab.selection !== null && (state.sortSlot(tab, tab.selection.row) > 0 || tab.selection.col > 0)),
   ),
+  // Hosted build only (src/app/ai/model.ts). Opening the panel downloads
+  // nothing; the model is fetched only from the panel's Download button.
+  'view.aiAssistant': {
+    enabled: () => aiAssistantAvailable(),
+    run: (ctx) => {
+      if (aiAssistantAvailable()) {
+        ctx.ui.showAiAssistant(aiAssistantInput(ctx.state));
+      }
+    },
+  },
   'view.commentsPanel': {
     run: (ctx) => {
       // Opens only: a side panel closes from its header × alone, never from

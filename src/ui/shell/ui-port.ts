@@ -10,6 +10,14 @@ import { closeAllContextMenus } from '../context-menu';
 import type { Dialogs, Toasts } from '../dialogs';
 import type { FindBar } from '../find-bar';
 import type { LoadingOverlay } from '../loading-overlay';
+import { showAiAssistantPanel } from '../ai-panel';
+
+/**
+ * `true` only in the offline production build (vite.config.ts). The AI
+ * assistant is a hosted-build feature, so the offline build drops the panel
+ * and its inference runtime entirely; `scripts/check/dist.mjs` asserts it.
+ */
+declare const __OFFLINE_BUILD__: boolean;
 
 export interface UiPortParts {
   dialogs: Dialogs;
@@ -68,6 +76,12 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     showSqlQuery: (input) => dialogs.showSqlQuery(input),
+    showAiAssistant: __OFFLINE_BUILD__
+      ? () => {}
+      : (input) =>
+          void showAiAssistantPanel(input, (title, message, ok, cancel) =>
+            dialogs.confirm(title, message, ok, cancel),
+          ),
     showDiff: (input) => dialogs.showDiff(input),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),

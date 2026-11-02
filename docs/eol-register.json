@@ -86,6 +86,16 @@
         "due": "2026-12-31"
       }
     },
+    "npm:@wllama/wllama@3": {
+      "eol": null,
+      "support": "Runtime dependency of the hosted build's AI assistant; actively maintained, frequent releases that track llama.cpp.",
+      "plan": null
+    },
+    "npm:@wllama/wllama-compat@3": {
+      "eol": null,
+      "support": "Released together with @wllama/wllama; keep both on the same version.",
+      "plan": null
+    },
     "npm:yaml@2": {
       "eol": null,
       "support": "Runtime dependency; actively maintained.",

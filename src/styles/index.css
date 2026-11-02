@@ -28,6 +28,7 @@
 @import './version-preview.css';
 @import './formula-help.css';
 @import './sql-query-panel.css';
+@import './ai-panel.css';
 @import './diff-panel.css';
 @import './markdown-panes.css';
 @import './markdown-sheet.css';

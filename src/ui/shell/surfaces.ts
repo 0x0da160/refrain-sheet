@@ -3,6 +3,7 @@
  * Build every UI surface of the application window and connect the ones the
  * command layer drives back into (clipboard, grid measurement, panels).
  */
+import { aiAssistantAvailable } from '../../app/ai/model';
 import { ClipboardController } from '../../app/clipboard-controller';
 import type { Commands } from '../../app/commands';
 import { getAutoFitOnOpen, getEditHints, getSheetTabsVertical, getSheetZoom } from '../../app/settings';
@@ -307,6 +308,7 @@ function menuChecks(state: AppState, commands: Commands): MenuChecks {
       return tab !== null && commands.isVerticalAlignActive(tab, align);
     },
     driveAvailable: () => commands.driveAvailable(),
+    aiAvailable: () => aiAssistantAvailable(),
     protectedDoc: () => state.activeTab?.readOnly ?? false,
     headerFilter: () => commands.hasFilter(state.activeTab),
     sheetLocked: () => {

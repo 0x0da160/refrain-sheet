@@ -48,6 +48,9 @@ really is internal, rather than inventing an entry to satisfy it.
   text while the find panel is open, so its matches are marked and selected
   where you can see them, and goes back to the Formatted view when the panel
   closes.
+- **Data > Run SQL Query…** runs on SQLite 3.54.0 (from sql.js 1.15.1; it was
+  SQLite 3.49.1), and the icons come from lucide 1.61.0. Both are still built
+  into the file, so nothing is fetched at runtime.
 
 ### Fixed
 

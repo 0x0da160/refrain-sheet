@@ -80,7 +80,7 @@
     },
     "npm:sql.js@1": {
       "eol": null,
-      "support": "Runtime dependency; infrequent releases. 1.14.2 embeds SQLite 3.49.1 (2025-02), so SQLite fixes reach the app only through sql.js releases.",
+      "support": "Runtime dependency; infrequent releases. 1.15.1 embeds SQLite 3.54.0 (2026-10), so SQLite fixes reach the app only through sql.js releases.",
       "plan": {
         "action": "Check at each quarterly review whether sql.js has shipped a newer SQLite; if SQLite advisories affect in-memory use and sql.js lags, open an Issue on building the SQLite WASM ourselves.",
         "due": "2026-12-31"

@@ -15,6 +15,8 @@ import {
   miBToBytes,
   getSuppressHistoryCapWarning,
   setSuppressHistoryCapWarning,
+  getAutoGrowCells,
+  setAutoGrowCells,
 } from '../../src/app/settings';
 
 const MIB = 1024 * 1024;
@@ -134,6 +136,19 @@ describe('settings: suppress history cap warning', () => {
     expect(getSuppressHistoryCapWarning()).toBe(true);
     setSuppressHistoryCapWarning(false);
     expect(getSuppressHistoryCapWarning()).toBe(false);
+  });
+});
+
+describe('settings: cell height while typing', () => {
+  it('defaults to on, so a typed line break grows its row', () => {
+    expect(getAutoGrowCells()).toBe(true);
+  });
+
+  it('persists the choice locally and reads it back', () => {
+    setAutoGrowCells(false);
+    expect(getAutoGrowCells()).toBe(false);
+    setAutoGrowCells(true);
+    expect(getAutoGrowCells()).toBe(true);
   });
 });
 

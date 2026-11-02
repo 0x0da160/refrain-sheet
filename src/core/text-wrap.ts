@@ -181,6 +181,20 @@ export function wrapVisualLines(
 }
 
 /**
+ * Visual lines `value` takes from its own line breaks alone, capped at
+ * `maxLines`: long text never adds lines. This is the line count of a cell
+ * whose text does not wrap (Wrap Long Cell Text off) while it is being edited.
+ */
+export function countExplicitLines(value: string, maxLines: number): number {
+  if (maxLines <= 1) {
+    return 1;
+  }
+  // `split` with a limit stops early, so a huge value costs only `maxLines`
+  // pieces of work.
+  return Math.max(1, value.split(/\r\n|\r|\n/, maxLines).length);
+}
+
+/**
  * Pixel height for a row occupying `lines` visual lines. A single line keeps
  * the exact single-line row height (`base`) so unwrapped rows are pixel-for-
  * pixel identical to a uniform grid; multi-line rows are the vertical chrome

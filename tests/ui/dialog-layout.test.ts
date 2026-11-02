@@ -70,6 +70,7 @@ describe('dialog layout', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: false,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });

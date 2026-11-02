@@ -44,6 +44,8 @@ export interface RichCellEditorHost {
   navigationKey(event: KeyboardEvent): void;
   /** Focus left the editor and its toolbar for somewhere else: commit. */
   focusLeft(): void;
+  /** The formatted field's text changed (it is already written back to `input`). */
+  textChanged(): void;
 }
 
 /**
@@ -286,6 +288,7 @@ export class RichCellEditor {
       return;
     }
     this.readField();
+    this.host.textChanged();
     // The browser may add a line break element of its own; show the text
     // the way it will be stored instead.
     if (this.field?.querySelector('br, div, p')) {
@@ -329,6 +332,21 @@ export class RichCellEditor {
     this.text = text;
     this.formats = formats.some((format) => Object.keys(format).length > 0) ? formats : null;
     this.host.input.value = text;
+  }
+
+  /**
+   * Keep the formatted field over the cell at the plain field's current box and
+   * line box: the cell may have grown while its text was typed.
+   */
+  place(): void {
+    const field = this.field;
+    if (!field) {
+      return;
+    }
+    for (const key of ['left', 'top', 'width', 'height'] as const) {
+      field.style[key] = this.host.input.style[key];
+    }
+    field.classList.toggle('grown', this.host.input.classList.contains('grown'));
   }
 
   /** Rebuild the formatted field from the text and formats. */

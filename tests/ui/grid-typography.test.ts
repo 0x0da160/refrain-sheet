@@ -76,15 +76,17 @@ describe('grid typography model (stylesheet)', () => {
     expect(ruleBody('* ')).toMatch(/box-sizing:\s*border-box/);
   });
 
-  it('only rows measured as wrapped switch to the multi-line centering box', () => {
+  it('only rows measured as wrapped switch to the multi-line top-aligned box', () => {
     // Conditional wrapping: the multi-line box is keyed to `.vgrid-row.wrapped`
     // data cells (rows the grid measured as needing >1 visual line), never to a
-    // global wrap-mode class that would grow every row. It stays vertically
-    // centered (flex) and uses the wrap line box, in sync with WRAP_LINE_HEIGHT.
+    // global wrap-mode class that would grow every row. It is flex and starts at
+    // the top, so the first line stays visible when a capped row is shorter than
+    // its text; it uses the wrap line box, in sync with WRAP_LINE_HEIGHT.
     const body = ruleBody('.vgrid-row.wrapped .vcell[data-col]');
     expect(body).toMatch(/white-space:\s*pre-wrap/);
     expect(body).toMatch(/overflow-wrap:\s*break-word/);
-    expect(body).toMatch(/align-items:\s*center/);
+    expect(body).toMatch(/align-items:\s*flex-start/);
+    expect(body).not.toMatch(/align-items:\s*center/);
     expect(body).toMatch(/line-height:\s*var\(--grid-wrap-line\)/);
     expect(css).toContain(`--grid-wrap-line: ${WRAP_LINE_HEIGHT}px`);
   });

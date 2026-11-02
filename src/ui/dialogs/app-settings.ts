@@ -71,6 +71,10 @@ export class AppSettingsDialogs {
         const petsCheck = el('input', { attrs: { type: 'checkbox', id: petsId } }) as HTMLInputElement;
         petsCheck.checked = current.showPets;
 
+        const growId = 'settings-auto-grow';
+        const growCheck = el('input', { attrs: { type: 'checkbox', id: growId } }) as HTMLInputElement;
+        growCheck.checked = current.autoGrowCells;
+
         // "Not specified" names what then applies: for this browser, the
         // default (zoom and wrap: the value last used); for the file, this
         // browser's choice as currently picked, so it follows edits above.
@@ -101,6 +105,8 @@ export class AppSettingsDialogs {
           ]),
           formCheck(toolbarCheck, t('dialog.settings.showToolbar')),
           formCheck(petsCheck, t('dialog.settings.showPets')),
+          formCheck(growCheck, t('dialog.settings.autoGrowCells')),
+          helpDetails(t('dialog.settings.autoGrowNote')),
         ]);
         const display = formSection(t('dialog.settings.display'), [
           el('p', { className: 'dialog-note', text: t('dialog.settings.displayOrder') }),
@@ -131,6 +137,7 @@ export class AppSettingsDialogs {
             shiftPaste: pasteSelect.value === 'formats' ? 'formats' : 'values',
             showToolbar: toolbarCheck.checked,
             showPets: petsCheck.checked,
+            autoGrowCells: growCheck.checked,
             browserDisplay: browserFields.read(),
             fileDisplay: fileFields ? fileFields.read() : null,
           });

@@ -46,6 +46,21 @@ really is internal, rather than inventing an entry to satisfy it.
   and the name was never asked. A browser without that dialog (Firefox, Safari)
   still downloads the file.
 
+### Added
+
+- A cell's row now grows while you type in it: a line break (Alt+Enter), or a
+  pasted multi-line value, makes the row taller to fit the lines, and deleting
+  lines makes it shorter again. The row stops growing at 12 lines (224 px at
+  100% zoom), and Escape restores it. The text starts at the top of the cell,
+  so its first line stays visible. Turn it off in Settings… with "Grow the row
+  while typing a line break or pasted lines" (on by default).
+
+### Changed
+
+- Wrapped rows (View > Wrap Long Cell Text, and the rows that grow while you
+  type) now start their text at the top of the cell, not in the middle, so the
+  first line stays visible when a row is capped shorter than its text.
+
 ## [0.9.30] - 2026-11-02
 
 ### Changed

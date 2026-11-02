@@ -165,6 +165,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
@@ -181,9 +182,31 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
+  });
+
+  it('saves the cell height while typing choice from the Settings dialog', async () => {
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      showToolbar: true,
+      showPets: true,
+      autoGrowCells: true,
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
+      fileDisplay: null,
+    });
+    const dialog = document.querySelector('dialog')!;
+    const box = dialog.querySelector<HTMLInputElement>('#settings-auto-grow')!;
+    expect(box.checked).toBe(true);
+    box.checked = false;
+
+    enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
+
+    const result = await promise;
+    expect(result?.autoGrowCells).toBe(false);
   });
 
   it('saves the Ctrl+Shift+V choice from the Settings dialog', async () => {
@@ -192,6 +215,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
@@ -205,6 +229,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'formats',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
@@ -216,6 +241,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: true, font: 'ms', look: {} },
       fileDisplay: { zoom: 133, wrap: undefined, font: undefined, look: {} },
     });
@@ -243,6 +269,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: { bandLevel: 3 } },
       fileDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
     });
@@ -276,6 +303,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: {
         zoom: undefined,
         wrap: undefined,
@@ -309,6 +337,7 @@ describe('Enter submits single-line dialog inputs', () => {
       shiftPaste: 'values',
       showToolbar: true,
       showPets: true,
+      autoGrowCells: true,
       browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });

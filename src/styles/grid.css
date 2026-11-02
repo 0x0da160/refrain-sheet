@@ -222,15 +222,18 @@
 
 /* Conditional wrapping: only rows the grid measured as needing more than one
    visual line get the `wrapped` class (their pixel height comes from the
-   row-height index). Their data cells switch to a multi-line box that stays
-   vertically centered via flex; single-line cells in the same (taller) row are
-   centered too. Rows that fit on one line keep the normal single-line height
-   and the `.vcell` centering box above — so enabling Wrap Long Rows never
-   grows a row whose content already fits. */
+   row-height index). Their data cells switch to a multi-line box that starts
+   at the top (flex, `flex-start`): a row can be capped shorter than its text,
+   and the first line must stay visible, so the overflow is clipped at the
+   bottom. Every cell in such a row starts at the top, single-line ones too; a
+   cell's own vertical alignment (paintAlign in cell-paint.ts) still wins.
+   Rows that fit on one line keep the normal single-line height and the
+   `.vcell` centering box above — so enabling Wrap Long Rows never grows a row
+   whose content already fits. */
 .vgrid-stickyrow.wrapped .vcell[data-col],
 .vgrid-row.wrapped .vcell[data-col] {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: normal;
@@ -1039,6 +1042,14 @@
   /* The same line box as a single-line cell, so the first line (and the IME
      composition on it) sits at the rendered text's exact vertical position. */
   line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
+}
+
+/* A cell whose row is growing with its text (`grown`, set by the edit session):
+   the line box of a wrapped cell, so the typed lines sit exactly where the
+   committed wrapped lines will, one wrap line apart. */
+.vgrid-canvas .grid-sink.cell-editor.grown,
+.vgrid-canvas .rich-cell-editor.grown {
+  line-height: var(--grid-wrap-line);
 }
 
 /* Rich text (parts of a cell's text with their own format) while editing:

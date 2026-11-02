@@ -86,6 +86,10 @@ export class WrapLayout {
     if (sized !== null) {
       return sized; // a height the person set wins over the wrapped one
     }
+    const growing = this.editGrowthHeight(tab, row);
+    if (growing !== null) {
+      return growing; // the row being typed into is as tall as its text now is
+    }
     const doc = tab.doc;
     const fields = doc.fieldCount(row);
     let maxLines = 1;
@@ -105,6 +109,41 @@ export class WrapLayout {
       this.core.metrics.wrapLineH(tab),
       this.core.metrics.wrapPad(tab),
     );
+  }
+
+  /**
+   * The pixel height of the row being edited while its text takes several
+   * visual lines (see `EditSession.updateEditGrowth`), or null when this row
+   * is not growing. It is taken whether or not wrapping is on: the growth is
+   * the text being typed, not a measurement of the committed value.
+   */
+  editGrowthHeight(tab: Tab, row: number): number | null {
+    const grow = this.core.editGrowth;
+    if (grow === null || grow.doc !== tab.doc || grow.row !== row) {
+      return null;
+    }
+    return rowHeightForLines(
+      grow.lines,
+      this.core.metrics.rowH(tab),
+      this.core.metrics.wrapLineH(tab),
+      this.core.metrics.wrapPad(tab),
+    );
+  }
+
+  /**
+   * Put the growing row's height into the index. The no-measurement path clears
+   * the index before `render` lays out, so the growth is seeded after that, the
+   * same way the rows a person sized are. A height the person set still wins.
+   */
+  seedEditGrowth(tab: Tab, idx: RowHeightIndex): void {
+    const grow = this.core.editGrowth;
+    if (grow === null || grow.doc !== tab.doc || this.core.metrics.sizedRowH(tab, grow.row) !== null) {
+      return;
+    }
+    const px = this.editGrowthHeight(tab, grow.row);
+    if (px !== null) {
+      idx.set(this.core.state.sortSlot(tab, grow.row), px);
+    }
   }
 
   /** Measure every row of the current window into the index (bumps the version on any change). */

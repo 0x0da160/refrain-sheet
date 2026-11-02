@@ -54,6 +54,29 @@ the extra lines (see
 [theming-and-visual-system.md](theming-and-visual-system.md) for the
 row-height/wrapping model).
 
+### The row grows while you type
+
+The row of the cell being edited follows its text **as you type**, so a line
+break shows at once instead of after the edit is committed. A typed
+Alt+Enter, a pasted multi-line value, and (with Wrap Long Cell Text on) text
+that wraps at the column width all grow the row, up to the same 12-line cap a
+wrapped row has (224 px at 100% zoom). Deleting lines shrinks it again, and
+Escape restores the row, since nothing is committed until the edit is.
+
+- The text sits at the **top** of the cell, so the first line stays visible
+  when the row is taller than its text; the editor and the committed cell use
+  the same line spacing, so the text does not jump when the edit is committed.
+- With Wrap Long Cell Text **off**, only the text's own line breaks count. A
+  long line is shown clipped, as a non-wrapping cell shows it. Committing a
+  value that contains a line break still turns wrapping on, as before.
+- A cell whose row the person sized (Format > Row Height…) keeps that height.
+- The formula bar is not part of this: it is a separate, fixed field.
+- The setting **Settings… > Grow the row while typing a line break or pasted
+  lines** turns it off (on by default). It is stored in this browser only,
+  and is read when an edit opens.
+- While an IME composition is active, the row waits for the composition to
+  end, so a composing character never changes the layout under the IME.
+
 ## Reference toggle (F4)
 
 While a formula is being typed in the cell editor or the formula bar,

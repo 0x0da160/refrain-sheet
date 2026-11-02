@@ -3,10 +3,12 @@
 import { workbookOf } from '../../../core/editor-document';
 import { setLocale, t } from '../../i18n';
 import {
+  getAutoGrowCells,
   getBrowserWrap,
   getBrowserZoom,
   getMaxFileSize,
   getShiftPasteMode,
+  setAutoGrowCells,
   setBrowserWrap,
   setBrowserZoom,
   setMaxFileSize,
@@ -28,6 +30,7 @@ async function settings(ctx: CommandContext): Promise<void> {
     shiftPaste: getShiftPasteMode(),
     showToolbar: getToolbarShown(),
     showPets: getPetsShown(),
+    autoGrowCells: getAutoGrowCells(),
     browserDisplay: {
       zoom: getBrowserZoom(),
       wrap: getBrowserWrap(),
@@ -50,6 +53,7 @@ async function settings(ctx: CommandContext): Promise<void> {
   setShiftPasteMode(chosen.shiftPaste);
   setToolbarShown(chosen.showToolbar);
   setPetsShown(chosen.showPets);
+  setAutoGrowCells(chosen.autoGrowCells);
   setBrowserZoom(chosen.browserDisplay.zoom);
   setBrowserWrap(chosen.browserDisplay.wrap);
   setBrowserSheetFont(chosen.browserDisplay.font);

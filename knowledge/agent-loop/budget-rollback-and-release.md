@@ -34,9 +34,9 @@ generated:
   to judge duplication and scope. The failure mode is asymmetric — the
   run sets labels early and comments last, so exhausting the cap leaves
   the Issue labelled `agent:triage` with no comment, which reads as "the
-  agent ignored me". The cap was raised and
-  `.claude/skills/triage-issue/SKILL.md` now carries an explicit reading
-  budget that tells triage to prefer a shallow, honest comment over an
+  agent ignored me". The cap was raised and the `triage-issue` skill (removed
+  with the loop; see [the status note](index.md)) carried an explicit reading
+  budget that told triage to prefer a shallow, honest comment over an
   unfinished deep one. A failed triage can be re-run from the Actions tab
   (**Run workflow** → Issue number).
 - **Tool allowlists:** every agent invocation also passes

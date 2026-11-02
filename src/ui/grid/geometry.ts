@@ -14,7 +14,13 @@ export const ROW_HEIGHT = 24;
 export const WRAP_LINE_HEIGHT = 18;
 /** Vertical chrome (top+bottom padding) added around a wrapped cell's lines. */
 export const WRAP_VERTICAL_PAD = 8;
-/** Hard cap on the visual lines a single row may grow to when wrapping. */
+/**
+ * Hard cap on the visual lines a single row may grow to: when wrapping, and
+ * while the cell being edited grows with its typed or pasted lines (the same
+ * cap, so a row never grows past what a wrapped row may). 12 lines is 224 px at
+ * 100% zoom and 448 px at 200%. Changing it changes both, and the screenshot
+ * export's copy in `src/app/screenshot-export.ts`.
+ */
 export const MAX_WRAP_LINES = 12;
 /** Row count above which the off-screen wrap-measure pass shows a busy label. */
 export const WRAP_PASS_BUSY_ROWS = 4000;

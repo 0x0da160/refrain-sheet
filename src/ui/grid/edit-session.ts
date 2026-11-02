@@ -12,12 +12,14 @@
 import { isWorkbook } from '../../core/editor-document';
 import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
-import { getEditHints } from '../../app/settings';
+import { getAutoGrowCells, getEditHints } from '../../app/settings';
 import { dateStampKeyOf, localDateStamp } from '../../app/shortcuts';
 import { runsForText } from '../../core/workbook/rich-text';
+import { countExplicitLines, countVisualLines } from '../../core/text-wrap';
 import { extractFormulaRefs } from '../../core/formula';
 import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from '../formula-autocomplete';
 import { isComposingKey } from '../ime';
+import { MAX_WRAP_LINES } from './geometry';
 import { createSink, richFormatKeyOf } from './dom-support';
 import { ValidationPicker } from '../validation-picker';
 import { RichCellEditor } from '../rich-cell-editor';
@@ -46,6 +48,7 @@ export class EditSession {
         // Composition committed text; refresh completions/highlights from it.
         this.core.editor.autocomplete.update();
         this.core.editor.updateRefs();
+        this.updateEditGrowth();
       } else {
         // A composition that never had a target cell leaves no stray text.
         this.core.sink.value = '';
@@ -230,6 +233,7 @@ export class EditSession {
               cellStyle: () => (isWorkbook(tab.doc) ? tab.doc.getStyle(row, col) : null),
               navigationKey: (event) => this.editorNavigationKey(event),
               focusLeft: () => this.commitEditor(),
+              textChanged: () => this.updateEditGrowth(),
             },
             initial === null ? runsForText(doc.getStyle(row, col)?.runs, input.value) : null,
             initial !== null,
@@ -246,6 +250,7 @@ export class EditSession {
       picker,
       pickerValues,
       rich,
+      grow: getAutoGrowCells(),
     };
     input.focus({ preventScroll: true });
     if (initial === null) {
@@ -266,6 +271,8 @@ export class EditSession {
     this.refreshValidationPicker(this.core.editor);
     // A cell that already has formatted parts is edited showing them.
     rich?.begin(input.selectionStart ?? input.value.length);
+    // A value that already spans several lines opens at its own height.
+    this.updateEditGrowth();
   }
 
   /**
@@ -376,9 +383,64 @@ export class EditSession {
     if (!this.core.composing) {
       editor.autocomplete.update();
       this.refreshValidationPicker(editor);
+      this.updateEditGrowth();
     }
     editor.updateRefs();
     editor.rich?.plainChanged();
+  }
+
+  /**
+   * Live auto-height. The row being edited grows to the lines its text takes:
+   * a typed or pasted line break, or wrapped text while wrapping is on. The
+   * count stops at `MAX_WRAP_LINES`, so a row never grows past the cap a
+   * wrapped row has, and it shrinks back as lines are removed. Only the row's
+   * height changes while editing; the document and its history are written on
+   * commit as usual. Nothing is laid out during an IME composition: the next
+   * `compositionend` catches up.
+   */
+  private updateEditGrowth(): void {
+    const editor = this.core.editor;
+    const tab = this.core.state.activeTab;
+    if (!editor || !tab || this.core.composing) {
+      return;
+    }
+    const lines = editor.grow ? this.liveEditLines(tab, editor.col, editor.input.value) : 1;
+    const current = this.core.editGrowth;
+    if (lines <= 1 && current === null) {
+      return; // single-line, as it has always been
+    }
+    if (
+      current !== null &&
+      current.doc === tab.doc &&
+      current.row === editor.row &&
+      current.lines === lines
+    ) {
+      return; // the same height as on the last keystroke
+    }
+    this.core.editGrowth = lines > 1 ? { doc: tab.doc, row: editor.row, lines } : null;
+    editor.input.classList.toggle('grown', lines > 1);
+    this.core.metrics.heightsVersion += 1;
+    this.core.renderer.render(tab);
+    if (lines > 1) {
+      // Keep the growing cell's bottom edge on screen as it gets taller.
+      this.core.navigation.scrollCellIntoView(tab, editor.row, editor.col, false);
+    }
+  }
+
+  /**
+   * Visual lines the editor's text takes, capped at `MAX_WRAP_LINES`. With
+   * wrapping on, the text wraps at the cell's width exactly as the committed
+   * value would. A formula cell counts its source, which is what the editor
+   * shows. With wrapping off, only the text's own line breaks count: a long
+   * line is shown clipped, as a non-wrapping cell shows it.
+   */
+  private liveEditLines(tab: Tab, col: number, value: string): number {
+    const measurer = this.core.state.wrapCells ? this.core.wrap.buildWrapMeasurer() : null;
+    if (measurer === null) {
+      return countExplicitLines(value, MAX_WRAP_LINES);
+    }
+    const contentWidth = this.core.metrics.colWidth(tab, col) - measurer.chrome;
+    return countVisualLines(value, measurer.measure, contentWidth, MAX_WRAP_LINES);
   }
 
   /** Position the sink exactly over a rendered cell (canvas coordinates). */
@@ -390,6 +452,7 @@ export class EditSession {
     s.top = `${rect.top - origin.top}px`;
     s.width = `${rect.width}px`;
     s.height = `${rect.height}px`;
+    this.core.editor?.rich?.place();
   }
 
   /**
@@ -446,6 +509,7 @@ export class EditSession {
       this.core.keyboard.forgetScroll();
     }
     this.core.sink.classList.remove('cell-editor');
+    this.core.sink.classList.remove('grown');
     this.core.sink.value = '';
     this.core.sink.setAttribute('aria-label', t('grid.label'));
     this.core.sink.removeAttribute('title');
@@ -464,6 +528,24 @@ export class EditSession {
     }
     // The inline editor's formula is no longer being edited.
     this.core.cells.setFormulaRefs([]);
+    this.clearEditGrowth();
+  }
+
+  /**
+   * The editor closed (commit or cancel): drop the live growth, so the row
+   * shrinks back to the height its committed value gives. The grid is laid out
+   * here because nothing else is guaranteed to, e.g. a cancelled edit.
+   */
+  private clearEditGrowth(): void {
+    if (this.core.editGrowth === null) {
+      return;
+    }
+    this.core.editGrowth = null;
+    this.core.metrics.heightsVersion += 1;
+    const tab = this.core.state.activeTab;
+    if (tab) {
+      this.core.renderer.render(tab);
+    }
   }
 
   /** Commit the inline editor if open. */

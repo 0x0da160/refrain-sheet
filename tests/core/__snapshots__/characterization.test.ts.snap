@@ -422,6 +422,7 @@ exports[`core export surface > keeps every core module exporting the same names 
     "selectionSpansLines",
   ],
   "text-wrap": [
+    "countExplicitLines",
     "countVisualLines",
     "rowHeightForLines",
     "wrapVisualLines",

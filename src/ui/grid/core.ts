@@ -142,6 +142,12 @@ export class GridCore {
   cachedMeasurer: { sig: string; measure: WrapMeasure; chrome: number } | null = null;
   /** The top-left corner Select-All control (rebuilt each full render). */
   cornerButton: HTMLElement | null = null;
+  /**
+   * The row being edited while its text takes more than one visual line: its
+   * document, its document row, and that line count. Null when nothing grows.
+   * Only the row's height reads it (see `WrapLayout.editGrowthHeight`).
+   */
+  editGrowth: { doc: object; row: number; lines: number } | null = null;
   editor: {
     row: number;
     col: number;
@@ -156,6 +162,8 @@ export class GridCore {
     pickerValues: readonly string[] | null;
     /** Formatting parts of the text (RSF grid worksheets only) — see `RichCellEditor`. */
     rich: RichCellEditor | null;
+    /** Whether typed line breaks grow the row (the setting, read when the editor opened). */
+    grow: boolean;
   } | null = null;
   /**
    * The grid's real keyboard target: a permanently mounted, visually hidden

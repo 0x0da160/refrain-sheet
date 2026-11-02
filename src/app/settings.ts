@@ -240,6 +240,28 @@ export function setEditHints(enabled: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
+// Cell height while typing
+// ---------------------------------------------------------------------------
+
+const AUTO_GROW_CELLS_KEY = 'refrain-csv-html.autoGrowCells';
+
+/**
+ * Whether a cell's row grows while the cell is being edited: a typed or pasted
+ * line break makes the row taller, up to the grid's fixed line cap, and it
+ * shrinks back as lines are removed. **Default: enabled.** Only the row's
+ * height changes while editing; the document is written on commit as usual.
+ * Stored only locally; never written into any document.
+ */
+export function getAutoGrowCells(): boolean {
+  return safeStorageGet(AUTO_GROW_CELLS_KEY) !== '0';
+}
+
+/** Persist the grow-while-typing preference locally. */
+export function setAutoGrowCells(enabled: boolean): void {
+  safeStorageSet(AUTO_GROW_CELLS_KEY, enabled ? '1' : '0');
+}
+
+// ---------------------------------------------------------------------------
 // Sheet tabs down the left side
 // ---------------------------------------------------------------------------
 
@@ -394,6 +416,8 @@ export interface LocalSettings {
   showToolbar: boolean;
   /** Whether the pixel pets play at the top right of the window. */
   showPets: boolean;
+  /** Whether a cell's row grows while its text is being typed (see {@link getAutoGrowCells}). */
+  autoGrowCells: boolean;
   /** This browser's default display settings (the file's outrank them). */
   browserDisplay: DisplayLevelSettings;
   /** The active RSF file's display settings, or null when the active tab is not an RSF file. */

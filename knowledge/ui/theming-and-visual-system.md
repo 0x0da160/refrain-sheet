@@ -241,9 +241,11 @@ Row/column headers, the pinned first row, and formula-result cells share
 the same model; the inline cell editor is a native input (vertically
 centered by the browser) laid over the same box; selection outlines, fill
 handles, and formula-reference highlights attach to the unchanged cell
-box. Wrapped rows (below) opt into a multi-line box that is **still
-vertically centered** (via flex), so centering holds whatever a row's
-height becomes. This adjustment is pure CSS — no CSV/RSF content,
+box. Wrapped rows (below) opt into a multi-line box that is **top-aligned**
+(flex, `flex-start`): a row can be capped shorter than its text (see the
+12-line cap below), and the first line must stay visible, so the overflow is
+clipped at the bottom. Every cell in such a row starts at the top; a cell's
+explicit vertical alignment still wins. This adjustment is pure CSS — no CSV/RSF content,
 formulas, stored values, or row structure change because of it. See
 [../architecture/invariants.md](../architecture/invariants.md)'s "One zoom
 sizing model" bullet for how this interacts with per-tab spreadsheet zoom.
@@ -258,6 +260,17 @@ measured under the active sheet font and the live column width (a formula
 cell is measured from its _calculated result_, never its source), honoring
 explicit newlines (`\n`), normal word-break opportunities, and long
 unbroken text that must break to avoid overflow.
+
+The same rule grows the row of a cell **while it is being typed in**: the
+row follows the lines the editor's text takes, up to the same cap, and the
+cell's text is then top-aligned as described above. Its details, and the
+setting that turns it off, are in [editing-and-ime.md](editing-and-ime.md).
+
+**The cap.** A row never grows past `MAX_WRAP_LINES` (`src/ui/grid/geometry.ts`):
+12 visual lines, which is 224 px at 100% zoom and 448 px at 200%, the largest
+zoom the grid offers. The wrap and the live
+growth share this one cap; a row the person sized (Format > Row Height…)
+keeps the height they set and never grows by itself.
 
 Wrapping also turns **on automatically** the moment a cell edit commits a
 value containing a line break — from Alt+Enter in the inline editor or

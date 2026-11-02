@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { countVisualLines, rowHeightForLines, wrapVisualLines } from '../../src/core/text-wrap';
+import {
+  countExplicitLines,
+  countVisualLines,
+  rowHeightForLines,
+  wrapVisualLines,
+} from '../../src/core/text-wrap';
 
 /** Fixed-width measurer: every character is 10px wide (deterministic). */
 const measure = (text: string): number => text.length * 10;
@@ -91,5 +96,23 @@ describe('rowHeightForLines', () => {
   it('adds a line box and the vertical chrome for each extra line', () => {
     expect(rowHeightForLines(2, 26, 18, 8)).toBe(Math.ceil(8 + 2 * 18));
     expect(rowHeightForLines(3, 26, 18, 8)).toBe(Math.ceil(8 + 3 * 18));
+  });
+});
+
+describe('countExplicitLines', () => {
+  it('counts one line per line break and never adds lines for long text', () => {
+    expect(countExplicitLines('one', 12)).toBe(1);
+    expect(countExplicitLines('', 12)).toBe(1);
+    expect(countExplicitLines('one\ntwo', 12)).toBe(2);
+    expect(countExplicitLines('a\r\nb\rc\nd', 12)).toBe(4);
+    expect(countExplicitLines('x'.repeat(500), 12)).toBe(1);
+  });
+
+  it('caps the count, so a huge value costs no more than the cap', () => {
+    expect(countExplicitLines('\n'.repeat(500), 12)).toBe(12);
+  });
+
+  it('is one line when no growth is allowed', () => {
+    expect(countExplicitLines('a\nb\nc', 1)).toBe(1);
   });
 });

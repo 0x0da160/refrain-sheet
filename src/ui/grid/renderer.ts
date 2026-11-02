@@ -396,6 +396,8 @@ export class GridRenderer {
       this.core.metrics.seedFixedHeights(tab, idx);
       this.core.wrapPassSig = null;
     }
+    // The row being typed into keeps the height its text takes, wrapping or not.
+    this.core.wrap.seedEditGrowth(tab, idx);
     let win = this.computeWindow(tab);
     if (measurer) {
       this.core.wrap.measureWindowRows(tab, win, measurer, idx);

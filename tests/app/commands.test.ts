@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { t, type LocaleId } from '../../src/app/i18n';
@@ -1115,6 +1115,139 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     expect(tab.handle).toBeNull();
     expect(tab.textFile).toBeNull();
     expect(ui.notify).toHaveBeenCalledWith(t('notify.textFileAsRsf', { name: 'notes.md' }), 'warn');
+  });
+
+  describe('saving a new Markdown, JSON, YAML, or text file', () => {
+    interface SaveDialogOptions {
+      suggestedName: string;
+      types: Array<{ description: string }>;
+    }
+
+    /** Stands in for the browser's Save dialog; the "user" names the file `chosen`. */
+    function withSaveDialog(chosen: string) {
+      const disk = diskHandle(chosen, new Uint8Array(0));
+      const dialog = vi.fn(async (_options: SaveDialogOptions) => disk.handle);
+      vi.stubGlobal('showSaveFilePicker', dialog);
+      return { disk, dialog };
+    }
+
+    let downloads: MockInstance;
+    beforeEach(() => {
+      // A download is an anchor click on an object URL; neither may happen.
+      URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;
+      URL.revokeObjectURL = vi.fn();
+      downloads = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {});
+    });
+    afterEach(() => {
+      downloads.mockRestore();
+      vi.unstubAllGlobals();
+    });
+
+    it.each([
+      ['file.newMarkdown', 'untitled.md', 'Markdown', 'notes.md'],
+      ['file.newJson', 'untitled.json', 'JSON', 'data.json'],
+      ['file.newYaml', 'untitled.yaml', 'YAML', 'ci.yaml'],
+      ['file.newText', 'untitled.txt', 'Text', 'memo.txt'],
+    ] as const)(
+      '%s: the first save asks for the file name, and later saves overwrite that file',
+      async (command, suggested, description, chosen) => {
+        const { disk, dialog } = withSaveDialog(chosen);
+        const ui = stubUi();
+        const { state, commands } = setup(ui);
+        await commands.run(command);
+        const tab = state.activeTab!;
+        expect(tab.handle).toBeNull();
+        state.editCell(tab, 0, 0, 'こんにちは\n');
+
+        // The dialog has to open inside the user's click, so it is open before
+        // the save has awaited anything, and nothing is written until it is answered.
+        const first = commands.save(tab, KEEP);
+        expect(dialog).toHaveBeenCalledTimes(1);
+        expect(dialog.mock.calls[0][0].suggestedName).toBe(suggested);
+        expect(dialog.mock.calls[0][0].types[0].description).toBe(description);
+        expect(disk.writes()).toBe(0);
+        expect(await first).toBe(true);
+
+        expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('こんにちは\n');
+        expect(tab.handle).toBe(disk.handle);
+        expect(tab.name).toBe(chosen);
+        expect(tab.fileSize).toBe(disk.bytes().length);
+        expect(tab.doc.isDirty).toBe(false);
+        expect(ui.notify).toHaveBeenCalledWith(t('notify.savedOverwrite'), 'info');
+
+        // The second save goes into the same file: no dialog, no download.
+        state.editCell(tab, 0, 0, 'second\n');
+        expect(await commands.save(tab, KEEP)).toBe(true);
+        expect(dialog).toHaveBeenCalledTimes(1);
+        expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('second\n');
+        expect(disk.writes()).toBe(2);
+        expect(ui.confirmChangedOnDisk).not.toHaveBeenCalled();
+        expect(downloads).not.toHaveBeenCalled();
+      },
+    );
+
+    it('cancelling the Save dialog saves nothing and leaves the new file unsaved', async () => {
+      const dialog = vi.fn(async () => {
+        throw new DOMException('The user aborted a request.', 'AbortError');
+      });
+      vi.stubGlobal('showSaveFilePicker', dialog);
+      const ui = stubUi();
+      const { state, commands } = setup(ui);
+      await commands.run('file.newMarkdown');
+      const tab = state.activeTab!;
+      state.editCell(tab, 0, 0, '# Draft\n');
+      expect(await commands.save(tab, KEEP)).toBe(false);
+      expect(dialog).toHaveBeenCalledTimes(1);
+      expect(tab.handle).toBeNull();
+      expect(tab.name).toBe('untitled.md');
+      expect(tab.doc.isDirty).toBe(true);
+      expect(downloads).not.toHaveBeenCalled();
+      expect(ui.notify).not.toHaveBeenCalled();
+      // The next save asks again.
+      expect(await commands.save(tab, KEEP)).toBe(false);
+      expect(dialog).toHaveBeenCalledTimes(2);
+    });
+
+    it('closing a changed new file and choosing Save asks for its name before it closes', async () => {
+      const { disk, dialog } = withSaveDialog('notes.md');
+      const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'save' as const) });
+      const { state, commands } = setup(ui);
+      await commands.run('file.newMarkdown');
+      const tab = state.activeTab!;
+      state.editCell(tab, 0, 0, 'draft\n');
+      await commands.closeTab(tab);
+      expect(dialog).toHaveBeenCalledTimes(1);
+      expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('draft\n');
+      expect(state.tabs).toHaveLength(0);
+    });
+
+    it('downloads under the tab name when the browser has no Save dialog', async () => {
+      vi.stubGlobal('showSaveFilePicker', undefined);
+      const ui = stubUi();
+      const { state, commands } = setup(ui);
+      await commands.run('file.newMarkdown');
+      const tab = state.activeTab!;
+      state.editCell(tab, 0, 0, '# Hi\n');
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(downloads).toHaveBeenCalledTimes(1);
+      expect(tab.handle).toBeNull();
+      expect(tab.doc.isDirty).toBe(false);
+      expect(ui.notify).toHaveBeenCalledWith(t('notify.savedDownload', { name: 'untitled.md' }), 'info');
+    });
+
+    it('a file opened with its own handle still saves into it without the Save dialog', async () => {
+      const { dialog } = withSaveDialog('other.md');
+      const { state, commands } = setup();
+      const disk = diskHandle('notes.md', utf8('# hi\n'));
+      await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+      const tab = state.activeTab!;
+      state.setReadOnly(tab, false);
+      state.editCell(tab, 0, 0, '# hello\n');
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(dialog).not.toHaveBeenCalled();
+      expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('# hello\n');
+      expect(tab.name).toBe('notes.md');
+    });
   });
 
   it('imports a .json array of objects as a table from File > Import JSON as Table', async () => {

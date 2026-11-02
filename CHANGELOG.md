@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.30] - 2026-11-02
+
 ### Changed
 
 - A Markdown sheet now opens in its Formatted view (見たまま), showing the

@@ -40,6 +40,10 @@ the other.
   (unchanged text is written back byte for byte). Once the workbook no
   longer fits the file (a second worksheet, or a different kind), Save
   writes a new `.rsf` file instead and leaves the original untouched.
+  **File > New Text File** (and the start screen) opens the same editor with
+  no file behind it: its first Save opens the browser's Save dialog, where the
+  file is named, and the tab keeps the file picked so later saves overwrite
+  it. A browser without the File System Access API downloads it instead.
 - **JSON as a table** (`src/core/interchange/json-import.ts`):
   **File > Import JSON as Table…** accepts a `.json`
   file containing a top-level array of flat (non-nested) objects — one

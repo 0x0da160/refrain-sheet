@@ -213,8 +213,13 @@ export class FileIoCommands {
    * Save a tab opened from a Markdown, JSON, YAML, or text file back into
    * that file, in its original encoding, BOM, and line endings. Characters a
    * legacy encoding cannot hold are confirmed first, then written as numeric
-   * character references, as a CSV save does. With no writable handle the
-   * file is downloaded under its name.
+   * character references, as a CSV save does.
+   *
+   * A tab with no file handle — above all a new Markdown, JSON, YAML, or text
+   * document, which has no file yet — opens the browser's Save dialog, where
+   * the user names the file, and keeps the file it picked: later saves
+   * overwrite it directly, as they do for a file that was opened. Only when
+   * the browser has no such dialog is the file downloaded under the tab's name.
    */
   private async saveTextFile(tab: Tab, format: TextFileFormat, text: string): Promise<boolean> {
     let out = text;
@@ -229,7 +234,14 @@ export class FileIoCommands {
       out = replaceUnrepresentableChars(text, format.encoding).text;
     }
     const bytes = encodeTextFile(out, format);
-    const target = await this.confirmDiskUnchanged(tab, tab.handle);
+    // A new document has nothing to confirm above (it is UTF-8), so nothing
+    // has been awaited yet and the Save dialog opens inside the click or key
+    // press that started the save, as the browser requires.
+    const acquired = await this.acquireSaveHandle(tab, format.kind);
+    if (!acquired.ok) {
+      return false;
+    }
+    const target = await this.confirmDiskUnchanged(tab, acquired.handle);
     if (!target.ok) {
       return false;
     }
@@ -748,10 +760,26 @@ export class FileIoCommands {
     if (!tab.name.toLowerCase().endsWith(RSF_EXTENSION)) {
       tab.name = `${tab.name}${RSF_EXTENSION}`;
     }
+    return this.acquireSaveHandle(tab, 'rsf');
+  }
+
+  /**
+   * The destination of a save: the tab's own file when it has one, otherwise
+   * a file the user picks in the browser's Save dialog, which suggests the
+   * tab's name. A `null` handle is a legitimate outcome (the File System
+   * Access API is unavailable; the caller downloads instead) — only
+   * `ok: false` means the caller must stop, silently when the dialog was
+   * cancelled. The dialog opens only while the user's click or key press is
+   * fresh, so call this before any slow `await` (see {@link requestSaveHandle}).
+   */
+  private async acquireSaveHandle(
+    tab: Tab,
+    kind: SavePickerKind,
+  ): Promise<{ ok: true; handle: FileSystemFileHandle | null } | { ok: false }> {
     if (tab.handle) {
       return { ok: true, handle: tab.handle };
     }
-    const acquired = await this.runSaveStep(tab.name, () => requestSaveHandle(tab.name, 'rsf'));
+    const acquired = await this.runSaveStep(tab.name, () => requestSaveHandle(tab.name, kind));
     return acquired.ok ? { ok: true, handle: acquired.value } : acquired;
   }
 }

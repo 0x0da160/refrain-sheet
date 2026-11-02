@@ -80,9 +80,10 @@ export class NewDocuments {
    * home screen's buttons):
    * create an empty document of that kind in a new active tab — the same
    * one-worksheet editor a `.md` / `.json` / `.yaml` file opens in. It has
-   * no file yet, so the first save asks where to save it (or downloads it)
-   * as UTF-8 with LF line endings. Like File > New CSV, an untouched new
-   * document closes without asking.
+   * no file yet, so the first save opens the Save dialog, where the file is
+   * named (a browser without one downloads it), as UTF-8 with LF line
+   * endings; the tab then keeps that file and later saves overwrite it.
+   * Like File > New CSV, an untouched new document closes without asking.
    */
   newTextDocument(kind: NewTextFileKind): Tab {
     const count = (this.newTextDocCounts[kind] ?? 0) + 1;

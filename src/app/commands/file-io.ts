@@ -107,9 +107,9 @@ export class FileIoCommands {
     if (!isCsv(tab.doc)) {
       return;
     }
-    // A tab with no file yet is named in the Save dialog wherever the browser has one.
-    const canSaveToFile = tab.handle !== null || saveFilePickerAvailable();
-    const willDownload = canSaveToFile ? null : t('save.downloadNote', { name: tab.name });
+    // Only a new CSV is named in the Save dialog; any other tab without a file downloads.
+    const namesFileInDialog = tab.neverSaved && saveFilePickerAvailable();
+    const willDownload = tab.handle || namesFileInDialog ? null : t('save.downloadNote', { name: tab.name });
     const options = await this.ui.chooseSaveOptions(tab, willDownload);
     if (!options) {
       return;
@@ -120,10 +120,9 @@ export class FileIoCommands {
   /**
    * Save a tab. CSV: a normal save (all options "keep") with no edits writes
    * the originally loaded bytes verbatim; with edits, only edited field
-   * ranges are reserialized. A new CSV (File > New CSV) has no file yet, so
-   * its first save opens the browser's Save dialog, and the file picked there
-   * is the tab's file from then on. RSF: the document is saved in the versioned
-   * .rsf JSON format (never silently into the original .csv).
+   * ranges are reserialized. A new CSV names its file in the Save dialog on its
+   * first save. RSF: the document is saved in the versioned .rsf JSON format
+   * (never silently into the original .csv).
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
@@ -176,10 +175,11 @@ export class FileIoCommands {
       ncrReports = result.ncrReplacements;
     }
 
-    // A tab with no file yet (File > New CSV) opens the Save dialog here, where
-    // the file is named. The dialog must open inside the user's click or key
-    // press, so this comes before any await that is not a click.
-    const acquired = await this.acquireSaveHandle(tab, 'csv');
+    // A new CSV (File > New CSV) opens the Save dialog here on its first save, so this
+    // stays before any await that is not the user's click.
+    const acquired = tab.neverSaved
+      ? await this.acquireSaveHandle(tab, 'csv')
+      : { ok: true as const, handle: tab.handle };
     if (!acquired.ok) {
       return false;
     }

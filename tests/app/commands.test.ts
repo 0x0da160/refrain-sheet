@@ -1349,6 +1349,20 @@ describe('saving a new CSV file', () => {
     expect(ui.notify).toHaveBeenCalledWith(t('notify.savedDownload', { name: 'untitled.csv' }), 'info');
   });
 
+  it('a CSV that was opened without a file still downloads on save, as before', async () => {
+    const { dialog } = withSaveDialog('other.csv');
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('people.csv', utf8('id,name\n1,Ann\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
+    state.editCell(tab, 1, 1, 'Bo');
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(dialog).not.toHaveBeenCalled();
+    expect(downloads).toHaveBeenCalledTimes(1);
+    expect(ui.notify).toHaveBeenCalledWith(t('notify.savedDownload', { name: 'people.csv' }), 'info');
+  });
+
   it('Save with Options names the download only when the browser has no Save dialog', async () => {
     withSaveDialog('sales.csv');
     const ui = stubUi();

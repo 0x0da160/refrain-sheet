@@ -82,6 +82,13 @@ every Claude Code session starts knowing what is overdue.
 - **Lockfile-only resolution:** agents do not run `npm install`; edit
   `package.json`, then `npm update --package-lock-only --ignore-scripts`,
   then `npm ci --ignore-scripts`.
+- **Overrides:** an `overrides` entry in `package.json` is a stopgap for a
+  published advisory in dev tooling, pinned exactly like every other
+  dependency. `minimatch` is pinned to `11.0.3`: GHSA-g3hv-75wg-m249 covers
+  every 10.x release, while eslint, `@eslint/config-array` and
+  `@typescript-eslint/typescript-estree` still declare `^10`. Remove the
+  override once those packages resolve a release at or above 11.0.1 without
+  it, and look for that at each quarterly review.
 - **Release and deploy workflows** (`release.yml`, `manual-release.yml`,
   `release-docs.yml`) are high-risk: their action and Node.js upgrades are
   planned in the register and need human approval.

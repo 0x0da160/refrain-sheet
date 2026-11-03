@@ -40,7 +40,9 @@ the other rows are what CI runs on top of that. Report nothing as passed unless 
 | Rebuild WASM          | `npm run build:wasm`                                  | only if `wasm/` Rust source changed        |
 
 Local/Docker form: `docker compose run --rm app <command>`.
-CI/runner form: `npm ci --ignore-scripts` first, then the same npm scripts.
+CI/runner form: `npm ci --ignore-scripts` first, then the same npm scripts. CI installs from the
+lockfile on every run; do the same after switching branches or pulling a changed `package-lock.json`,
+or the build and tests fail on missing modules.
 
 On a GitHub Actions runner, **always use the CI/runner form (native npm)** — Node and
 dependencies are already installed. Do **not** invoke Docker there: its container runs

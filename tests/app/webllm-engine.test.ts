@@ -6,6 +6,7 @@
  * contacts nothing, only Download reaches the network, and a stored model
  * starts from storage.
  */
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { MLCEngine } from '@mlc-ai/web-llm';
 import { isAbortError } from '../../src/app/ai/engine';
@@ -60,13 +61,15 @@ function storeModel(scopes: Map<string, Map<string, string>>, options: { skipSha
       `${BASE}tensor-cache.json`,
       JSON.stringify({ records: [{ dataPath: 'params_shard_0.bin' }, { dataPath: 'params_shard_1.bin' }] }),
     ],
+    [`${BASE}tokenizer.model`, '0'],
+    // Used away from iPhone and iPad; an iPhone deletes it on download.
     [`${BASE}tokenizer.json`, '0'],
     [`${BASE}params_shard_0.bin`, '0'],
   ]);
   if (!options.skipShard) {
     model.set(`${BASE}params_shard_1.bin`, '0');
   }
-  // Another model's file, which deleting this one must leave alone.
+  // An earlier model's leftover file.
   model.set('https://huggingface.co/other/model/resolve/main/tokenizer.json', '0');
   scopes.set('webllm/model', model);
 }
@@ -98,6 +101,11 @@ function fakeMlc(pieces: string[] = []): FakeMlc {
   return { engine, unload, interruptGenerate };
 }
 
+const IPHONE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+const DESKTOP_UA =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
+
 let caches: ReturnType<typeof fakeCaches>;
 let fetchMock: ReturnType<typeof vi.fn>;
 type Create = NonNullable<Window['__refrainSheetWebLlm']>['CreateMLCEngine'];
@@ -119,9 +127,12 @@ beforeEach(() => {
   mlc = fakeMlc();
   create = vi.fn<Create>(async () => mlc.engine);
   window.__refrainSheetWebLlm = { CreateMLCEngine: create };
+  // The phone the default model is sized for; one test below is a desktop.
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE_UA);
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   delete window.__refrainSheetWebLlm;
   setAiModelForTests(null);
@@ -142,6 +153,16 @@ describe('which model the browser gets', () => {
     vi.stubGlobal('navigator', { ...navigator, gpu: {} });
     vi.stubGlobal('caches', undefined);
     expect(aiModel()).toBe(QWEN_MODEL);
+  });
+
+  it("bundles a WebLLM runtime that still links the default model's library", () => {
+    // The model's compiled library imports TVM's threading functions; WebLLM
+    // 0.2.85 and later no longer provide them, and the model then fails to
+    // start ("import function env:_ZN3tvm7runtime9threading15ResetThreadPoolEv
+    // must be callable"). See src/app/ai/webllm-runtime.ts.
+    const runtime = readFileSync('node_modules/@mlc-ai/web-llm/lib/index.js', 'utf8');
+    expect(runtime).toContain('_ZN3tvm7runtime9threading15ResetThreadPoolEv:');
+    expect(runtime).toContain('_ZN3tvm7runtime9threading10NumThreadsEv:');
   });
 
   it('names the WebLLM runtime script by version under ai-runtime/', () => {
@@ -165,6 +186,12 @@ describe('WebLLM engine', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('needs the SentencePiece tokenizer, so a copy stored with only tokenizer.json downloads it', async () => {
+    storeModel(caches.scopes);
+    caches.scopes.get('webllm/model')!.delete(`${BASE}tokenizer.model`);
+    expect(await new WebLlmEngine().isDownloaded()).toBe(false);
+  });
+
   it('downloads with the compiled library named in the repository', async () => {
     const engine = new WebLlmEngine();
     const progress = vi.fn();
@@ -181,7 +208,16 @@ describe('WebLLM engine', () => {
     expect(modelId).toBe(GEMMA_MODEL.name);
     expect(appConfig.cacheBackend).toBe('cache');
     expect(appConfig.model_list).toEqual([
-      { model: BASE, model_id: GEMMA_MODEL.name, model_lib: LIB, overrides: {} },
+      {
+        model: BASE,
+        model_id: GEMMA_MODEL.name,
+        model_lib: LIB,
+        overrides: {
+          context_window_size: 4096,
+          sliding_window_size: -1,
+          tokenizer_files: ['tokenizer.model'],
+        },
+      },
     ]);
     expect(progress).toHaveBeenCalledWith({
       loaded: GEMMA_MODEL.approxSizeMb * 500_000,
@@ -211,14 +247,30 @@ describe('WebLLM engine', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('retries with the sliding window off when the model config sets both windows', async () => {
+  it('caps the context window so the KV cache fits a phone', async () => {
     storeModel(caches.scopes);
-    create.mockRejectedValueOnce(
-      new Error('Only one of context_window_size and sliding_window_size can be positive.'),
-    );
     await new WebLlmEngine().load();
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(create.mock.calls[1][1].appConfig.model_list[0].overrides).toEqual({ sliding_window_size: -1 });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][1].appConfig.model_list[0].overrides).toEqual({
+      context_window_size: 4096,
+      sliding_window_size: -1,
+      tokenizer_files: ['tokenizer.model'],
+    });
+  });
+
+  it("uses the model's tokenizer.json away from iPhone and iPad, and drops the unused SentencePiece copy", async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(DESKTOP_UA);
+    storeModel(caches.scopes);
+    expect(await new WebLlmEngine().isDownloaded()).toBe(true);
+    caches.scopes.get('webllm/model')!.delete(`${BASE}tokenizer.json`);
+    expect(await new WebLlmEngine().isDownloaded()).toBe(false);
+    await new WebLlmEngine().download(vi.fn(), new AbortController().signal);
+    expect(create.mock.calls[0][1].appConfig.model_list[0].overrides).toEqual({
+      context_window_size: 4096,
+      sliding_window_size: -1,
+      tokenizer_files: ['tokenizer.json'],
+    });
+    expect([...caches.scopes.get('webllm/model')!.keys()]).not.toContain(`${BASE}tokenizer.model`);
   });
 
   it('stops a download when cancelled', async () => {
@@ -270,7 +322,7 @@ describe('WebLLM engine', () => {
     expect(mlc.interruptGenerate).toHaveBeenCalled();
   });
 
-  it('deletes only this model from storage, and stops it', async () => {
+  it('deletes everything WebLLM stored, and stops the model', async () => {
     storeModel(caches.scopes);
     const engine = new WebLlmEngine();
     await engine.load();
@@ -278,10 +330,20 @@ describe('WebLLM engine', () => {
     expect(mlc.unload).toHaveBeenCalled();
     expect(engine.isLoaded()).toBe(false);
     expect(await engine.isDownloaded()).toBe(false);
-    expect([...caches.scopes.get('webllm/model')!.keys()]).toEqual([
-      'https://huggingface.co/other/model/resolve/main/tokenizer.json',
-    ]);
+    for (const scope of caches.scopes.values()) {
+      expect(scope.size).toBe(0);
+    }
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("clears an earlier model's leftovers before downloading, keeping this model's files", async () => {
+    storeModel(caches.scopes, { skipShard: true });
+    await new WebLlmEngine().download(vi.fn(), new AbortController().signal);
+    const model = [...caches.scopes.get('webllm/model')!.keys()];
+    expect(model).not.toContain('https://huggingface.co/other/model/resolve/main/tokenizer.json');
+    expect(model).not.toContain(`${BASE}tokenizer.json`);
+    expect(model).toContain(`${BASE}tokenizer.model`);
+    expect(model).toContain(`${BASE}params_shard_0.bin`);
   });
 
   it('adds the runtime script from this origin only when the model is started', async () => {

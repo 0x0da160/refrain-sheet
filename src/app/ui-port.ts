@@ -28,6 +28,7 @@ import type { DiffRunOutcome, DiffTabOption } from './commands/diff';
 import type { FlashFillPreview } from './commands/fill';
 import type { LocalSettings } from './settings';
 import type { AiPlanChange } from '../core/ai-plan';
+import type { AiPromptStyle } from '../core/ai-prompt';
 
 /**
  * Applies a side panel's result while the panel stays open — Apply never closes
@@ -46,7 +47,7 @@ export type ApplyHandler<R> = (result: R) => Promise<unknown> | unknown;
  * between tabs and sheets while the panel stays open.
  */
 export interface AiAssistantInput {
-  sheetContext: () => string | null;
+  sheetContext: (style?: AiPromptStyle) => string | null;
   applyChanges: (changes: readonly AiPlanChange[]) => { applied: number; skipped: number };
 }
 

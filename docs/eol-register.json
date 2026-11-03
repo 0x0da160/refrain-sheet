@@ -88,7 +88,7 @@
     },
     "npm:@mlc-ai/web-llm@0.2": {
       "eol": null,
-      "support": "Runtime dependency of the hosted build's AI assistant (the WebGPU engine); actively maintained, monthly 0.2.x releases.",
+      "support": "Runtime dependency of the hosted build's AI assistant (the WebGPU engine); actively maintained, monthly 0.2.x releases. Pinned to 0.2.84: the default model's compiled library needs that runtime (src/app/ai/webllm-runtime.ts).",
       "plan": null
     },
     "npm:@wllama/wllama@3": {

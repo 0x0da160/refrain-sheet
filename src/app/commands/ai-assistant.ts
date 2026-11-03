@@ -6,7 +6,7 @@
  * hands an approved plan back here, where it becomes one ordinary,
  * singly-undoable `bulkEdit` (the same path Paste and Replace All use).
  */
-import { buildAiSheetContext } from '../../core/ai-prompt';
+import { buildAiSheetContext, type AiPromptStyle } from '../../core/ai-prompt';
 import type { AiPlanChange } from '../../core/ai-plan';
 import { isCsv } from '../../core/editor-document';
 import type { CellChange } from '../../core/workbook/history';
@@ -27,7 +27,7 @@ function cellTab(state: AppState): Tab | null {
 }
 
 /** The sheet as the model sees it, read at the moment of the question. */
-export function aiSheetContext(state: AppState): string | null {
+export function aiSheetContext(state: AppState, style: AiPromptStyle = 'full'): string | null {
   const tab = cellTab(state);
   if (!tab) {
     return null;
@@ -36,15 +36,18 @@ export function aiSheetContext(state: AppState): string | null {
   const range = state.selectedRange(tab);
   // A workbook sheet is allocated larger than its data; describe only the used part.
   const extent = isCsv(doc) ? { rows: doc.rowCount, cols: doc.columnCount } : doc.activeSheet.usedExtent();
-  return buildAiSheetContext({
-    name: isCsv(doc) ? tab.name : doc.activeSheet.name,
-    rowCount: extent.rows,
-    columnCount: extent.cols,
-    getValue: (row, col) => doc.getValue(row, col),
-    getDisplayValue: (row, col) => doc.getDisplayValue(row, col),
-    active: tab.selection,
-    range,
-  });
+  return buildAiSheetContext(
+    {
+      name: isCsv(doc) ? tab.name : doc.activeSheet.name,
+      rowCount: extent.rows,
+      columnCount: extent.cols,
+      getValue: (row, col) => doc.getValue(row, col),
+      getDisplayValue: (row, col) => doc.getDisplayValue(row, col),
+      active: tab.selection,
+      range,
+    },
+    style,
+  );
 }
 
 /**
@@ -98,7 +101,7 @@ export function applyAiPlan(
 /** What View ▸ AI Assistant hands the panel. */
 export function aiAssistantInput(state: AppState): AiAssistantInput {
   return {
-    sheetContext: () => aiSheetContext(state),
+    sheetContext: (style) => aiSheetContext(state, style),
     applyChanges: (changes) => applyAiPlan(state, changes),
   };
 }

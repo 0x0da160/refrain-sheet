@@ -44,6 +44,8 @@ declare global {
 const MAX_REPLY_TOKENS = 512;
 /** Low temperature: answers about the sheet should be steady, not creative. */
 const TEMPERATURE = 0.2;
+/** A model this small easily loops on a phrase; a mild penalty keeps the reply moving. */
+const REPETITION_PENALTY = 1.1;
 
 /** WebLLM's own Cache Storage names (fixed by WebLLM, shared by every model). */
 const CACHE_SCOPES = ['webllm/config', 'webllm/wasm', 'webllm/model'] as const;
@@ -67,36 +69,90 @@ function modelTreeUrl(): string {
   return `https://huggingface.co/api/models/${GEMMA_MODEL.repo}/tree/main`;
 }
 
-/** The library's name in the earlier builds of this model, used when the list cannot be read. */
+/** The model's compiled library, used when the repository list cannot be read. */
 const FALLBACK_MODEL_LIB = 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm';
 
 /**
- * Used when the model's own config sets both a context window and a
- * sliding window, which WebLLM refuses (earlier builds of this model did):
- * keep the context window and turn the sliding window off.
+ * Merged over the model's own `mlc-chat-config.json`. WebLLM sizes the KV
+ * cache for the whole context window when the model starts, and Gemma 3
+ * 270M's config can ask for far more than the assistant uses (up to 32K
+ * tokens, about 1.2 GB of f32 KV cache with q4f32_1). That is more memory
+ * than Safari on iPhone grants a tab, which then reloads the page. 4096
+ * tokens (about 150 MB) fits the system prompt, the sheet view (see
+ * src/core/ai-prompt.ts), a few turns and the reply, the same budget the
+ * CPU engine uses. The sliding window is turned off because WebLLM refuses a
+ * config that sets both (this model's config does).
+ *
+ * On iPhone and iPad the tokenizer is the SentencePiece model
+ * (`tokenizer.model`, about 5 MB) rather than `tokenizer.json`. Gemma's
+ * `tokenizer.json` is about 33 MB with a 262K vocabulary and over 500K
+ * merges, and WebLLM parses it inside a WebAssembly heap that never shrinks,
+ * which costs a phone hundreds of MB. Elsewhere the model's own
+ * `tokenizer.json` is used, because WebLLM's SentencePiece path ignores the
+ * fine-tune's added tokens; comparing the two tells a tokenizer problem from
+ * a model one.
  */
-const WINDOW_OVERRIDES: ChatOptions = { sliding_window_size: -1 };
+function isAppleMobile(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent;
+  // iPadOS reports a Mac user agent; only the touch screen tells them apart.
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+const TOKENIZER_FILES = ['tokenizer.model', 'tokenizer.json'] as const;
+
+function tokenizerFile(): string {
+  return isAppleMobile() ? 'tokenizer.model' : 'tokenizer.json';
+}
+
+function chatOverrides(): ChatOptions {
+  return { context_window_size: 4096, sliding_window_size: -1, tokenizer_files: [tokenizerFile()] };
+}
 
 function abortError(): DOMException {
   return new DOMException('The operation was aborted.', 'AbortError');
 }
 
-function appConfig(modelLib: string, overrides: ChatOptions = {}): AppConfig {
+function appConfig(modelLib: string): AppConfig {
   return {
     // Cache Storage, which Safari, Chrome and Firefox all offer. Named here
     // rather than left to WebLLM's default so the stored-model check below
     // keeps reading the right place.
     cacheBackend: 'cache',
-    model_list: [{ model: modelBaseUrl(), model_id: modelId(), model_lib: modelLib, overrides }],
+    model_list: [
+      { model: modelBaseUrl(), model_id: modelId(), model_lib: modelLib, overrides: chatOverrides() },
+    ],
   };
 }
 
-async function cachedUrls(scope: string): Promise<string[]> {
+async function cachedUrls(scope: string, keep: (url: string) => boolean): Promise<string[]> {
   if (!(await caches.has(scope))) {
     return [];
   }
   const cache = await caches.open(scope);
-  return (await cache.keys()).map((request) => request.url).filter((url) => url.startsWith(modelBaseUrl()));
+  return (await cache.keys()).map((request) => request.url).filter(keep);
+}
+
+const isThisModel = (url: string): boolean => url.startsWith(modelBaseUrl());
+
+/**
+ * Delete what WebLLM stored that `remove` picks. The app keeps one WebLLM
+ * model at a time, so another model's files are leftovers of an earlier
+ * default (such as a preview build's) and only take up the user's storage.
+ */
+async function removeStored(remove: (url: string) => boolean): Promise<void> {
+  if (typeof caches === 'undefined') {
+    return;
+  }
+  for (const scope of CACHE_SCOPES) {
+    const urls = await cachedUrls(scope, remove);
+    if (urls.length > 0) {
+      const cache = await caches.open(scope);
+      await Promise.all(urls.map((url) => cache.delete(url)));
+    }
+  }
 }
 
 async function cachedJson(scope: string, url: string): Promise<unknown> {
@@ -113,21 +169,19 @@ async function storedModelLib(): Promise<string | null> {
   if (typeof caches === 'undefined') {
     return null;
   }
-  const [config, wasm, model] = await Promise.all(CACHE_SCOPES.map(cachedUrls));
+  const [config, wasm, model] = await Promise.all(
+    CACHE_SCOPES.map((scope) => cachedUrls(scope, isThisModel)),
+  );
   const lib = wasm.find((url) => url.endsWith('.wasm'));
   const configUrl = `${modelBaseUrl()}mlc-chat-config.json`;
   const tensorsUrl = `${modelBaseUrl()}tensor-cache.json`;
   if (!lib || !config.includes(configUrl) || !model.includes(tensorsUrl)) {
     return null;
   }
-  const chatConfig = (await cachedJson('webllm/config', configUrl)) as
-    { tokenizer_files?: unknown } | undefined;
-  const tokenizerFiles = Array.isArray(chatConfig?.tokenizer_files) ? chatConfig.tokenizer_files : [];
-  const tokenizer = tokenizerFiles.includes('tokenizer.json') ? 'tokenizer.json' : 'tokenizer.model';
   const tensors = (await cachedJson('webllm/model', tensorsUrl)) as
     { records?: { dataPath?: unknown }[] } | undefined;
   const shards = (tensors?.records ?? []).map((record) => String(record.dataPath));
-  const needed = [tokenizer, ...shards].map((file) => new URL(file, modelBaseUrl()).href);
+  const needed = [tokenizerFile(), ...shards].map((file) => new URL(file, modelBaseUrl()).href);
   return shards.length > 0 && needed.every((url) => model.includes(url)) ? lib : null;
 }
 
@@ -191,6 +245,12 @@ export class WebLlmEngine implements AiEngine {
     onProgress: (progress: { loaded: number; total: number }) => void,
     signal: AbortSignal,
   ): Promise<void> {
+    // Another model's files, and the tokenizer this device does not use
+    // (stored by an earlier build), only take up the user's storage.
+    const unused = TOKENIZER_FILES.filter((file) => file !== tokenizerFile()).map(
+      (file) => `${modelBaseUrl()}${file}`,
+    );
+    await removeStored((url) => !isThisModel(url) || unused.includes(url));
     const modelLib = await remoteModelLib(signal);
     // WebLLM reports one fraction for fetching and starting together; it is
     // shown against the model's approximate size.
@@ -237,22 +297,11 @@ export class WebLlmEngine implements AiEngine {
       throw abortError();
     }
     const runtime = await webLlmRuntime();
-    const create = (overrides?: ChatOptions) =>
-      runtime.CreateMLCEngine(modelId(), {
-        appConfig: appConfig(modelLib, overrides),
-        initProgressCallback: onProgress,
-      });
-    let pending: Promise<MLCEngine> = create();
-    let engine: MLCEngine;
-    try {
-      engine = await this.untilAborted(pending, signal);
-    } catch (error) {
-      if (signal.aborted || !/sliding_window_size/i.test(String(error))) {
-        throw error;
-      }
-      pending = create(WINDOW_OVERRIDES);
-      engine = await this.untilAborted(pending, signal);
-    }
+    const pending = runtime.CreateMLCEngine(modelId(), {
+      appConfig: appConfig(modelLib),
+      initProgressCallback: onProgress,
+    });
+    const engine = await this.untilAborted(pending, signal);
     if (signal.aborted) {
       await engine.unload();
       throw abortError();
@@ -298,6 +347,7 @@ export class WebLlmEngine implements AiEngine {
         messages,
         max_tokens: MAX_REPLY_TOKENS,
         temperature: TEMPERATURE,
+        repetition_penalty: REPETITION_PENALTY,
         stream: true,
       });
       for await (const chunk of chunks) {
@@ -324,15 +374,7 @@ export class WebLlmEngine implements AiEngine {
     } catch {
       // An engine that lost its GPU has nothing to stop.
     }
-    if (typeof caches === 'undefined') {
-      return;
-    }
-    for (const scope of CACHE_SCOPES) {
-      const urls = await cachedUrls(scope);
-      if (urls.length > 0) {
-        const cache = await caches.open(scope);
-        await Promise.all(urls.map((url) => cache.delete(url)));
-      }
-    }
+    // Everything WebLLM stored: this model, and any earlier default's leftovers.
+    await removeStored(() => true);
   }
 }

@@ -38,12 +38,12 @@ export interface AiModelInfo {
  */
 export const GEMMA_MODEL = {
   runtime: 'webllm',
-  name: 'gemma3-270m-japanese-webllm-03',
+  name: 'gemma3-270m-japanese-webllm-04',
   quantization: 'q4f32_1',
   license: 'Gemma Terms of Use',
-  pageUrl: 'https://huggingface.co/UMASHIKA/gemma3-270m-japanese-webllm-03',
+  pageUrl: 'https://huggingface.co/UMASHIKA/gemma3-270m-japanese-webllm-04',
   /** The Hugging Face repository; WebLLM reads every file from `resolve/main/`. */
-  repo: 'UMASHIKA/gemma3-270m-japanese-webllm-03',
+  repo: 'UMASHIKA/gemma3-270m-japanese-webllm-04',
   approxSizeMb: 190,
 } as const satisfies AiModelInfo & { repo: string };
 

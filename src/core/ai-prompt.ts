@@ -31,6 +31,34 @@ export const AI_SYSTEM_PROMPT = [
   'PLAN: {"changes":[{"ref":"B2","value":"100"},{"ref":"B6","value":"=SUM(B2:B5)"}]}',
 ].join('\n');
 
+/**
+ * A shorter system prompt for the smallest model (Gemma 3 270M, a Japanese
+ * fine-tune): a model that size loses the thread in a long English
+ * instruction block and starts continuing it instead of answering. Written in
+ * Japanese, the language the model was tuned on, with the one format rule
+ * and one example the plan parser needs.
+ */
+export const AI_SYSTEM_PROMPT_COMPACT = [
+  'あなたは表計算アプリのアシスタントです。ユーザーと同じ言語で、短く自然に答えてください。',
+  '下の表は今開いているシートです（上が列記号、左が行番号）。',
+  'セルを変更するよう頼まれたときだけ、説明を1文書き、最後の行に次の形式で変更内容を書いてください。',
+  'PLAN: {"changes":[{"ref":"B2","value":"100"}]}',
+].join('\n');
+
+/**
+ * How much the prompt carries: `full` for the larger CPU model, `compact`
+ * for the smallest one, which follows a short prompt far better and has a
+ * small context to fit it in.
+ */
+export type AiPromptStyle = 'full' | 'compact';
+
+interface AiPromptLimits {
+  readonly rows: number;
+  readonly cols: number;
+  readonly cellChars: number;
+  readonly historyTurns: number;
+}
+
 /** The read-only view of a sheet the context builder needs. */
 export interface AiSheetView {
   /** The sheet (or CSV file) name shown to the model. */
@@ -53,13 +81,24 @@ export const AI_CONTEXT_MAX_COLS = 12;
 /** Longer cell contents are cut, with an ellipsis. */
 export const AI_CONTEXT_MAX_CELL_CHARS = 60;
 
+/** How many earlier question/answer pairs go with a new question. */
+export const AI_HISTORY_TURNS = 3;
+
+const LIMITS: Record<AiPromptStyle, AiPromptLimits> = {
+  full: {
+    rows: AI_CONTEXT_MAX_ROWS,
+    cols: AI_CONTEXT_MAX_COLS,
+    cellChars: AI_CONTEXT_MAX_CELL_CHARS,
+    historyTurns: AI_HISTORY_TURNS,
+  },
+  compact: { rows: 20, cols: 8, cellChars: 30, historyTurns: 1 },
+};
+
 /** One cell's text for the table: one line, no column separators, bounded length. */
-function cellText(raw: string): string {
+function cellText(raw: string, maxChars: number): string {
   const oneLine = raw.replace(/\r\n|\r|\n/g, ' ').replace(/\|/g, '/');
   const chars = Array.from(oneLine);
-  return chars.length > AI_CONTEXT_MAX_CELL_CHARS
-    ? `${chars.slice(0, AI_CONTEXT_MAX_CELL_CHARS - 1).join('')}…`
-    : oneLine;
+  return chars.length > maxChars ? `${chars.slice(0, maxChars - 1).join('')}…` : oneLine;
 }
 
 /**
@@ -75,10 +114,13 @@ function windowStart(count: number, size: number, focus: number | null): number 
 }
 
 /** The sheet description sent to the model with every question. */
-export function buildAiSheetContext(sheet: AiSheetView): string {
+export function buildAiSheetContext(sheet: AiSheetView, style: AiPromptStyle = 'full'): string {
+  const limits = LIMITS[style];
   const rows = Math.max(0, sheet.rowCount);
   const cols = Math.max(0, sheet.columnCount);
-  const lines: string[] = [`Sheet: ${cellText(sheet.name)} (${rows} rows x ${cols} columns)`];
+  const lines: string[] = [
+    `Sheet: ${cellText(sheet.name, limits.cellChars)} (${rows} rows x ${cols} columns)`,
+  ];
   if (sheet.active) {
     const at = cellLabel(sheet.active.row, sheet.active.col);
     const range = sheet.range;
@@ -93,8 +135,8 @@ export function buildAiSheetContext(sheet: AiSheetView): string {
     return lines.join('\n');
   }
 
-  const rowCount = Math.min(rows, AI_CONTEXT_MAX_ROWS);
-  const colCount = Math.min(cols, AI_CONTEXT_MAX_COLS);
+  const rowCount = Math.min(rows, limits.rows);
+  const colCount = Math.min(cols, limits.cols);
   const top = windowStart(rows, rowCount, sheet.active?.row ?? null);
   const left = windowStart(cols, colCount, sheet.active?.col ?? null);
   const colIndexes = Array.from({ length: colCount }, (_, i) => left + i);
@@ -114,7 +156,7 @@ export function buildAiSheetContext(sheet: AiSheetView): string {
     const cells = colIndexes.map((c) => {
       const value = sheet.getValue(r, c);
       const shown = value.startsWith('=') ? `${value} → ${sheet.getDisplayValue(r, c)}` : value;
-      return cellText(shown);
+      return cellText(shown, limits.cellChars);
     });
     lines.push(`| ${r + 1} | ${cells.join(' | ')} |`);
   }
@@ -127,9 +169,6 @@ export interface AiChatMessage {
   content: string;
 }
 
-/** How many earlier question/answer pairs go with a new question. */
-export const AI_HISTORY_TURNS = 3;
-
 /**
  * The messages for one question: the system prompt with the sheet as it is
  * now, the last few turns, and the new question.
@@ -138,10 +177,15 @@ export function buildAiMessages(
   sheetContext: string | null,
   history: readonly AiChatMessage[],
   question: string,
+  style: AiPromptStyle = 'full',
 ): AiChatMessage[] {
-  const system = sheetContext
-    ? `${AI_SYSTEM_PROMPT}\n\n${sheetContext}`
-    : `${AI_SYSTEM_PROMPT}\n\nNo sheet of cells is open, so no cell can be changed.`;
-  const recent = history.filter((m) => m.role !== 'system').slice(-AI_HISTORY_TURNS * 2);
+  const prompt = style === 'compact' ? AI_SYSTEM_PROMPT_COMPACT : AI_SYSTEM_PROMPT;
+  const noSheet =
+    style === 'compact'
+      ? 'セルのシートが開いていないため、セルは変更できません。'
+      : 'No sheet of cells is open, so no cell can be changed.';
+  const system = sheetContext ? `${prompt}\n\n${sheetContext}` : `${prompt}\n\n${noSheet}`;
+  const turns = LIMITS[style].historyTurns;
+  const recent = history.filter((m) => m.role !== 'system').slice(-turns * 2);
   return [{ role: 'system', content: system }, ...recent, { role: 'user', content: question }];
 }

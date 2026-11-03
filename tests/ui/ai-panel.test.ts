@@ -11,6 +11,7 @@ import { setAiEngineForTests, type AiEngine } from '../../src/app/ai/engine';
 import { setLocale, t } from '../../src/app/i18n';
 import { GEMMA_MODEL, QWEN_MODEL, setAiModelForTests } from '../../src/app/ai/model';
 import type { AiAssistantInput } from '../../src/app/ui-port';
+import { AI_SYSTEM_PROMPT_COMPACT } from '../../src/core/ai-prompt';
 import { resetAiPanelForTests, showAiAssistantPanel } from '../../src/ui/ai-panel';
 
 interface FakeEngine extends AiEngine {
@@ -48,7 +49,7 @@ function fakeEngine(stored: boolean): FakeEngine {
 
 function input(): AiAssistantInput & { applyChanges: ReturnType<typeof vi.fn> } {
   return {
-    sheetContext: () => 'Sheet: data.csv (2 rows x 2 columns)',
+    sheetContext: vi.fn(() => 'Sheet: data.csv (2 rows x 2 columns)'),
     applyChanges: vi.fn(() => ({ applied: 1, skipped: 0 })),
   };
 }
@@ -96,7 +97,7 @@ describe('AI assistant panel', () => {
     expect(engine.isDownloaded).toHaveBeenCalled();
     expect(engine.download).not.toHaveBeenCalled();
     expect(engine.load).not.toHaveBeenCalled();
-    expect(panelText()).toContain('gemma3-270m-japanese-webllm-03');
+    expect(panelText()).toContain('gemma3-270m-japanese-webllm-04');
     expect(panelText()).toContain('Gemma Terms of Use');
     expect(panelText()).not.toContain(t('aiAssistant.model.noWebGpu'));
     expect(panelText()).toContain(t('aiAssistant.downloadNote'));
@@ -141,7 +142,8 @@ describe('AI assistant panel', () => {
     const engine = fakeEngine(true);
     engine.reply = 'The total is 30.';
     setAiEngineForTests(engine);
-    void showAiAssistantPanel(input(), async () => true);
+    const sheetInput = input();
+    void showAiAssistantPanel(sheetInput, async () => true);
     await settle();
     await settle();
     const field = document.querySelector<HTMLTextAreaElement>('.ai-input')!;
@@ -151,6 +153,9 @@ describe('AI assistant panel', () => {
     await settle();
     const messages = vi.mocked(engine.chat).mock.calls[0][0];
     expect(messages[0].content).toContain('Sheet: data.csv');
+    // The Gemma model gets the short prompt and the smaller sheet view.
+    expect(messages[0].content.startsWith(AI_SYSTEM_PROMPT_COMPACT)).toBe(true);
+    expect(sheetInput.sheetContext).toHaveBeenCalledWith('compact');
     expect(messages[messages.length - 1]).toEqual({ role: 'user', content: 'What is the total?' });
     expect(panelText()).toContain('The total is 30.');
     expect(document.querySelector('.ai-plan-card')).toBeNull();

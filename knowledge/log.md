@@ -390,3 +390,11 @@ latest `maintenance.yml` run and the open Dependabot pull requests. It sorts
 what it finds into security, patch/minor, major, and coming-due items and
 reports what each needs from a human; it never merges, comments, or changes a
 branch. Listed it in `references/index.md`.
+
+**`verify-ui` skill.** Added `.claude/skills/verify-ui/SKILL.md`, the visual
+check that `npm run ui:check` does not give: build the app, capture the
+screen a change affects at phone and desktop widths, in English and Japanese,
+in the light, dark, and hybrid looks, open every image, and report what it
+shows. The images stay outside the repository. It also records how to launch
+the app (a built single file opened over `file://`). Listed it in
+`references/index.md`.

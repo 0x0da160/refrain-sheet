@@ -35,6 +35,9 @@ For the knowledge bundle's own domains, start at
     `CLAUDE.md` contract.
   - [`safe-delete`](../../.claude/skills/safe-delete/SKILL.md) — delete one
     verified-dead code item in a single small, evidence-documented PR.
+  - [`triage-dependencies`](../../.claude/skills/triage-dependencies/SKILL.md)
+    — read the weekly maintenance run and the open Dependabot pull requests,
+    and report what needs a human (read-only).
   - [`update-dependencies`](../../.claude/skills/update-dependencies/SKILL.md)
     — patch dependencies and toolchains, and run the quarterly EOL review
     against the full SBOM.

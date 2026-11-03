@@ -43,6 +43,9 @@ For the knowledge bundle's own domains, start at
     against the full SBOM.
   - [`verify-change`](../../.claude/skills/verify-change/SKILL.md) — run the
     confirmed verification commands and report results honestly.
+  - [`verify-ui`](../../.claude/skills/verify-ui/SKILL.md) — build the app,
+    capture the changed screen at phone and desktop widths, in English and
+    Japanese, in each theme, and report what the images show.
 
 ## Design reference notes
 

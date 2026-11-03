@@ -30,6 +30,9 @@ For the knowledge bundle's own domains, start at
 - Agent-workflow skills (`.claude/skills/*/SKILL.md`):
   - [`cleanup-audit`](../../.claude/skills/cleanup-audit/SKILL.md) — run
     Knip and classify findings into `docs/knip-baseline.md`.
+  - [`open-pr`](../../.claude/skills/open-pr/SKILL.md) — verify, decide the
+    CHANGELOG entry, and open a bilingual pull request that meets the
+    `CLAUDE.md` contract.
   - [`safe-delete`](../../.claude/skills/safe-delete/SKILL.md) — delete one
     verified-dead code item in a single small, evidence-documented PR.
   - [`update-dependencies`](../../.claude/skills/update-dependencies/SKILL.md)

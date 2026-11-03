@@ -375,3 +375,11 @@ recorded in `docs/proposals/structural-refactoring-plan.md`.
 `update-dependencies`, `verify-change`) are unchanged. Updated the status
 note in `agent-loop/index.md`, the skills list in `references/index.md`, and
 the one path reference in `agent-loop/budget-rollback-and-release.md`.
+
+## 2026-11-03
+
+**`open-pr` skill.** Added `.claude/skills/open-pr/SKILL.md`, which turns
+finished work into a pull request that meets the `CLAUDE.md` contract: run
+`verify-change` on the final commit, decide the `CHANGELOG.md` entry (or the
+`Changelog: not-needed` opt-out), check for high-risk areas, and write the
+English-then-Japanese body. Listed it in `references/index.md`.

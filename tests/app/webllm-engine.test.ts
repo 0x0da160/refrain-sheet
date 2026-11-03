@@ -62,7 +62,7 @@ function storeModel(scopes: Map<string, Map<string, string>>, options: { skipSha
       JSON.stringify({ records: [{ dataPath: 'params_shard_0.bin' }, { dataPath: 'params_shard_1.bin' }] }),
     ],
     [`${BASE}tokenizer.model`, '0'],
-    // A tokenizer.json an earlier build stored; no longer used.
+    // Used away from iPhone and iPad; an iPhone deletes it on download.
     [`${BASE}tokenizer.json`, '0'],
     [`${BASE}params_shard_0.bin`, '0'],
   ]);
@@ -101,6 +101,11 @@ function fakeMlc(pieces: string[] = []): FakeMlc {
   return { engine, unload, interruptGenerate };
 }
 
+const IPHONE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+const DESKTOP_UA =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
+
 let caches: ReturnType<typeof fakeCaches>;
 let fetchMock: ReturnType<typeof vi.fn>;
 type Create = NonNullable<Window['__refrainSheetWebLlm']>['CreateMLCEngine'];
@@ -122,9 +127,12 @@ beforeEach(() => {
   mlc = fakeMlc();
   create = vi.fn<Create>(async () => mlc.engine);
   window.__refrainSheetWebLlm = { CreateMLCEngine: create };
+  // The phone the default model is sized for; one test below is a desktop.
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE_UA);
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   delete window.__refrainSheetWebLlm;
   setAiModelForTests(null);
@@ -248,6 +256,21 @@ describe('WebLLM engine', () => {
       sliding_window_size: -1,
       tokenizer_files: ['tokenizer.model'],
     });
+  });
+
+  it("uses the model's tokenizer.json away from iPhone and iPad, and drops the unused SentencePiece copy", async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(DESKTOP_UA);
+    storeModel(caches.scopes);
+    expect(await new WebLlmEngine().isDownloaded()).toBe(true);
+    caches.scopes.get('webllm/model')!.delete(`${BASE}tokenizer.json`);
+    expect(await new WebLlmEngine().isDownloaded()).toBe(false);
+    await new WebLlmEngine().download(vi.fn(), new AbortController().signal);
+    expect(create.mock.calls[0][1].appConfig.model_list[0].overrides).toEqual({
+      context_window_size: 4096,
+      sliding_window_size: -1,
+      tokenizer_files: ['tokenizer.json'],
+    });
+    expect([...caches.scopes.get('webllm/model')!.keys()]).not.toContain(`${BASE}tokenizer.model`);
   });
 
   it('stops a download when cancelled', async () => {

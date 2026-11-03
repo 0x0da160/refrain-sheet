@@ -83,20 +83,33 @@ const FALLBACK_MODEL_LIB = 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm';
  * CPU engine uses. The sliding window is turned off because WebLLM refuses a
  * config that sets both (this model's config does).
  *
- * The tokenizer is the SentencePiece model (`tokenizer.model`, about 5 MB)
- * rather than `tokenizer.json`. Gemma's `tokenizer.json` is about 33 MB with
- * a 262K vocabulary and over 500K merges, and WebLLM parses it inside a
- * WebAssembly heap that never shrinks, which costs a phone hundreds of MB.
- * It is the same tokenizer: Gemma ships the SentencePiece model as its
- * original, and its chat markers (`<start_of_turn>`, `<end_of_turn>`) are
- * pieces in it, so the chat template encodes the same way.
+ * On iPhone and iPad the tokenizer is the SentencePiece model
+ * (`tokenizer.model`, about 5 MB) rather than `tokenizer.json`. Gemma's
+ * `tokenizer.json` is about 33 MB with a 262K vocabulary and over 500K
+ * merges, and WebLLM parses it inside a WebAssembly heap that never shrinks,
+ * which costs a phone hundreds of MB. Elsewhere the model's own
+ * `tokenizer.json` is used, because WebLLM's SentencePiece path ignores the
+ * fine-tune's added tokens; comparing the two tells a tokenizer problem from
+ * a model one.
  */
-const TOKENIZER_FILE = 'tokenizer.model';
-const CHAT_OVERRIDES: ChatOptions = {
-  context_window_size: 4096,
-  sliding_window_size: -1,
-  tokenizer_files: [TOKENIZER_FILE],
-};
+function isAppleMobile(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent;
+  // iPadOS reports a Mac user agent; only the touch screen tells them apart.
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+const TOKENIZER_FILES = ['tokenizer.model', 'tokenizer.json'] as const;
+
+function tokenizerFile(): string {
+  return isAppleMobile() ? 'tokenizer.model' : 'tokenizer.json';
+}
+
+function chatOverrides(): ChatOptions {
+  return { context_window_size: 4096, sliding_window_size: -1, tokenizer_files: [tokenizerFile()] };
+}
 
 function abortError(): DOMException {
   return new DOMException('The operation was aborted.', 'AbortError');
@@ -109,7 +122,7 @@ function appConfig(modelLib: string): AppConfig {
     // keeps reading the right place.
     cacheBackend: 'cache',
     model_list: [
-      { model: modelBaseUrl(), model_id: modelId(), model_lib: modelLib, overrides: CHAT_OVERRIDES },
+      { model: modelBaseUrl(), model_id: modelId(), model_lib: modelLib, overrides: chatOverrides() },
     ],
   };
 }
@@ -168,7 +181,7 @@ async function storedModelLib(): Promise<string | null> {
   const tensors = (await cachedJson('webllm/model', tensorsUrl)) as
     { records?: { dataPath?: unknown }[] } | undefined;
   const shards = (tensors?.records ?? []).map((record) => String(record.dataPath));
-  const needed = [TOKENIZER_FILE, ...shards].map((file) => new URL(file, modelBaseUrl()).href);
+  const needed = [tokenizerFile(), ...shards].map((file) => new URL(file, modelBaseUrl()).href);
   return shards.length > 0 && needed.every((url) => model.includes(url)) ? lib : null;
 }
 
@@ -232,9 +245,12 @@ export class WebLlmEngine implements AiEngine {
     onProgress: (progress: { loaded: number; total: number }) => void,
     signal: AbortSignal,
   ): Promise<void> {
-    // Another model's files, and this model's unused tokenizer.json (stored
-    // by an earlier build), only take up the user's storage.
-    await removeStored((url) => !isThisModel(url) || url === `${modelBaseUrl()}tokenizer.json`);
+    // Another model's files, and the tokenizer this device does not use
+    // (stored by an earlier build), only take up the user's storage.
+    const unused = TOKENIZER_FILES.filter((file) => file !== tokenizerFile()).map(
+      (file) => `${modelBaseUrl()}${file}`,
+    );
+    await removeStored((url) => !isThisModel(url) || unused.includes(url));
     const modelLib = await remoteModelLib(signal);
     // WebLLM reports one fraction for fetching and starting together; it is
     // shown against the model's approximate size.

@@ -59,6 +59,7 @@ function stubUi(): UiPort {
     showAbout: () => undefined,
     showFormulaHelp: () => undefined,
     showSqlQuery: vi.fn(async () => undefined),
+    showAiAssistant: vi.fn(),
     showDiff: vi.fn(async () => undefined),
     chooseSettings: async () => null,
     chooseTimezone: async () => null,

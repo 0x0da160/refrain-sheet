@@ -67,6 +67,7 @@ const LEFT_OUT = new Set<CommandId>([
   'sheet.exportJson',
   'sheet.exportSheetText',
   'view.commentsPanel',
+  'view.aiAssistant',
   'view.sheetTabsVertical',
   'help.formula',
 ]);

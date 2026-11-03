@@ -34,11 +34,21 @@ export const BUILD_MODES = ['offline', 'hosted'];
 //   docs.google.com        the iframe the Picker itself renders in
 //   *.googleusercontent.com, ssl/www.gstatic.com  Picker thumbnails and icons
 //
+// And these are what the opt-in AI assistant needs (hosted build only;
+// src/app/ai/model.ts). None is used until the user presses Download or the
+// panel starts a model already stored in the browser:
+//   'self'                 the inference runtime's own WebAssembly files,
+//                          served next to the app from ai-runtime/
+//   huggingface.co, *.hf.co  the model file and the CDN hosts Hugging Face
+//                          redirects a download to
+//   worker-src blob:       the runtime runs the model in a Web Worker it
+//                          builds from its own bundled code
+//
 // Keyword grants are NOT in this list — see HOSTED_KEYWORD_GRANTS below.
 //
-// A directive named here that is absent from DIRECTIVES below (frame-src) is
-// emitted for the hosted build only, so the offline policy keeps inheriting
-// default-src 'none' for it.
+// A directive named here that is absent from DIRECTIVES below (frame-src,
+// worker-src) is emitted for the hosted build only, so the offline policy
+// keeps its fallback (default-src 'none' for frames, script-src for workers).
 /** @type {Record<string, string[]>} */
 export const HOSTED_ALLOWLIST = {
   'script-src': ['https://apis.google.com', 'https://accounts.google.com'],
@@ -46,9 +56,13 @@ export const HOSTED_ALLOWLIST = {
     'https://www.googleapis.com',
     'https://content.googleapis.com',
     'https://accounts.google.com',
+    "'self'",
+    'https://huggingface.co',
+    'https://*.hf.co',
   ],
   'frame-src': ['https://docs.google.com', 'https://content.googleapis.com', 'https://accounts.google.com'],
   'img-src': ['https://*.googleusercontent.com', 'https://ssl.gstatic.com', 'https://www.gstatic.com'],
+  'worker-src': ['blob:'],
 };
 
 // Keyword grants for the hosted build, kept deliberately separate from the

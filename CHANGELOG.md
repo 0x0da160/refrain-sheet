@@ -38,6 +38,18 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- The web app (app.refrain-sheet.com) has an AI Assistant again: View > AI
+  Assistant opens a side panel where you can ask about the open sheet or ask
+  for cells to be changed. It runs the Qwen2.5-0.5B-Instruct model inside your
+  browser, so the sheet is not sent anywhere. Nothing is downloaded until you
+  press Download AI Model (about 490 MB); the model is then kept in the
+  browser, so later visits start it without downloading again, and Delete AI
+  Model removes it. Proposed changes are listed cell by cell and are made only
+  when you press Apply Changes, as one step that Undo reverts. The offline
+  file and the release ZIP do not include the assistant.
+
 ### Fixed
 
 - Saving a new Markdown, JSON, YAML or plain-text file now asks for its file

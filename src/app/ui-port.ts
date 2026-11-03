@@ -27,6 +27,7 @@ import type { SqlRunOutcome, SqlSource } from './commands/sql';
 import type { DiffRunOutcome, DiffTabOption } from './commands/diff';
 import type { FlashFillPreview } from './commands/fill';
 import type { LocalSettings } from './settings';
+import type { AiPlanChange } from '../core/ai-plan';
 
 /**
  * Applies a side panel's result while the panel stays open — Apply never closes
@@ -36,6 +37,18 @@ import type { LocalSettings } from './settings';
  * the result, which the command then applies exactly as before.
  */
 export type ApplyHandler<R> = (result: R) => Promise<unknown> | unknown;
+
+/**
+ * What the AI assistant panel may do with the document: read the active
+ * sheet as text for the model (null when no sheet of cells is open), and
+ * apply changes the user approved as one undoable edit. Both are read live,
+ * at the moment of the question or the approval, so they follow the user
+ * between tabs and sheets while the panel stays open.
+ */
+export interface AiAssistantInput {
+  sheetContext: () => string | null;
+  applyChanges: (changes: readonly AiPlanChange[]) => { applied: number; skipped: number };
+}
 
 /**
  * Everything the SQL query dialog needs. `sources` is the fixed, pre-computed
@@ -654,6 +667,8 @@ interface PanelsPort {
   showFormulaHelp(): void;
   /** Open the local, read-only SQL query panel (see `src/core/sql-engine.ts`). */
   showSqlQuery(input: SqlQueryDialogInput): Promise<void>;
+  /** Open the AI assistant panel (hosted build only; see `src/app/ai/model.ts`). */
+  showAiAssistant(input: AiAssistantInput): void;
   /** Open the local, read-only two-tab compare panel (see `src/core/diff-engine.ts`). */
   showDiff(input: DiffDialogInput): Promise<void>;
   /** Edit local settings; returns the chosen values, or null when cancelled. */

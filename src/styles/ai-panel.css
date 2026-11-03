@@ -1,0 +1,135 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- AI assistant panel (View > AI Assistant, hosted build only) ---------- */
+
+.ai-panel-model-name {
+  margin: 0;
+  font-weight: var(--weight-bold);
+}
+
+.ai-panel-progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+}
+
+.ai-panel-error {
+  color: var(--danger-text);
+}
+
+.ai-log {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 120px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+.ai-message {
+  margin: 0;
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--fg-default);
+}
+
+.ai-message-user {
+  align-self: flex-end;
+  max-width: 90%;
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+}
+
+.ai-message-assistant {
+  align-self: flex-start;
+  max-width: 95%;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+.ai-message-pending {
+  color: var(--fg-muted);
+}
+
+.ai-message-note {
+  padding: 0 var(--space-1);
+  font-size: var(--text-caption);
+  color: var(--fg-muted);
+}
+
+.ai-message-note.ai-panel-error {
+  color: var(--danger-text);
+}
+
+.ai-plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.ai-plan-title {
+  margin: 0;
+  font-weight: var(--weight-bold);
+}
+
+.ai-plan-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-0-5) var(--space-2);
+  margin: 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.ai-plan-list li {
+  display: contents;
+}
+
+.ai-plan-ref {
+  font-family: var(--font-code);
+  color: var(--fg-muted);
+}
+
+.ai-plan-value {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ai-plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.ai-plan-status {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--fg-muted);
+}
+
+.ai-input-label {
+  font-weight: var(--weight-bold);
+}
+
+.ai-input {
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  resize: vertical;
+}

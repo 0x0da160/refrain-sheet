@@ -50,6 +50,10 @@
     // Knip's project globs above don't include *.css, so it never sees
     // this real usage and reports the package as unused.
     "tailwindcss",
+    // Used only by path: vite.config.ts copies its WebAssembly build out of
+    // node_modules into the hosted build's ai-runtime/ (the AI assistant's
+    // runtime for browsers without JSPI or Memory64). Nothing imports it.
+    "@wllama/wllama-compat",
   ],
   "ignoreBinaries": [
     // A system tool, not an npm package: scripts/release/code-stats.mjs (and

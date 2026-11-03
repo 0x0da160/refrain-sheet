@@ -64,6 +64,7 @@ function noOpUiPort(): UiPort {
     showAbout: () => {},
     showFormulaHelp: () => {},
     showSqlQuery: async () => undefined,
+    showAiAssistant: () => {},
     showDiff: async () => undefined,
     confirmReplaceAllWorkbook: async () => false,
     confirmRangeMoveOverwrite: async () => false,

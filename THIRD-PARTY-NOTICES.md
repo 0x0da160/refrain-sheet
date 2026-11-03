@@ -184,9 +184,28 @@ SOFTWARE.
   Memory64 (such as Safari). Hosted build only, served from `ai-runtime/`.
 - License: MIT (same terms as `@wllama/wllama` above).
 
-The AI model itself (Qwen2.5-0.5B-Instruct, Apache License 2.0, by the Qwen
-team) is not part of any build: the user downloads it from Hugging Face in
-the AI assistant panel, and the panel shows its license before the download.
+## @mlc-ai/web-llm
+
+- Version: 0.2.86
+- Author: the MLC LLM authors
+- Source: https://github.com/mlc-ai/web-llm
+- Purpose: the AI assistant's inference runtime on WebGPU, which runs the
+  default model (and makes the assistant work in Safari on iOS and iPadOS).
+  It bundles Apache TVM's WebAssembly runtime and tokenizers-cpp (both
+  Apache License 2.0) and `loglevel` (MIT, Copyright (c) 2013 Tim Perry).
+  Hosted build only: it is compiled out of `dist/` and the release ZIP, and
+  the hosted build serves it as its own script from `ai-runtime/`, loaded
+  only when the user downloads or starts the model.
+- License: Apache License 2.0
+  (https://www.apache.org/licenses/LICENSE-2.0), the full text of which is
+  in `node_modules/@mlc-ai/web-llm/LICENSE`.
+
+The AI models themselves are not part of any build: the user downloads one
+from Hugging Face in the AI assistant panel, and the panel shows its license
+before the download. The default model is gemma3-270m-japanese-webllm-03
+(by UMASHIKA, a fine-tune of Google's Gemma 3 270M, under the Gemma Terms of
+Use, https://ai.google.dev/gemma/terms). Browsers without WebGPU use
+Qwen2.5-0.5B-Instruct (Apache License 2.0, by the Qwen team).
 
 ## WebAssembly core (Rust crates)
 

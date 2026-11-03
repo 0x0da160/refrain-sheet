@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setAiEngineForTests, type AiEngine } from '../../src/app/ai/engine';
 import { setLocale, t } from '../../src/app/i18n';
+import { GEMMA_MODEL, QWEN_MODEL, setAiModelForTests } from '../../src/app/ai/model';
 import type { AiAssistantInput } from '../../src/app/ui-port';
 import { resetAiPanelForTests, showAiAssistantPanel } from '../../src/ui/ai-panel';
 
@@ -74,12 +75,14 @@ function close(): void {
 
 beforeEach(() => {
   setLocale('en');
+  setAiModelForTests(GEMMA_MODEL);
   resetAiPanelForTests();
   document.body.textContent = '';
 });
 
 afterEach(() => {
   setAiEngineForTests(null);
+  setAiModelForTests(null);
   resetAiPanelForTests();
   document.body.textContent = '';
 });
@@ -93,8 +96,20 @@ describe('AI assistant panel', () => {
     expect(engine.isDownloaded).toHaveBeenCalled();
     expect(engine.download).not.toHaveBeenCalled();
     expect(engine.load).not.toHaveBeenCalled();
-    expect(panelText()).toContain('Qwen2.5-0.5B-Instruct');
+    expect(panelText()).toContain('gemma3-270m-japanese-webllm-03');
+    expect(panelText()).toContain('Gemma Terms of Use');
+    expect(panelText()).not.toContain(t('aiAssistant.model.noWebGpu'));
     expect(panelText()).toContain(t('aiAssistant.downloadNote'));
+    expect(button(t('aiAssistant.download', { size: '190' }))).toBeTruthy();
+  });
+
+  it('offers the CPU model, and says why, in a browser without WebGPU', async () => {
+    setAiModelForTests(QWEN_MODEL);
+    setAiEngineForTests(fakeEngine(false));
+    void showAiAssistantPanel(input(), async () => true);
+    await settle();
+    expect(panelText()).toContain('Qwen2.5-0.5B-Instruct');
+    expect(panelText()).toContain(t('aiAssistant.model.noWebGpu'));
     expect(button(t('aiAssistant.download', { size: '490' }))).toBeTruthy();
   });
 
@@ -103,7 +118,7 @@ describe('AI assistant panel', () => {
     setAiEngineForTests(engine);
     void showAiAssistantPanel(input(), async () => true);
     await settle();
-    button(t('aiAssistant.download', { size: '490' })).click();
+    button(t('aiAssistant.download', { size: '190' })).click();
     await settle();
     await settle();
     expect(engine.download).toHaveBeenCalledTimes(1);
@@ -197,6 +212,6 @@ describe('AI assistant panel', () => {
     await settle();
     await settle();
     expect(engine.deleteModel).toHaveBeenCalledTimes(1);
-    expect(button(t('aiAssistant.download', { size: '490' }))).toBeTruthy();
+    expect(button(t('aiAssistant.download', { size: '190' }))).toBeTruthy();
   });
 });

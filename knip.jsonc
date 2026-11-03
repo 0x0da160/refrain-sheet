@@ -27,6 +27,9 @@
     // them, nothing in src/ imports them back.
     "tests/**/*.ts",
     "bench/**/*.ts",
+    // The WebLLM runtime script's entry: vite.config.ts builds it on its own
+    // into the hosted build's ai-runtime/, and nothing in src/ imports it.
+    "src/app/ai/webllm-runtime.ts",
     // src/main.ts and vite.config.ts are intentionally NOT listed: Knip's
     // built-in Vite plugin discovers src/main.ts from index.html's <script>
     // tag, and discovers vite.config.ts itself as the project's build

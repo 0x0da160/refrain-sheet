@@ -48,6 +48,7 @@
     "changelog:archive": "node scripts/release/changelog.mjs archive"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "0.2.86",
     "@wllama/wllama": "3.8.1",
     "@wllama/wllama-compat": "3.8.1",
     "encoding-japanese": "^2.4.0",

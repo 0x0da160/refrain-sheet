@@ -86,34 +86,48 @@ Google Drive sync.
 ## Exception: opt-in AI assistant (hosted build only)
 
 The hosted build also offers an **opt-in** AI assistant (View > AI
-Assistant): a small language model (Qwen2.5-0.5B-Instruct, GGUF Q4_K_M)
-run in the browser by `@wllama/wllama` (llama.cpp compiled to
-WebAssembly, in a Web Worker).
+Assistant): a small language model run inside the browser. A browser with
+WebGPU (Safari on macOS, iOS and iPadOS 26, Chrome, Edge) runs the default
+model, gemma3-270m-japanese-webllm-03 (q4f32_1, Gemma Terms of Use), with
+`@mlc-ai/web-llm` (`src/app/ai/webllm-engine.ts`). Any other browser runs
+Qwen2.5-0.5B-Instruct (GGUF Q4_K_M) with `@wllama/wllama` (llama.cpp
+compiled to WebAssembly, in a Web Worker; `src/app/ai/engine.ts`).
 
 - **Nothing is fetched until the user asks.** Page load and opening the
   panel make no request; the panel only lists what the browser already
-  stores. The model file is downloaded from Hugging Face only when the
-  user presses Download AI Model (`src/app/ai/engine.ts`), and kept in the
-  Origin Private File System so later visits start it with no download.
-  Delete AI Model removes it.
+  stores. The model is downloaded from Hugging Face only when the user
+  presses Download AI Model. The WebLLM model's download first reads the
+  repository's file list (`huggingface.co/api/models/…/tree/main`) to find
+  its compiled WebGPU library, then fetches the model's files into Cache
+  Storage; the Qwen model is kept in the Origin Private File System. Later
+  visits start the stored model with no download: the WebLLM engine refuses
+  to start unless every file is stored, so a start never fetches. Delete AI
+  Model removes it.
+- **The runtime is served by the app, not a CDN.** wllama's WebAssembly and
+  the WebLLM script (several MB, built from `src/app/ai/webllm-runtime.ts`)
+  are versioned files in `ai-runtime/` next to the hosted app, loaded only
+  when a model is downloaded or started — never at page load.
 - **The sheet never leaves the browser.** Inference runs locally; the only
   remote host is the model download. The model's replies are rendered as
   text, and a proposed edit is a list of `cell → value` pairs the user must
   approve; it is applied through the command layer as one undoable
   `bulkEdit`, under the usual write guards (`src/app/commands/ai-assistant.ts`).
 - **Hosted build only, compiled out of the offline build.** The panel and
-  runtime are gated on `__OFFLINE_BUILD__`; `npm run check:dist` fails if the
-  offline bundle contains `wllama` or a Hugging Face host, or ships any
-  `ai-runtime/` file.
+  runtimes are gated on `__OFFLINE_BUILD__`; `npm run check:dist` fails if the
+  offline bundle contains `wllama`, `webllm`, or a Hugging Face host, or
+  ships any `ai-runtime/` file.
 - **CSP.** The hosted policy gains `connect-src 'self' https://huggingface.co
 https://*.hf.co` (the runtime's own WebAssembly from `ai-runtime/`, the
-  model, and Hugging Face's download CDN) and `worker-src blob:` (the
-  runtime's worker). `script-src` gains nothing. `check:dist:hosted` allows
-  exactly the three versioned `ai-runtime/` files and nothing else there.
-- **Model integrity.** The file is fetched by its fixed Hugging Face URL over
-  HTTPS from the model's official repository; the app does not pin a
-  checksum. A tampered model can only produce bad text or bad proposals,
-  which the user reviews before anything is applied.
+  model, and Hugging Face's download CDN) and `worker-src blob:` (wllama's
+  worker). `script-src` gains nothing: the WebLLM script comes from
+  `'self'`. `check:dist:hosted` allows exactly the four versioned
+  `ai-runtime/` files and nothing else there.
+- **Model integrity.** The files are fetched by fixed Hugging Face URLs over
+  HTTPS from the models' repositories; the app does not pin a checksum. The
+  WebLLM model's compiled library is WebAssembly that runs with the page's
+  privileges (under the same CSP), so the repository is trusted the way a
+  dependency is. A tampered model can otherwise only produce bad text or bad
+  proposals, which the user reviews before anything is applied.
 
 ### The hosted / offline build split
 

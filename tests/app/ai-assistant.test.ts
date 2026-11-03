@@ -123,7 +123,7 @@ describe('where the AI assistant exists', () => {
   it('names its runtime files by version under ai-runtime/', () => {
     const files = aiRuntimeFiles();
     for (const path of Object.values(files)) {
-      expect(path).toMatch(/^ai-runtime\/wllama(-compat)?-\d+\.\d+\.\d+\.(wasm|js)$/);
+      expect(path).toMatch(/^ai-runtime\/(wllama(-compat)?|webllm)-\d+\.\d+\.\d+\.(wasm|js)$/);
     }
   });
 

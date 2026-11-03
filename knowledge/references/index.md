@@ -30,16 +30,8 @@ For the knowledge bundle's own domains, start at
 - Agent-workflow skills (`.claude/skills/*/SKILL.md`):
   - [`cleanup-audit`](../../.claude/skills/cleanup-audit/SKILL.md) — run
     Knip and classify findings into `docs/knip-baseline.md`.
-  - [`implement-issue`](../../.claude/skills/implement-issue/SKILL.md) —
-    implement one approved Issue on an isolated branch and open a PR.
-  - [`prepare-issue-spec`](../../.claude/skills/prepare-issue-spec/SKILL.md)
-    — turn an Issue and its comments into a living agent Work Brief.
-  - [`review-pr`](../../.claude/skills/review-pr/SKILL.md) — independently
-    review an agent-created PR against its Issue's acceptance criteria.
   - [`safe-delete`](../../.claude/skills/safe-delete/SKILL.md) — delete one
     verified-dead code item in a single small, evidence-documented PR.
-  - [`triage-issue`](../../.claude/skills/triage-issue/SKILL.md) — classify
-    an Issue and apply safe labels.
   - [`update-dependencies`](../../.claude/skills/update-dependencies/SKILL.md)
     — patch dependencies and toolchains, and run the quarterly EOL review
     against the full SBOM.

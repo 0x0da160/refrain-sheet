@@ -17,10 +17,12 @@ autonomous runs) is never mistaken for current behavior.
 > `implement-issue.yml`, `review-pr.yml`, and `close-loop.yml` had done no
 > real work since 2026-09-18 — development moved to interactive Claude Code
 > sessions — and `review-pr.yml` / `close-loop.yml` were firing on every pull
-> request only to skip or fail. The pages below remain as the design record
-> and as the process the `.claude/skills/` skills still follow when run by
-> hand; the workflow tables describe the removed automation. Restoring it
-> means reverting that removal from git history, then redoing
+> request only to skip or fail. The four skills that followed the same
+> process by hand (`triage-issue`, `prepare-issue-spec`, `implement-issue`,
+> `review-pr`) were removed as dormant on 2026-11-02. The pages below remain
+> as the design record only; the workflow tables describe the removed
+> automation. Restoring it means reverting both removals from git history,
+> then redoing
 > [the setup](configuration-and-permissions.md#human-setup-required). The
 > release workflows (`manual-release.yml`, `release.yml`) are unaffected.
 >

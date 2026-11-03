@@ -365,3 +365,13 @@ the grid is a `GridCore` plus collaborators; `main.ts` became `ui/shell/`.
 Paths across the bundle were updated (`architecture/dependency-rules.md`,
 `system-overview.md`, the domain and RSF format files); the outcome is
 recorded in `docs/proposals/structural-refactoring-plan.md`.
+
+## 2026-11-02
+
+**Skill cleanup.** Removed the four dormant Issue-driven agent-loop skills
+(`triage-issue`, `prepare-issue-spec`, `implement-issue`, `review-pr`) from
+`.claude/skills/`; the workflows they served had been removed on
+2026-09-23. The other four skills (`cleanup-audit`, `safe-delete`,
+`update-dependencies`, `verify-change`) are unchanged. Updated the status
+note in `agent-loop/index.md`, the skills list in `references/index.md`, and
+the one path reference in `agent-loop/budget-rollback-and-release.md`.

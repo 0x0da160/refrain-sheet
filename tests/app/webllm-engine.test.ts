@@ -192,7 +192,12 @@ describe('WebLLM engine', () => {
     expect(modelId).toBe(GEMMA_MODEL.name);
     expect(appConfig.cacheBackend).toBe('cache');
     expect(appConfig.model_list).toEqual([
-      { model: BASE, model_id: GEMMA_MODEL.name, model_lib: LIB, overrides: {} },
+      {
+        model: BASE,
+        model_id: GEMMA_MODEL.name,
+        model_lib: LIB,
+        overrides: { context_window_size: 4096, sliding_window_size: -1 },
+      },
     ]);
     expect(progress).toHaveBeenCalledWith({
       loaded: GEMMA_MODEL.approxSizeMb * 500_000,
@@ -222,14 +227,14 @@ describe('WebLLM engine', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('retries with the sliding window off when the model config sets both windows', async () => {
+  it('caps the context window so the KV cache fits a phone', async () => {
     storeModel(caches.scopes);
-    create.mockRejectedValueOnce(
-      new Error('Only one of context_window_size and sliding_window_size can be positive.'),
-    );
     await new WebLlmEngine().load();
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(create.mock.calls[1][1].appConfig.model_list[0].overrides).toEqual({ sliding_window_size: -1 });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][1].appConfig.model_list[0].overrides).toEqual({
+      context_window_size: 4096,
+      sliding_window_size: -1,
+    });
   });
 
   it('stops a download when cancelled', async () => {

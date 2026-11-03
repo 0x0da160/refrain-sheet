@@ -71,23 +71,31 @@ function modelTreeUrl(): string {
 const FALLBACK_MODEL_LIB = 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm';
 
 /**
- * Used when the model's own config sets both a context window and a
- * sliding window, which WebLLM refuses (earlier builds of this model did):
- * keep the context window and turn the sliding window off.
+ * Merged over the model's own `mlc-chat-config.json`. WebLLM sizes the KV
+ * cache for the whole context window when the model starts, and Gemma 3
+ * 270M's config can ask for far more than the assistant uses (up to 32K
+ * tokens, about 1.2 GB of f32 KV cache with q4f32_1). That is more memory
+ * than Safari on iPhone grants a tab, which then reloads the page. 4096
+ * tokens (about 150 MB) fits the system prompt, the sheet view (see
+ * src/core/ai-prompt.ts), a few turns and the reply, the same budget the
+ * CPU engine uses. The sliding window is turned off because WebLLM refuses a
+ * config that sets both (earlier builds of this model did).
  */
-const WINDOW_OVERRIDES: ChatOptions = { sliding_window_size: -1 };
+const CHAT_OVERRIDES: ChatOptions = { context_window_size: 4096, sliding_window_size: -1 };
 
 function abortError(): DOMException {
   return new DOMException('The operation was aborted.', 'AbortError');
 }
 
-function appConfig(modelLib: string, overrides: ChatOptions = {}): AppConfig {
+function appConfig(modelLib: string): AppConfig {
   return {
     // Cache Storage, which Safari, Chrome and Firefox all offer. Named here
     // rather than left to WebLLM's default so the stored-model check below
     // keeps reading the right place.
     cacheBackend: 'cache',
-    model_list: [{ model: modelBaseUrl(), model_id: modelId(), model_lib: modelLib, overrides }],
+    model_list: [
+      { model: modelBaseUrl(), model_id: modelId(), model_lib: modelLib, overrides: CHAT_OVERRIDES },
+    ],
   };
 }
 
@@ -237,22 +245,11 @@ export class WebLlmEngine implements AiEngine {
       throw abortError();
     }
     const runtime = await webLlmRuntime();
-    const create = (overrides?: ChatOptions) =>
-      runtime.CreateMLCEngine(modelId(), {
-        appConfig: appConfig(modelLib, overrides),
-        initProgressCallback: onProgress,
-      });
-    let pending: Promise<MLCEngine> = create();
-    let engine: MLCEngine;
-    try {
-      engine = await this.untilAborted(pending, signal);
-    } catch (error) {
-      if (signal.aborted || !/sliding_window_size/i.test(String(error))) {
-        throw error;
-      }
-      pending = create(WINDOW_OVERRIDES);
-      engine = await this.untilAborted(pending, signal);
-    }
+    const pending = runtime.CreateMLCEngine(modelId(), {
+      appConfig: appConfig(modelLib),
+      initProgressCallback: onProgress,
+    });
+    const engine = await this.untilAborted(pending, signal);
     if (signal.aborted) {
       await engine.unload();
       throw abortError();

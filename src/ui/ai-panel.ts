@@ -19,7 +19,7 @@
  */
 import { BotMessageSquare } from 'lucide';
 import { aiEngine, isAbortError } from '../app/ai/engine';
-import { AI_MODEL } from '../app/ai/model';
+import { aiModel } from '../app/ai/model';
 import { t } from '../app/i18n';
 import type { AiAssistantInput } from '../app/ui-port';
 import { splitAiPlanReply, type AiPlanChange } from '../core/ai-plan';
@@ -248,16 +248,20 @@ function updatePendingReply(text: string): void {
 }
 
 function renderModelInfo(): HTMLElement {
+  const model = aiModel();
   return formSection(t('aiAssistant.model.title'), [
-    el('p', { className: 'ai-panel-model-name', text: `${AI_MODEL.name} (${AI_MODEL.quantization})` }),
+    el('p', { className: 'ai-panel-model-name', text: `${model.name} (${model.quantization})` }),
     el('p', {
       className: 'dialog-note',
       text: t('aiAssistant.model.details', {
-        size: String(AI_MODEL.approxSizeMb),
-        license: AI_MODEL.license,
+        size: String(model.approxSizeMb),
+        license: model.license,
       }),
     }),
-    el('p', { className: 'dialog-note' }, [externalLink(t('aiAssistant.model.page'), AI_MODEL.pageUrl)]),
+    ...(model.runtime === 'wllama'
+      ? [el('p', { className: 'dialog-note', text: t('aiAssistant.model.noWebGpu') })]
+      : []),
+    el('p', { className: 'dialog-note' }, [externalLink(t('aiAssistant.model.page'), model.pageUrl)]),
   ]);
 }
 
@@ -320,7 +324,7 @@ function renderSetup(body: HTMLElement, buttons: HTMLElement): void {
     return;
   }
   buttons.append(
-    dialogButton(t('aiAssistant.download', { size: String(AI_MODEL.approxSizeMb) }), true, true, () => {
+    dialogButton(t('aiAssistant.download', { size: String(aiModel().approxSizeMb) }), true, true, () => {
       void downloadModel();
     }),
   );
@@ -429,7 +433,7 @@ function renderChat(body: HTMLElement, buttons: HTMLElement): void {
       dialogButton(t('aiAssistant.deleteModel'), false, false, () => {
         void confirmStep(
           t('aiAssistant.deleteTitle'),
-          t('aiAssistant.deleteConfirm', { size: String(AI_MODEL.approxSizeMb) }),
+          t('aiAssistant.deleteConfirm', { size: String(aiModel().approxSizeMb) }),
           t('aiAssistant.deleteModel'),
           t('aiAssistant.deleteCancel'),
         ).then((ok) => {

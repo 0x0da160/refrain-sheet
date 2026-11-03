@@ -5,7 +5,7 @@
  * name the cells an edit should change. Pure and DOM-free: the caller passes
  * a read-only view of the sheet, and nothing here can write to it.
  *
- * The model is small (Qwen2.5-0.5B-Instruct by default), so both are kept
+ * The models are small (Gemma 3 270M by default), so both are kept
  * short and literal: one format rule, one worked example, and a bounded
  * window of cells rather than the whole sheet.
  */

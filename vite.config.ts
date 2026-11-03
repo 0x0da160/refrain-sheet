@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
+import { build as viteBuild } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
 
@@ -54,6 +55,52 @@ const AI_RUNTIME_FILES: ReadonlyArray<{ fileName: string; source: string; type: 
   },
 ];
 
+/**
+ * The WebLLM runtime (`@mlc-ai/web-llm`, which runs the default model on
+ * WebGPU) is several MB, so it is not part of the app's script either: it is
+ * built on its own from src/app/ai/webllm-runtime.ts into one classic script,
+ * `ai-runtime/webllm-<version>.js`, which src/app/ai/webllm-engine.ts adds to
+ * the page only when the user downloads or starts the model.
+ */
+const WEBLLM_VERSION: string = JSON.parse(
+  readFileSync('node_modules/@mlc-ai/web-llm/package.json', 'utf8'),
+).version;
+const WEBLLM_RUNTIME_FILE = `ai-runtime/webllm-${WEBLLM_VERSION}.js`;
+
+let webLlmRuntime: Promise<string> | null = null;
+
+/** Build the WebLLM runtime script (once per process) and return its code. */
+function buildWebLlmRuntime(): Promise<string> {
+  webLlmRuntime ??= (async () => {
+    const result = await viteBuild({
+      configFile: false,
+      logLevel: 'warn',
+      publicDir: false,
+      build: {
+        write: false,
+        target: 'es2020',
+        lib: {
+          entry: 'src/app/ai/webllm-runtime.ts',
+          formats: ['iife'],
+          name: '__refrainSheetWebLlm',
+          fileName: () => 'webllm.js',
+        },
+      },
+    });
+    const outputs = Array.isArray(result) ? result : [result];
+    for (const output of outputs) {
+      if ('output' in output) {
+        const chunk = output.output.find((item) => item.type === 'chunk');
+        if (chunk && chunk.type === 'chunk') {
+          return chunk.code;
+        }
+      }
+    }
+    throw new Error('the WebLLM runtime build produced no script');
+  })();
+  return webLlmRuntime;
+}
+
 export default defineConfig(({ command, mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
   // `vite build` — both mean the offline policy. Only an explicit
@@ -83,6 +130,7 @@ export default defineConfig(({ command, mode }) => {
       // its own output directory. Dev and Vitest keep the full edition.
       __MINIMAL_BUILD__: JSON.stringify(command === 'build' && mode === 'minimal'),
       __WLLAMA_VERSION__: JSON.stringify(WLLAMA_VERSION),
+      __WEBLLM_VERSION__: JSON.stringify(WEBLLM_VERSION),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
       __DRIVE_API_KEY__: hostedEnv('VITE_GOOGLE_DRIVE_API_KEY'),
     },
@@ -124,14 +172,21 @@ export default defineConfig(({ command, mode }) => {
               res.end(readFileSync(file.source));
             });
           }
+          server.middlewares.use(`/${WEBLLM_RUNTIME_FILE}`, (_req, res, next) => {
+            buildWebLlmRuntime().then((code) => {
+              res.setHeader('Content-Type', 'text/javascript');
+              res.end(code);
+            }, next);
+          });
         },
-        generateBundle() {
+        async generateBundle() {
           if (buildMode !== 'hosted') {
             return;
           }
           for (const file of AI_RUNTIME_FILES) {
             this.emitFile({ type: 'asset', fileName: file.fileName, source: readFileSync(file.source) });
           }
+          this.emitFile({ type: 'asset', fileName: WEBLLM_RUNTIME_FILE, source: await buildWebLlmRuntime() });
         },
       },
       {

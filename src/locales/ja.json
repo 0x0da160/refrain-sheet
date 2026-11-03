@@ -1694,6 +1694,7 @@
   "aiAssistant.model.title": "AIモデル",
   "aiAssistant.model.details": "約 {size} MB。ライセンス：{license}。Hugging Face からダウンロードします。",
   "aiAssistant.model.page": "モデルのページ（Hugging Face）",
+  "aiAssistant.model.noWebGpu": "このブラウザは WebGPU に対応していないため、CPU で動く大きめのモデルを使います。返答は遅くなります。",
   "aiAssistant.downloadNote": "［ダウンロード］を押すまで何もダウンロードしません。モデルはこのブラウザに保存されるため、次回からはダウンロードせずに起動します。",
   "aiAssistant.download": "AIモデルをダウンロード（{size} MB）",
   "aiAssistant.downloadStarting": "ダウンロードを開始しています…",

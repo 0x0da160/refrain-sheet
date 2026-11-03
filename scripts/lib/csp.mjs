@@ -37,10 +37,13 @@ export const BUILD_MODES = ['offline', 'hosted'];
 // And these are what the opt-in AI assistant needs (hosted build only;
 // src/app/ai/model.ts). None is used until the user presses Download or the
 // panel starts a model already stored in the browser:
-//   'self'                 the inference runtime's own WebAssembly files,
-//                          served next to the app from ai-runtime/
-//   huggingface.co, *.hf.co  the model file and the CDN hosts Hugging Face
-//                          redirects a download to
+//   'self'                 the inference runtimes' own WebAssembly files,
+//                          served next to the app from ai-runtime/ (the
+//                          WebLLM script there needs no grant: script-src
+//                          already allows 'self')
+//   huggingface.co, *.hf.co  the model files, the model repository's file
+//                          list, and the CDN hosts Hugging Face redirects a
+//                          download to
 //   worker-src blob:       the runtime runs the model in a Web Worker it
 //                          builds from its own bundled code
 //

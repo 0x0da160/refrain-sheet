@@ -97,10 +97,14 @@ const AI_RUNTIME_DIR = join(dist, 'ai-runtime');
 const wllamaVersion = JSON.parse(
   readFileSync(join(root, 'node_modules', '@wllama', 'wllama', 'package.json'), 'utf8'),
 ).version;
+const webllmVersion = JSON.parse(
+  readFileSync(join(root, 'node_modules', '@mlc-ai', 'web-llm', 'package.json'), 'utf8'),
+).version;
 const expectedAiRuntime = [
   `wllama-${wllamaVersion}.wasm`,
   `wllama-compat-${wllamaVersion}.wasm`,
   `wllama-compat-${wllamaVersion}.js`,
+  `webllm-${webllmVersion}.js`,
 ];
 const aiRuntimeFiles = allFiles.filter((f) => f.startsWith(AI_RUNTIME_DIR + '/'));
 const files = allFiles.filter((f) => !aiRuntimeFiles.includes(f));
@@ -314,7 +318,9 @@ if (mode === 'offline') {
   } else {
     ok('offline build ships no AI runtime files');
   }
-  const aiTraces = [...new Set(bundle.match(/huggingface\.co|\bhf\.co\b|wllama/g) ?? [])];
+  const aiTraces = [
+    ...new Set(bundle.match(/huggingface\.co|\bhf\.co\b|wllama|webllm|web-llm|MLCEngine/gi) ?? []),
+  ];
   if (aiTraces.length > 0) {
     fail(`the offline bundle contains the AI assistant (${aiTraces.join(', ')}) — it must be compiled out`);
   } else {

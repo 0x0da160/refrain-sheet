@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 /**
- * The AI assistant's inference engine: `@wllama/wllama` (llama.cpp compiled
- * to WebAssembly) running the model in a Web Worker inside the browser.
+ * The AI assistant's inference engines. A browser with WebGPU runs the
+ * default Gemma model through WebLLM (./webllm-engine.ts); any other browser
+ * runs the Qwen model through `@wllama/wllama` (llama.cpp compiled to
+ * WebAssembly) in a Web Worker, defined here.
  *
- * Every network request this module makes follows an explicit user action:
+ * Every network request the wllama engine makes follows an explicit user
+ * action:
  *
  * - `download()` (the panel's Download button) fetches the model file from
  *   Hugging Face into the browser's own storage (Origin Private File System,
@@ -17,7 +20,8 @@
  */
 import { LoggerWithoutDebug, Wllama, WllamaAbortError, type Model } from '@wllama/wllama';
 import type { AiChatMessage } from '../../core/ai-prompt';
-import { AI_MODEL, aiRuntimeFiles } from './model';
+import { aiModel, aiRuntimeFiles, QWEN_MODEL } from './model';
+import { WebLlmEngine } from './webllm-engine';
 
 /** Context window in tokens: the system prompt, the sheet view, a few turns, and the reply. */
 const N_CTX = 4096;
@@ -61,7 +65,7 @@ function absolute(path: string): string {
   return new URL(path, document.baseURI).href;
 }
 
-/** The engine backed by wllama. Created on first use, never at page load. */
+/** The engine backed by wllama, for browsers without WebGPU. Created on first use, never at page load. */
 class WllamaEngine implements AiEngine {
   private instance: Wllama | null = null;
   private loading: Promise<void> | null = null;
@@ -84,7 +88,7 @@ class WllamaEngine implements AiEngine {
 
   private async storedModel(): Promise<Model | undefined> {
     const models = await this.wllama().modelManager.getModels();
-    return models.find((model) => model.url === AI_MODEL.fileUrl);
+    return models.find((model) => model.url === QWEN_MODEL.fileUrl);
   }
 
   async isDownloaded(): Promise<boolean> {
@@ -92,7 +96,7 @@ class WllamaEngine implements AiEngine {
   }
 
   async download(onProgress: (progress: AiDownloadProgress) => void, signal: AbortSignal): Promise<void> {
-    await this.wllama().modelManager.downloadModel(AI_MODEL.fileUrl, {
+    await this.wllama().modelManager.downloadModel(QWEN_MODEL.fileUrl, {
       signal,
       progressCallback: ({ loaded, total }) => onProgress({ loaded, total }),
     });
@@ -187,9 +191,9 @@ class WllamaEngine implements AiEngine {
 
 let engine: AiEngine | null = null;
 
-/** The one engine for the page, created on first use. */
+/** The one engine for the page, created on first use, for the model `aiModel()` picks. */
 export function aiEngine(): AiEngine {
-  engine ??= new WllamaEngine();
+  engine ??= aiModel().runtime === 'webllm' ? new WebLlmEngine() : new WllamaEngine();
   return engine;
 }
 

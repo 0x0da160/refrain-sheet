@@ -44,6 +44,8 @@ declare global {
 const MAX_REPLY_TOKENS = 512;
 /** Low temperature: answers about the sheet should be steady, not creative. */
 const TEMPERATURE = 0.2;
+/** A model this small easily loops on a phrase; a mild penalty keeps the reply moving. */
+const REPETITION_PENALTY = 1.1;
 
 /** WebLLM's own Cache Storage names (fixed by WebLLM, shared by every model). */
 const CACHE_SCOPES = ['webllm/config', 'webllm/wasm', 'webllm/model'] as const;
@@ -329,6 +331,7 @@ export class WebLlmEngine implements AiEngine {
         messages,
         max_tokens: MAX_REPLY_TOKENS,
         temperature: TEMPERATURE,
+        repetition_penalty: REPETITION_PENALTY,
         stream: true,
       });
       for await (const chunk of chunks) {

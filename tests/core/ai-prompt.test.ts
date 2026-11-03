@@ -6,6 +6,7 @@ import {
   AI_CONTEXT_MAX_ROWS,
   AI_HISTORY_TURNS,
   AI_SYSTEM_PROMPT,
+  AI_SYSTEM_PROMPT_COMPACT,
   buildAiMessages,
   buildAiSheetContext,
   type AiChatMessage,
@@ -102,5 +103,30 @@ describe('buildAiMessages', () => {
     for (const line of example) {
       expect(parseAiPlan(line).ok).toBe(true);
     }
+  });
+
+  it('gives the smallest model a short prompt, a smaller sheet view and one earlier turn', () => {
+    const history: AiChatMessage[] = [];
+    for (let i = 0; i < 3; i++) {
+      history.push({ role: 'user', content: `q${i}` }, { role: 'assistant', content: `a${i}` });
+    }
+    const messages = buildAiMessages('Sheet: X', history, 'こんにちは', 'compact');
+    expect(messages[0].content).toBe(`${AI_SYSTEM_PROMPT_COMPACT}\n\nSheet: X`);
+    expect(messages).toHaveLength(1 + 2 + 1);
+    expect(buildAiMessages(null, [], 'hi', 'compact')[0].content).toContain('セルは変更できません');
+    expect(AI_SYSTEM_PROMPT_COMPACT.length).toBeLessThan(AI_SYSTEM_PROMPT.length / 2);
+
+    const rows = Array.from({ length: 50 }, (_, r) => Array.from({ length: 20 }, (_, c) => `${r}-${c}`));
+    const table = buildAiSheetContext(sheet(rows), 'compact')
+      .split('\n')
+      .filter((l) => /^\| \d/.test(l));
+    expect(table).toHaveLength(20);
+    expect(table[0].split('|').length - 3).toBe(8);
+  });
+
+  it('teaches the same plan format in the short prompt', () => {
+    const example = AI_SYSTEM_PROMPT_COMPACT.split('\n').filter((line) => line.startsWith('PLAN: '));
+    expect(example).toHaveLength(1);
+    expect(parseAiPlan(example[0]).ok).toBe(true);
   });
 });

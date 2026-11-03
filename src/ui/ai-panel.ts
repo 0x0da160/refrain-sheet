@@ -149,8 +149,10 @@ async function deleteModel(): Promise<void> {
 
 /** Send one question with the sheet as it is now, and show the reply as it is written. */
 async function ask(question: string): Promise<void> {
-  const context = input?.sheetContext() ?? null;
-  const messages = buildAiMessages(context, session.history, question);
+  // The smallest model follows a short prompt with a smaller sheet view.
+  const style = aiModel().runtime === 'webllm' ? 'compact' : 'full';
+  const context = input?.sheetContext(style) ?? null;
+  const messages = buildAiMessages(context, session.history, question, style);
   session.log.push({ kind: 'user', text: question });
   const reply: LogItem & { kind: 'assistant' } = { kind: 'assistant', text: '', done: false };
   session.log.push(reply);

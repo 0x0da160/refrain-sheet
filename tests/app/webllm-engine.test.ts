@@ -6,6 +6,7 @@
  * contacts nothing, only Download reaches the network, and a stored model
  * starts from storage.
  */
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { MLCEngine } from '@mlc-ai/web-llm';
 import { isAbortError } from '../../src/app/ai/engine';
@@ -142,6 +143,16 @@ describe('which model the browser gets', () => {
     vi.stubGlobal('navigator', { ...navigator, gpu: {} });
     vi.stubGlobal('caches', undefined);
     expect(aiModel()).toBe(QWEN_MODEL);
+  });
+
+  it("bundles a WebLLM runtime that still links the default model's library", () => {
+    // The model's compiled library imports TVM's threading functions; WebLLM
+    // 0.2.85 and later no longer provide them, and the model then fails to
+    // start ("import function env:_ZN3tvm7runtime9threading15ResetThreadPoolEv
+    // must be callable"). See src/app/ai/webllm-runtime.ts.
+    const runtime = readFileSync('node_modules/@mlc-ai/web-llm/lib/index.js', 'utf8');
+    expect(runtime).toContain('_ZN3tvm7runtime9threading15ResetThreadPoolEv:');
+    expect(runtime).toContain('_ZN3tvm7runtime9threading10NumThreadsEv:');
   });
 
   it('names the WebLLM runtime script by version under ai-runtime/', () => {

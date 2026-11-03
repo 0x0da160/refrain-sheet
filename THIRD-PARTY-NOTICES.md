@@ -186,7 +186,7 @@ SOFTWARE.
 
 ## @mlc-ai/web-llm
 
-- Version: 0.2.86
+- Version: 0.2.84
 - Author: the MLC LLM authors
 - Source: https://github.com/mlc-ai/web-llm
 - Purpose: the AI assistant's inference runtime on WebGPU, which runs the

@@ -67,7 +67,7 @@ function storeModel(scopes: Map<string, Map<string, string>>, options: { skipSha
   if (!options.skipShard) {
     model.set(`${BASE}params_shard_1.bin`, '0');
   }
-  // Another model's file, which deleting this one must leave alone.
+  // An earlier model's leftover file.
   model.set('https://huggingface.co/other/model/resolve/main/tokenizer.json', '0');
   scopes.set('webllm/model', model);
 }
@@ -286,7 +286,7 @@ describe('WebLLM engine', () => {
     expect(mlc.interruptGenerate).toHaveBeenCalled();
   });
 
-  it('deletes only this model from storage, and stops it', async () => {
+  it('deletes everything WebLLM stored, and stops the model', async () => {
     storeModel(caches.scopes);
     const engine = new WebLlmEngine();
     await engine.load();
@@ -294,10 +294,18 @@ describe('WebLLM engine', () => {
     expect(mlc.unload).toHaveBeenCalled();
     expect(engine.isLoaded()).toBe(false);
     expect(await engine.isDownloaded()).toBe(false);
-    expect([...caches.scopes.get('webllm/model')!.keys()]).toEqual([
-      'https://huggingface.co/other/model/resolve/main/tokenizer.json',
-    ]);
+    for (const scope of caches.scopes.values()) {
+      expect(scope.size).toBe(0);
+    }
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("clears an earlier model's leftovers before downloading, keeping this model's files", async () => {
+    storeModel(caches.scopes, { skipShard: true });
+    await new WebLlmEngine().download(vi.fn(), new AbortController().signal);
+    const model = [...caches.scopes.get('webllm/model')!.keys()];
+    expect(model).not.toContain('https://huggingface.co/other/model/resolve/main/tokenizer.json');
+    expect(model).toContain(`${BASE}params_shard_0.bin`);
   });
 
   it('adds the runtime script from this origin only when the model is started', async () => {

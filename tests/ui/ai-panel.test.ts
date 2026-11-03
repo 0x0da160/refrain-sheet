@@ -96,7 +96,7 @@ describe('AI assistant panel', () => {
     expect(engine.isDownloaded).toHaveBeenCalled();
     expect(engine.download).not.toHaveBeenCalled();
     expect(engine.load).not.toHaveBeenCalled();
-    expect(panelText()).toContain('gemma3-270m-japanese-webllm-03');
+    expect(panelText()).toContain('gemma3-270m-japanese-webllm-04');
     expect(panelText()).toContain('Gemma Terms of Use');
     expect(panelText()).not.toContain(t('aiAssistant.model.noWebGpu'));
     expect(panelText()).toContain(t('aiAssistant.downloadNote'));

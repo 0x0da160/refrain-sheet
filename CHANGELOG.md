@@ -43,7 +43,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - The web app (app.refrain-sheet.com) has an AI Assistant again: View > AI
   Assistant opens a side panel where you can ask about the open sheet or ask
   for cells to be changed. The model runs inside your browser, so the sheet is
-  not sent anywhere. By default it is gemma3-270m-japanese-webllm-03 (about
+  not sent anywhere. By default it is gemma3-270m-japanese-webllm-04 (about
   190 MB), which runs on WebGPU and so also works in Safari on iPhone and
   iPad; a browser without WebGPU uses Qwen2.5-0.5B-Instruct (about 490 MB) on
   the CPU instead, and the panel says so. Nothing is downloaded until you

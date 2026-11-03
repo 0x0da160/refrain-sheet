@@ -202,7 +202,7 @@ SOFTWARE.
 
 The AI models themselves are not part of any build: the user downloads one
 from Hugging Face in the AI assistant panel, and the panel shows its license
-before the download. The default model is gemma3-270m-japanese-webllm-03
+before the download. The default model is gemma3-270m-japanese-webllm-04
 (by UMASHIKA, a fine-tune of Google's Gemma 3 270M, under the Gemma Terms of
 Use, https://ai.google.dev/gemma/terms). Browsers without WebGPU use
 Qwen2.5-0.5B-Instruct (Apache License 2.0, by the Qwen team).

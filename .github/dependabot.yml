@@ -36,7 +36,7 @@ updates:
       # supports it. Drop this entry at that point.
       - dependency-name: typescript
         update-types: [version-update:semver-major]
-      # The AI assistant's default model (gemma3-270m-japanese-webllm-03)
+      # The AI assistant's default model (gemma3-270m-japanese-webllm-04)
       # ships a WebGPU library compiled for the WebLLM 0.2.84 runtime: from
       # 0.2.85 on, the runtime no longer provides the TVM threading imports
       # that library links against, so the model fails to start ("import

@@ -67,7 +67,7 @@ function modelTreeUrl(): string {
   return `https://huggingface.co/api/models/${GEMMA_MODEL.repo}/tree/main`;
 }
 
-/** The library's name in the earlier builds of this model, used when the list cannot be read. */
+/** The model's compiled library, used when the repository list cannot be read. */
 const FALLBACK_MODEL_LIB = 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm';
 
 /**
@@ -79,7 +79,7 @@ const FALLBACK_MODEL_LIB = 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm';
  * tokens (about 150 MB) fits the system prompt, the sheet view (see
  * src/core/ai-prompt.ts), a few turns and the reply, the same budget the
  * CPU engine uses. The sliding window is turned off because WebLLM refuses a
- * config that sets both (earlier builds of this model did).
+ * config that sets both (this model's config does).
  */
 const CHAT_OVERRIDES: ChatOptions = { context_window_size: 4096, sliding_window_size: -1 };
 
@@ -99,12 +99,32 @@ function appConfig(modelLib: string): AppConfig {
   };
 }
 
-async function cachedUrls(scope: string): Promise<string[]> {
+async function cachedUrls(scope: string, keep: (url: string) => boolean): Promise<string[]> {
   if (!(await caches.has(scope))) {
     return [];
   }
   const cache = await caches.open(scope);
-  return (await cache.keys()).map((request) => request.url).filter((url) => url.startsWith(modelBaseUrl()));
+  return (await cache.keys()).map((request) => request.url).filter(keep);
+}
+
+const isThisModel = (url: string): boolean => url.startsWith(modelBaseUrl());
+
+/**
+ * Delete what WebLLM stored that `remove` picks. The app keeps one WebLLM
+ * model at a time, so another model's files are leftovers of an earlier
+ * default (such as a preview build's) and only take up the user's storage.
+ */
+async function removeStored(remove: (url: string) => boolean): Promise<void> {
+  if (typeof caches === 'undefined') {
+    return;
+  }
+  for (const scope of CACHE_SCOPES) {
+    const urls = await cachedUrls(scope, remove);
+    if (urls.length > 0) {
+      const cache = await caches.open(scope);
+      await Promise.all(urls.map((url) => cache.delete(url)));
+    }
+  }
 }
 
 async function cachedJson(scope: string, url: string): Promise<unknown> {
@@ -121,7 +141,9 @@ async function storedModelLib(): Promise<string | null> {
   if (typeof caches === 'undefined') {
     return null;
   }
-  const [config, wasm, model] = await Promise.all(CACHE_SCOPES.map(cachedUrls));
+  const [config, wasm, model] = await Promise.all(
+    CACHE_SCOPES.map((scope) => cachedUrls(scope, isThisModel)),
+  );
   const lib = wasm.find((url) => url.endsWith('.wasm'));
   const configUrl = `${modelBaseUrl()}mlc-chat-config.json`;
   const tensorsUrl = `${modelBaseUrl()}tensor-cache.json`;
@@ -199,6 +221,7 @@ export class WebLlmEngine implements AiEngine {
     onProgress: (progress: { loaded: number; total: number }) => void,
     signal: AbortSignal,
   ): Promise<void> {
+    await removeStored((url) => !isThisModel(url));
     const modelLib = await remoteModelLib(signal);
     // WebLLM reports one fraction for fetching and starting together; it is
     // shown against the model's approximate size.
@@ -321,15 +344,7 @@ export class WebLlmEngine implements AiEngine {
     } catch {
       // An engine that lost its GPU has nothing to stop.
     }
-    if (typeof caches === 'undefined') {
-      return;
-    }
-    for (const scope of CACHE_SCOPES) {
-      const urls = await cachedUrls(scope);
-      if (urls.length > 0) {
-        const cache = await caches.open(scope);
-        await Promise.all(urls.map((url) => cache.delete(url)));
-      }
-    }
+    // Everything WebLLM stored: this model, and any earlier default's leftovers.
+    await removeStored(() => true);
   }
 }

@@ -88,7 +88,7 @@ Google Drive sync.
 The hosted build also offers an **opt-in** AI assistant (View > AI
 Assistant): a small language model run inside the browser. A browser with
 WebGPU (Safari on macOS, iOS and iPadOS 26, Chrome, Edge) runs the default
-model, gemma3-270m-japanese-webllm-03 (q4f32_1, Gemma Terms of Use), with
+model, gemma3-270m-japanese-webllm-04 (q4f32_1, Gemma Terms of Use), with
 `@mlc-ai/web-llm` (`src/app/ai/webllm-engine.ts`). Any other browser runs
 Qwen2.5-0.5B-Instruct (GGUF Q4_K_M) with `@wllama/wllama` (llama.cpp
 compiled to WebAssembly, in a Web Worker; `src/app/ai/engine.ts`).

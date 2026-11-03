@@ -383,3 +383,10 @@ finished work into a pull request that meets the `CLAUDE.md` contract: run
 `verify-change` on the final commit, decide the `CHANGELOG.md` entry (or the
 `Changelog: not-needed` opt-out), check for high-risk areas, and write the
 English-then-Japanese body. Listed it in `references/index.md`.
+
+**`triage-dependencies` skill.** Added
+`.claude/skills/triage-dependencies/SKILL.md`, a read-only weekly look at the
+latest `maintenance.yml` run and the open Dependabot pull requests. It sorts
+what it finds into security, patch/minor, major, and coming-due items and
+reports what each needs from a human; it never merges, comments, or changes a
+branch. Listed it in `references/index.md`.

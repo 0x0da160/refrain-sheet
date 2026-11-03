@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.31] - 2026-11-03
+
 ### Added
 
 - The web app (app.refrain-sheet.com) has an AI Assistant again: View > AI

@@ -80,8 +80,21 @@ const FALLBACK_MODEL_LIB = 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm';
  * src/core/ai-prompt.ts), a few turns and the reply, the same budget the
  * CPU engine uses. The sliding window is turned off because WebLLM refuses a
  * config that sets both (this model's config does).
+ *
+ * The tokenizer is the SentencePiece model (`tokenizer.model`, about 5 MB)
+ * rather than `tokenizer.json`. Gemma's `tokenizer.json` is about 33 MB with
+ * a 262K vocabulary and over 500K merges, and WebLLM parses it inside a
+ * WebAssembly heap that never shrinks, which costs a phone hundreds of MB.
+ * It is the same tokenizer: Gemma ships the SentencePiece model as its
+ * original, and its chat markers (`<start_of_turn>`, `<end_of_turn>`) are
+ * pieces in it, so the chat template encodes the same way.
  */
-const CHAT_OVERRIDES: ChatOptions = { context_window_size: 4096, sliding_window_size: -1 };
+const TOKENIZER_FILE = 'tokenizer.model';
+const CHAT_OVERRIDES: ChatOptions = {
+  context_window_size: 4096,
+  sliding_window_size: -1,
+  tokenizer_files: [TOKENIZER_FILE],
+};
 
 function abortError(): DOMException {
   return new DOMException('The operation was aborted.', 'AbortError');
@@ -150,14 +163,10 @@ async function storedModelLib(): Promise<string | null> {
   if (!lib || !config.includes(configUrl) || !model.includes(tensorsUrl)) {
     return null;
   }
-  const chatConfig = (await cachedJson('webllm/config', configUrl)) as
-    { tokenizer_files?: unknown } | undefined;
-  const tokenizerFiles = Array.isArray(chatConfig?.tokenizer_files) ? chatConfig.tokenizer_files : [];
-  const tokenizer = tokenizerFiles.includes('tokenizer.json') ? 'tokenizer.json' : 'tokenizer.model';
   const tensors = (await cachedJson('webllm/model', tensorsUrl)) as
     { records?: { dataPath?: unknown }[] } | undefined;
   const shards = (tensors?.records ?? []).map((record) => String(record.dataPath));
-  const needed = [tokenizer, ...shards].map((file) => new URL(file, modelBaseUrl()).href);
+  const needed = [TOKENIZER_FILE, ...shards].map((file) => new URL(file, modelBaseUrl()).href);
   return shards.length > 0 && needed.every((url) => model.includes(url)) ? lib : null;
 }
 
@@ -221,7 +230,9 @@ export class WebLlmEngine implements AiEngine {
     onProgress: (progress: { loaded: number; total: number }) => void,
     signal: AbortSignal,
   ): Promise<void> {
-    await removeStored((url) => !isThisModel(url));
+    // Another model's files, and this model's unused tokenizer.json (stored
+    // by an earlier build), only take up the user's storage.
+    await removeStored((url) => !isThisModel(url) || url === `${modelBaseUrl()}tokenizer.json`);
     const modelLib = await remoteModelLib(signal);
     // WebLLM reports one fraction for fetching and starting together; it is
     // shown against the model's approximate size.

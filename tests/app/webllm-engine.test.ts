@@ -61,6 +61,8 @@ function storeModel(scopes: Map<string, Map<string, string>>, options: { skipSha
       `${BASE}tensor-cache.json`,
       JSON.stringify({ records: [{ dataPath: 'params_shard_0.bin' }, { dataPath: 'params_shard_1.bin' }] }),
     ],
+    [`${BASE}tokenizer.model`, '0'],
+    // A tokenizer.json an earlier build stored; no longer used.
     [`${BASE}tokenizer.json`, '0'],
     [`${BASE}params_shard_0.bin`, '0'],
   ]);
@@ -176,6 +178,12 @@ describe('WebLLM engine', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('needs the SentencePiece tokenizer, so a copy stored with only tokenizer.json downloads it', async () => {
+    storeModel(caches.scopes);
+    caches.scopes.get('webllm/model')!.delete(`${BASE}tokenizer.model`);
+    expect(await new WebLlmEngine().isDownloaded()).toBe(false);
+  });
+
   it('downloads with the compiled library named in the repository', async () => {
     const engine = new WebLlmEngine();
     const progress = vi.fn();
@@ -196,7 +204,11 @@ describe('WebLLM engine', () => {
         model: BASE,
         model_id: GEMMA_MODEL.name,
         model_lib: LIB,
-        overrides: { context_window_size: 4096, sliding_window_size: -1 },
+        overrides: {
+          context_window_size: 4096,
+          sliding_window_size: -1,
+          tokenizer_files: ['tokenizer.model'],
+        },
       },
     ]);
     expect(progress).toHaveBeenCalledWith({
@@ -234,6 +246,7 @@ describe('WebLLM engine', () => {
     expect(create.mock.calls[0][1].appConfig.model_list[0].overrides).toEqual({
       context_window_size: 4096,
       sliding_window_size: -1,
+      tokenizer_files: ['tokenizer.model'],
     });
   });
 
@@ -305,6 +318,8 @@ describe('WebLLM engine', () => {
     await new WebLlmEngine().download(vi.fn(), new AbortController().signal);
     const model = [...caches.scopes.get('webllm/model')!.keys()];
     expect(model).not.toContain('https://huggingface.co/other/model/resolve/main/tokenizer.json');
+    expect(model).not.toContain(`${BASE}tokenizer.json`);
+    expect(model).toContain(`${BASE}tokenizer.model`);
     expect(model).toContain(`${BASE}params_shard_0.bin`);
   });
 

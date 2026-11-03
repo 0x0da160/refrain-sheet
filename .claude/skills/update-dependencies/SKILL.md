@@ -100,9 +100,9 @@ upgrade changes it, stop and raise it — do not regenerate fixtures.
 
 ## 6. Verify and hand off
 
-Run the `verify-change` skill's full list, plus `npm run check:generated`,
-`npm run check:eol`, `npm run audit:ci`, and `npm run ui:check` after
-`npm run build`. `src/` changed (e.g. a regenerated payload) → a
+Run the `verify-change` skill's full list. It mirrors CI, so it already includes
+`npm run check:generated`, `npm run check:eol`, `npm run audit:ci`, and
+`npm run ui:check` after `npm run build`. `src/` changed (e.g. a regenerated payload) → a
 `CHANGELOG.md` entry if a user would notice, else `Changelog: not-needed`.
 Commit per concern (patch/minor, each major or group of related majors,
 toolchain, register), push, and report exactly what ran, what was skipped

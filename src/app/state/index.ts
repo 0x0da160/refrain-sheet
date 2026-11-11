@@ -730,6 +730,16 @@ export class AppState {
     return this.worksheetsState.addDocumentSheet(tab, 'text', name);
   }
 
+  /** Add a new worksheet holding a Markdown, JSON, YAML or plain-text document with `text`, after the active one. */
+  addDocumentSheet(
+    tab: Tab,
+    kind: 'markdown' | 'json' | 'yaml' | 'text',
+    name: string,
+    text: string,
+  ): Worksheet | null {
+    return this.worksheetsState.addDocumentSheet(tab, kind, name, text);
+  }
+
   /** Add a new, empty grid-paper sheet after the active one, as one undoable step, and activate it. */
   addPaperSheet(tab: Tab, name: string): Worksheet | null {
     return this.worksheetsState.addPaperSheet(tab, name);

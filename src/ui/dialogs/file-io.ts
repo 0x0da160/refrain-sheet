@@ -7,6 +7,7 @@ import type { RecentFileChoice } from '../../app/ui-port';
 import type { DelimiterId } from '../../core/csv/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../../core/interchange/csv-export';
 import type { EncodingId } from '../../core/csv/encoding';
+import { OPEN_AS_KINDS, type OpenAsKind } from '../../core/interchange/open-kind';
 import { setSuppressHistoryCapWarning } from '../../app/settings';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
@@ -250,6 +251,48 @@ export class FileIoDialogs {
             }),
           ),
         );
+      },
+    );
+  }
+
+  /**
+   * Which kind of document to open a file as, when its name and content do not
+   * say (`'open'`), or to read the current file as again (`'reopen'`). Each kind
+   * has a line saying what it is, so the choice does not depend on knowing the
+   * app's file-type names. Resolves to the kind chosen, or null when cancelled.
+   */
+  chooseFileType(name: string, purpose: 'open' | 'reopen'): Promise<OpenAsKind | null> {
+    const reopen = purpose === 'reopen';
+    return openDialog<OpenAsKind | null>(
+      t(reopen ? 'dialog.fileType.reopenTitle' : 'dialog.fileType.openTitle'),
+      null,
+      (body, buttons, close) => {
+        body.append(
+          el('p', {
+            text: t(reopen ? 'dialog.fileType.reopenMessage' : 'dialog.fileType.openMessage', { name }),
+          }),
+        );
+        const list = el('ul', { className: 'file-type-list' });
+        for (const kind of OPEN_AS_KINDS) {
+          const button = el(
+            'button',
+            {
+              className: 'file-type-choice',
+              attrs: { type: 'button', ...(kind === OPEN_AS_KINDS[0] ? { 'data-autofocus': 'true' } : {}) },
+            },
+            [
+              el('span', { className: 'file-type-choice-name', text: t(`dialog.fileType.kind.${kind}`) }),
+              el('span', { className: 'file-type-choice-note', text: t(`dialog.fileType.note.${kind}`) }),
+            ],
+          );
+          button.addEventListener('click', () => close(kind));
+          list.append(el('li', {}, [button]));
+        }
+        body.append(list);
+        if (reopen) {
+          body.append(el('p', { className: 'dialog-warning', text: t('dialog.fileType.reopenWarning') }));
+        }
+        buttons.append(dialogButton(t('dialog.fileType.cancel'), false, false, () => close(null)));
       },
     );
   }

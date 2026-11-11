@@ -38,6 +38,25 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- Opening a file whose name and content do not say what kind it is asks which
+  kind to open it as: a CSV table, a spreadsheet file (.rsf), or a Markdown,
+  JSON, YAML or plain-text document. A file whose name or content already says
+  what it is opens as before, without asking.
+- File > Reopen as… reads the open file again as a kind you choose, as Reopen
+  with Encoding does for a CSV. Unsaved edits are discarded after a warning, and
+  a spreadsheet file cannot be reopened as text.
+- Drag a document tab onto the sheet tab bar of a workbook to add it there as a
+  new sheet, named after the file. The dropped file is only read and stays open,
+  and Undo removes the sheet. A spreadsheet file cannot be added this way.
+
+### Changed
+
+- A file whose name does not say what it is now asks which kind to open it as
+  (in the full app), or opens as a CSV table (in the CSV-only edition), instead
+  of the previous confirmation for non-CSV files.
+
 ## [0.9.31] - 2026-11-03
 
 ### Added

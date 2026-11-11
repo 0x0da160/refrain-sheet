@@ -36,6 +36,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
+    chooseFileType: async () => null,
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
     chooseExportCsv: vi.fn(async () => ({
@@ -188,7 +189,7 @@ describe('settings: enforcement before reading bytes', () => {
       size: 900 * MIB,
       tooLarge: true,
     };
-    await commands.openFiles([tooLarge], { confirmNonCsv: false });
+    await commands.openFiles([tooLarge]);
     expect(ui.showMessage).toHaveBeenCalledOnce();
     expect(state.tabs.length).toBe(0);
   });
@@ -199,10 +200,9 @@ describe('settings: enforcement before reading bytes', () => {
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     // 900 MiB is within the raised limit; a normal (not tooLarge) small file opens.
-    await commands.openFiles(
-      [{ name: 'a.csv', bytes: new TextEncoder().encode('x,y\n'), handle: null, size: 4 }],
-      { confirmNonCsv: false },
-    );
+    await commands.openFiles([
+      { name: 'a.csv', bytes: new TextEncoder().encode('x,y\n'), handle: null, size: 4 },
+    ]);
     expect(state.tabs.length).toBe(1);
   });
 });

@@ -24,6 +24,7 @@ function stubUi(): UiPort {
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
+    chooseFileType: async () => null,
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
     chooseExportCsv: vi.fn(async () => null),

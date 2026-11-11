@@ -33,6 +33,7 @@ import type { DelimiterId } from '../../core/csv/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../../core/workbook/cell-style';
 import type { CsvExportOptions } from '../../core/interchange/csv-export';
 import type { EncodingId } from '../../core/csv/encoding';
+import type { OpenAsKind } from '../../core/interchange/open-kind';
 import type { RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import type { ValidationSummary } from '../../core/csv/validation';
@@ -183,6 +184,11 @@ export class Dialogs {
   /** See `FileIoDialogs.chooseReopen` for the full behavior contract. */
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null> {
     return this.fileIo.chooseReopen(tab);
+  }
+
+  /** See `FileIoDialogs.chooseFileType` for the full behavior contract. */
+  chooseFileType(name: string, purpose: 'open' | 'reopen'): Promise<OpenAsKind | null> {
+    return this.fileIo.chooseFileType(name, purpose);
   }
 
   /** Explain and confirm the explicit CSV -> RSF spreadsheet conversion. See `FileIoDialogs.confirmConvert`. */

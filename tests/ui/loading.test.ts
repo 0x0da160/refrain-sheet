@@ -17,6 +17,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
+    chooseFileType: async () => null,
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
     chooseExportCsv: vi.fn(async () => ({
@@ -131,9 +132,7 @@ describe('busy indicator during file open', () => {
     const commands = new Commands(state, ui, document);
 
     const bytes = utf8('x,y\n1,2\n');
-    await commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }]);
 
     // Small files complete well within LARGE_OPEN_BYTES: no overlay is shown at all.
     expect(calls).toHaveLength(0);
@@ -149,9 +148,7 @@ describe('busy indicator during file open', () => {
     // Real bytes stay tiny (fast to parse in a test); only the reported
     // `size` needs to cross LARGE_OPEN_BYTES to exercise the "large" path.
     const bytes = utf8('x,y\n1,2\n');
-    await commands.openFiles([{ name: 'big.csv', bytes, handle: null, size: 500_000 }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'big.csv', bytes, handle: null, size: 500_000 }]);
 
     // The busy state is raised (non-null label) and then cleared (null).
     expect(calls.some((c) => typeof c === 'string' && c.length > 0)).toBe(true);

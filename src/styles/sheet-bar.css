@@ -95,6 +95,11 @@
   box-shadow: inset -2px 0 0 var(--accent);
 }
 
+/* A document tab dragged over the strip: dropping it adds its file as a sheet. */
+.sheet-strip.drop-merge {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 /* ----- Sheet folders (src/core/workbook/sheet-folders.ts) -----
    A folder is a group: its header (chevron, folder icon, name) and then its
    items. In the row, the group is outlined along its bottom edge so it reads

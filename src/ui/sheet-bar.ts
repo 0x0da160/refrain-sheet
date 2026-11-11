@@ -36,6 +36,7 @@ import { createIcon } from './icon';
 import { editNameInPlace } from './sheet-name-field';
 import { buildSheetListResizer } from './sheet-list-resizer';
 import { folderHeaderTitle, markActiveSheet } from './sheet-bar-active';
+import { attachTabDrop } from './sheet-bar-drop';
 
 /**
  * Context-menu actions for a worksheet. Every one is also a command in the
@@ -178,6 +179,7 @@ export class SheetBar {
     this.resizer = buildSheetListResizer(this.element);
     this.element.append(this.liveRegion, this.strip, this.resizer);
     this.element.addEventListener('dragend', () => this.clearDragState());
+    attachTabDrop(this.strip, this.state, this.commands, () => this.dragId !== null);
     this.render();
   }
 

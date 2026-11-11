@@ -84,9 +84,7 @@ describe('File > Open Recent', () => {
     const commands = new Commands(state, stubUi({ chooseRecentFile }), document);
     const handle = fakeHandle('data.csv', 'a,b\n1,2\n');
     const bytes = new TextEncoder().encode('a,b\n1,2\n');
-    await commands.openFiles([{ name: 'data.csv', bytes, handle, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'data.csv', bytes, handle, size: bytes.length }]);
     expect((await listRecentFiles()).map((e) => e.name)).toEqual(['data.csv']);
 
     await commands.run('file.closeTab');
@@ -101,9 +99,7 @@ describe('File > Open Recent', () => {
   it('does not record a file opened without a handle', async () => {
     const commands = new Commands(new AppState(), stubUi(), document);
     const bytes = new TextEncoder().encode('x\n');
-    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }]);
     expect(await listRecentFiles()).toEqual([]);
   });
 

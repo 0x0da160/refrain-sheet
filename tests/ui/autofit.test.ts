@@ -246,6 +246,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
+    chooseFileType: async () => null,
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
     chooseExportCsv: vi.fn(async () => null),
@@ -445,9 +446,7 @@ describe('auto-fit on open (settings + file-open integration)', () => {
     const { state, commands } = openSetup();
     expect(getAutoFitOnOpen()).toBe(true);
     const bytes = new TextEncoder().encode('a,b,c\nd,e,f\n');
-    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }]);
     const tab = state.activeTab!;
     expect(tab.colWidths[0]).toBe(MIN_COL_WIDTH);
     expect(tab.colWidths[1]).toBe(MIN_COL_WIDTH);
@@ -458,9 +457,7 @@ describe('auto-fit on open (settings + file-open integration)', () => {
     setAutoFitOnOpen(false);
     const { state, commands } = openSetup();
     const bytes = new TextEncoder().encode('a,b,c\nd,e,f\n');
-    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }]);
     expect(state.activeTab!.colWidths).toEqual([]);
   });
 
@@ -470,9 +467,7 @@ describe('auto-fit on open (settings + file-open integration)', () => {
     saved.setDisplaySettings(100, [40, 50, 60]);
     const bytes = saved.toBytes();
     const { state, commands } = openSetup();
-    await commands.openFiles([{ name: 'saved.rsf', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'saved.rsf', bytes, handle: null, size: bytes.length }]);
     expect(state.activeTab!.colWidths).toEqual([40, 50, 60]);
   });
 
@@ -481,9 +476,7 @@ describe('auto-fit on open (settings + file-open integration)', () => {
     saved.setCell(0, 0, 'a much longer value than the default width');
     const bytes = saved.toBytes();
     const { state, commands } = openSetup();
-    await commands.openFiles([{ name: 'plain.rsf', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'plain.rsf', bytes, handle: null, size: bytes.length }]);
     expect(state.activeTab!.colWidths).toEqual([]);
   });
 

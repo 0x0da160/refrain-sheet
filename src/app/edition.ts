@@ -40,6 +40,7 @@ const LEFT_OUT = new Set<CommandId>([
   'file.newYaml',
   'file.newText',
   'file.importJsonTable',
+  'file.reopenAs',
   'file.print',
   'file.setPrintArea',
   'file.clearPrintArea',

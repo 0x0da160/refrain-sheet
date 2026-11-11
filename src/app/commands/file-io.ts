@@ -79,8 +79,8 @@ export class FileIoCommands {
   }
 
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
-  openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
-    return this.opening.openFiles(files, opts);
+  openFiles(files: OpenedFile[]): Promise<void> {
+    return this.opening.openFiles(files);
   }
 
   /**

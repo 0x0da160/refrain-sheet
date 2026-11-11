@@ -496,8 +496,14 @@ export class WorksheetsState {
    * command layer). A document worksheet's lifecycle (undo, rename,
    * duplicate, delete, reorder) is the same `sheets` operation every other
    * worksheet uses; only its content model differs (see `Worksheet.kind`).
+   * `text` is the document's content, empty by default.
    */
-  addDocumentSheet(tab: Tab, kind: 'markdown' | 'json' | 'yaml' | 'text', name: string): Worksheet | null {
+  addDocumentSheet(
+    tab: Tab,
+    kind: 'markdown' | 'json' | 'yaml' | 'text',
+    name: string,
+    text = '',
+  ): Worksheet | null {
     const label = {
       markdown: 'history.addMarkdownSheet',
       json: 'history.addJsonSheet',
@@ -506,12 +512,12 @@ export class WorksheetsState {
     }[kind];
     return this.addBuilt(tab, label, (doc) =>
       kind === 'markdown'
-        ? doc.createMarkdownWorksheet(name)
+        ? doc.createMarkdownWorksheet(name, text)
         : kind === 'json'
-          ? doc.createJsonWorksheet(name)
+          ? doc.createJsonWorksheet(name, text)
           : kind === 'yaml'
-            ? doc.createYamlWorksheet(name)
-            : doc.createTextWorksheet(name),
+            ? doc.createYamlWorksheet(name, text)
+            : doc.createTextWorksheet(name, text),
     );
   }
 

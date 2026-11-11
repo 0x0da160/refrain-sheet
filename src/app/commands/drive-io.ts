@@ -128,9 +128,7 @@ export class DriveIoCommands {
       return;
     }
 
-    await this.fileIo.openFiles([{ name, bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: true,
-    });
+    await this.fileIo.openFiles([{ name, bytes, handle: null, size: bytes.length }]);
     // Associate whichever tab the open produced, so a later save overwrites
     // this same Drive file rather than creating a duplicate.
     const tab = this.state.activeTab;

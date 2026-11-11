@@ -96,6 +96,7 @@ import {
   PanelBottom,
   Table2,
   FileDown,
+  FileInput,
 } from 'lucide';
 import type { CommandId } from '../app/commands';
 
@@ -126,6 +127,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'drive.saveAs': CloudUpload,
   'drive.signOut': LogOut,
   'file.reopen': RotateCcw,
+  'file.reopenAs': FileInput,
   'sheet.convert': FileCode,
   'file.save': Save,
   'file.saveOptions': Settings,

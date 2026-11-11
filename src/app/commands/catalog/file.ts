@@ -21,7 +21,7 @@ export const FILE_COMMANDS = {
   'file.open': {
     run: async (ctx) => {
       const files = await pickFiles(ctx.dom, getMaxFileSize());
-      await ctx.commands.openFiles(files, { confirmNonCsv: false });
+      await ctx.commands.openFiles(files);
     },
   },
   'file.importJsonTable': {
@@ -39,6 +39,11 @@ export const FILE_COMMANDS = {
   'file.reopen': withTab(
     (ctx, tab) => ctx.parts.fileIo.reopen(tab),
     (_, tab) => isCsv(tab.doc),
+  ),
+  // A document read from a file as text or a CSV table; a spreadsheet file has no such reading.
+  'file.reopenAs': withTab(
+    (ctx, tab) => ctx.parts.fileIo.opening.reopenAs(tab),
+    (_, tab) => isCsv(tab.doc) || tab.textFile !== null,
   ),
   'file.toggleProtect': withTab((ctx, tab) => ctx.state.setReadOnly(tab, !tab.readOnly)),
   'file.save': withTab((ctx, tab) => ctx.commands.save(tab, KEEP_SAVE_OPTIONS)),

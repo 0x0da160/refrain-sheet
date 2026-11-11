@@ -160,24 +160,24 @@ export class Workbook {
     return this.besideActive(Worksheet.fromValues(this.registry.mintId(), name, rows, columnCount));
   }
 
-  /** Build (but do not insert) a new worksheet holding one empty Markdown document. */
-  createMarkdownWorksheet(name: string): Worksheet {
-    return this.besideActive(Worksheet.markdown(this.registry.mintId(), name, ''));
+  /** Build (but do not insert) a new worksheet holding one Markdown document: `text`, empty by default. */
+  createMarkdownWorksheet(name: string, text = ''): Worksheet {
+    return this.besideActive(Worksheet.markdown(this.registry.mintId(), name, text));
   }
 
-  /** Build (but do not insert) a new worksheet holding one empty JSON document. */
-  createJsonWorksheet(name: string): Worksheet {
-    return this.besideActive(Worksheet.json(this.registry.mintId(), name, ''));
+  /** Build (but do not insert) a new worksheet holding one JSON document: `text`, empty by default. */
+  createJsonWorksheet(name: string, text = ''): Worksheet {
+    return this.besideActive(Worksheet.json(this.registry.mintId(), name, text));
   }
 
-  /** Build (but do not insert) a new worksheet holding one empty YAML document. */
-  createYamlWorksheet(name: string): Worksheet {
-    return this.besideActive(Worksheet.yaml(this.registry.mintId(), name, ''));
+  /** Build (but do not insert) a new worksheet holding one YAML document: `text`, empty by default. */
+  createYamlWorksheet(name: string, text = ''): Worksheet {
+    return this.besideActive(Worksheet.yaml(this.registry.mintId(), name, text));
   }
 
-  /** Build (but do not insert) a new worksheet holding one empty plain-text document. */
-  createTextWorksheet(name: string): Worksheet {
-    return this.besideActive(Worksheet.text(this.registry.mintId(), name, ''));
+  /** Build (but do not insert) a new worksheet holding one plain-text document: `text`, empty by default. */
+  createTextWorksheet(name: string, text = ''): Worksheet {
+    return this.besideActive(Worksheet.text(this.registry.mintId(), name, text));
   }
 
   /** A new worksheet goes in next to the active one, so it joins the active one's folder. */

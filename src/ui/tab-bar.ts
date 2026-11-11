@@ -7,6 +7,7 @@ import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
+import { setDraggedTabId } from './tab-drag';
 
 /** Context-menu actions for a tab (all shared with the View menu commands). */
 const TAB_MENU_ITEMS: Array<{ command: CommandId; labelKey: string }> = [
@@ -121,12 +122,15 @@ export class TabBar {
     // ----- Drag-and-drop reordering -----
     tabEl.addEventListener('dragstart', (event) => {
       this.dragId = tab.id;
+      // The worksheet strip may take this tab as a sheet (a copy), as well as
+      // this strip reordering it (a move).
+      setDraggedTabId(tab.id);
       tabEl.classList.add('dragging');
       // dataTransfer may be absent in test environments; the drag still works
       // through the tracked dragId.
       event.dataTransfer?.setData('text/plain', tab.name);
       if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.effectAllowed = 'copyMove';
       }
     });
     tabEl.addEventListener('dragover', (event) => {
@@ -269,6 +273,7 @@ export class TabBar {
 
   private clearDragState(): void {
     this.dragId = null;
+    setDraggedTabId(null);
     for (const tabEl of this.element.querySelectorAll('.tab')) {
       tabEl.classList.remove('dragging', 'drop-before', 'drop-after');
     }

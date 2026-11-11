@@ -723,12 +723,13 @@ function exportItems(): Array<MenuItemDef | 'separator'> {
 
 /**
  * Per-document actions that are not everyday file I/O (File > This File):
- * reopening with a different encoding, toggling read-only protection, and
- * converting a CSV tab to an RSF spreadsheet.
+ * reopening with a different encoding or as another kind, toggling read-only
+ * protection, and converting a CSV tab to an RSF spreadsheet.
  */
 function documentItems(checks: MenuChecks): MenuItemDef[] {
   return [
     { labelKey: 'menu.file.reopen', command: 'file.reopen' },
+    { labelKey: 'menu.file.reopenAs', command: 'file.reopenAs' },
     {
       // "Book" (not "Document") to read distinctly from the worksheet-level
       // "Lock Sheet"/"Unlock Sheet" above — the two are different scopes

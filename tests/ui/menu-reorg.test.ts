@@ -271,7 +271,12 @@ describe('File menu reorganization (#518)', () => {
 
   it('keeps every per-document command reachable inside the Document submenu', () => {
     const documentSub = submenuOf(menu('menu.file'), 'menu.file.document');
-    expect(documentSub.map((i) => i.command)).toEqual(['file.reopen', 'file.toggleProtect', 'sheet.convert']);
+    expect(documentSub.map((i) => i.command)).toEqual([
+      'file.reopen',
+      'file.reopenAs',
+      'file.toggleProtect',
+      'sheet.convert',
+    ]);
   });
 
   it('flips the Protect Book item label between its two states, distinct from worksheet-lock wording', () => {

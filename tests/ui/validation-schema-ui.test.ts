@@ -25,6 +25,7 @@ const noopUi: UiPort = {
   notifyNcr: async () => undefined,
   confirmUndecodableEdit: async () => true,
   chooseReopen: async () => null,
+  chooseFileType: async () => null,
   confirmConvert: async () => true,
   explainRsfSave: async () => true,
   chooseExportCsv: async () => null,

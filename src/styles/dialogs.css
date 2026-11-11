@@ -575,3 +575,39 @@ table.diag-table th {
   color: var(--fg-muted);
   font-size: var(--text-caption);
 }
+
+/* File type choice (Open As / Reopen as…): one button per kind, with a line saying what it is. */
+.file-type-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.file-type-choice {
+  display: grid;
+  width: 100%;
+  gap: var(--space-0-5);
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-type-choice:hover {
+  background: var(--bg-hover);
+}
+
+.file-type-choice-name {
+  font-weight: var(--weight-bold);
+}
+
+.file-type-choice-note {
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+}

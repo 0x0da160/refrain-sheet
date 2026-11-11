@@ -18,6 +18,7 @@ import { ConditionalFormatCommands } from './conditional-format';
 import { ValidationCommands } from './data-validation';
 import { FileIoCommands } from './file-io';
 import type { NewTextFileKind } from './new-documents';
+import { addSheetFromTab } from './tab-as-sheet';
 import { DriveIoCommands } from './drive-io';
 import { isSignedIn as driveIsSignedIn } from '../drive/auth';
 import { FilterCommands } from './filter';
@@ -236,6 +237,13 @@ export class Commands {
     return tab !== null && this.parts.folders.dropSheetOnFolder(tab, sheetId, folderId);
   }
 
+  /** A document tab dropped on the worksheet strip: add its content to the active workbook as a sheet (see `addSheetFromTab`). */
+  addTabAsSheet(sourceId: string): boolean {
+    const target = this.state.activeTab;
+    const source = this.state.tabs.find((tab) => tab.id === sourceId);
+    return target !== null && source !== undefined && addSheetFromTab(this.state, this.ui, target, source);
+  }
+
   /** Place a picture (PNG, JPEG, WebP or SVG bytes) over the active sheet; refused with a message otherwise. */
   insertImage(tab: Tab, bytes: Uint8Array): Promise<boolean> {
     return this.parts.objects.insertImage(tab, bytes);
@@ -285,8 +293,8 @@ export class Commands {
   }
 
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
-  async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
-    return this.parts.fileIo.openFiles(files, opts);
+  async openFiles(files: OpenedFile[]): Promise<void> {
+    return this.parts.fileIo.openFiles(files);
   }
 
   async openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {

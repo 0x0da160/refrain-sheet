@@ -75,9 +75,7 @@ async function editAndSave(): Promise<Uint8Array | null> {
   const commands = new Commands(state, stubUi(), document);
   const disk = handle('people.csv');
   const bytes = utf8(SOURCE);
-  await commands.openFiles([{ name: 'people.csv', bytes, handle: disk.h, size: bytes.length }], {
-    confirmNonCsv: false,
-  });
+  await commands.openFiles([{ name: 'people.csv', bytes, handle: disk.h, size: bytes.length }]);
   const tab = state.activeTab!;
   tab.readOnly = false; // opened files start protected
   state.setSelection(tab, { row: 0, col: 0 }, null);
@@ -131,9 +129,7 @@ describe('the CSV-only minimal edition', () => {
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const bytes = utf8('a,b\n1,2\n');
-    await commands.openFiles([{ name: 't.csv', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 't.csv', bytes, handle: null, size: bytes.length }]);
     const tab = state.activeTab!;
     tab.readOnly = false; // opened files start protected
     await commands.commitCellEdit(tab, 1, 0, '=1+1');
@@ -153,12 +149,10 @@ describe('the CSV-only minimal edition', () => {
       const bytes = utf8(text);
       return { name, bytes, handle: null, size: bytes.length };
     };
-    await commands.openFiles([file('a.rsf', 'x'), file('b.json', '{}'), file('c.md', '# x')], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([file('a.rsf', 'x'), file('b.json', '{}'), file('c.md', '# x')]);
     expect(state.tabs).toHaveLength(0);
     expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('a.rsf'), 'error');
-    await commands.openFiles([file('d.txt', 'a\tb\n'), file('e.tsv', 'a\tb\n')], { confirmNonCsv: false });
+    await commands.openFiles([file('d.txt', 'a\tb\n'), file('e.tsv', 'a\tb\n')]);
     expect(state.tabs.map((t) => t.doc.kind)).toEqual(['csv', 'csv']);
   });
 

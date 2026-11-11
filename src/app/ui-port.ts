@@ -10,6 +10,7 @@ import type { DelimiterId } from '../core/csv/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/workbook/cell-style';
 import type { BorderPreset } from '../core/workbook/border-presets';
 import type { CsvExportOptions } from '../core/interchange/csv-export';
+import type { OpenAsKind } from '../core/interchange/open-kind';
 import type { EncodingId } from '../core/csv/encoding';
 import type { ConditionalFormatRule } from '../core/workbook/conditional-format';
 import type { ValidationRule } from '../core/workbook/data-validation';
@@ -371,6 +372,13 @@ export interface FileDialogsPort {
   notifyNcr(reports: NcrCellReport[]): Promise<void>;
   confirmUndecodableEdit(cells: Array<{ row: number; col: number }>): Promise<boolean>;
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null>;
+  /**
+   * Ask which kind of document to open `name` as: when opening a file whose
+   * name and content do not say (`'open'`), or when reopening the current
+   * file as another kind (`'reopen'`, File > Reopen as…). Resolves to the
+   * chosen kind, or null when cancelled.
+   */
+  chooseFileType(name: string, purpose: 'open' | 'reopen'): Promise<OpenAsKind | null>;
   /**
    * File > Open Recent…: pick one of the recently opened files (newest
    * first). Resolves to the chosen entry's id, `'clear'` to forget the whole

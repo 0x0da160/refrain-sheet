@@ -25,6 +25,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'file.openRecent',
   'file.importJsonTable',
   'file.reopen',
+  'file.reopenAs',
   'file.toggleProtect',
   'file.save',
   'file.saveOptions',
@@ -226,9 +227,7 @@ async function build(situation: Situation): Promise<Commands> {
   const commands = new Commands(state, inertUi(), document);
   if (situation === 'csv' || situation === 'csvReadOnly') {
     const bytes = utf8('a,b\n1,2\n');
-    await commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }]);
     if (situation === 'csvReadOnly') state.setReadOnly(state.activeTab!, true);
   } else if (situation !== 'none') {
     await commands.run('file.new');

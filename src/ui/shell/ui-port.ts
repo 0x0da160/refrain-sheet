@@ -41,6 +41,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     notifyNcr: (reports) => dialogs.notifyNcr(reports),
     confirmUndecodableEdit: (cells) => dialogs.confirmUndecodableEdit(cells),
     chooseReopen: (tab) => dialogs.chooseReopen(tab),
+    chooseFileType: (name, purpose) => dialogs.chooseFileType(name, purpose),
     chooseRecentFile: (entries) => dialogs.chooseRecentFile(entries),
     confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
     explainRsfSave: (name) => dialogs.explainRsfSave(name),

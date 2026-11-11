@@ -38,6 +38,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
+    chooseFileType: async () => null,
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
     chooseExportCsv: vi.fn(async () => ({
@@ -189,7 +190,7 @@ const KEEP = { encoding: 'keep', bom: 'keep', lineEnding: 'keep' } as const;
 describe('opening files', () => {
   it('opens a file into a new active tab', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('x,y\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('x,y\n'))]);
     expect(state.tabs.length).toBe(1);
     expect(state.activeTab?.name).toBe('a.csv');
   });
@@ -197,7 +198,7 @@ describe('opening files', () => {
   it('shows validation results and honours Cancel', async () => {
     const ui = stubUi({ confirmValidation: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('bad.csv', utf8('a,"unclosed\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('bad.csv', utf8('a,"unclosed\n'))]);
     expect(ui.confirmValidation).toHaveBeenCalledOnce();
     expect(state.tabs.length).toBe(0);
   });
@@ -205,15 +206,15 @@ describe('opening files', () => {
   it('opens malformed files losslessly when the user chooses Open Anyway', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('bad.csv', utf8('a,"unclosed\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('bad.csv', utf8('a,"unclosed\n'))]);
     expect(state.tabs.length).toBe(1);
   });
 
   it('activates the existing tab when the same file is opened twice', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('x\n'))], { confirmNonCsv: false });
-    await commands.openFiles([opened('b.csv', utf8('y\n'))], { confirmNonCsv: false });
-    await commands.openFiles([opened('a.csv', utf8('x\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('x\n'))]);
+    await commands.openFiles([opened('b.csv', utf8('y\n'))]);
+    await commands.openFiles([opened('a.csv', utf8('x\n'))]);
     expect(state.tabs.length).toBe(2);
     expect(state.activeTab?.name).toBe('a.csv');
   });
@@ -222,22 +223,40 @@ describe('opening files', () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
     const file = { name: 'huge.csv', bytes: utf8('tiny'), handle: null, size: 513 * 1024 * 1024 };
-    await commands.openFiles([file], { confirmNonCsv: false });
+    await commands.openFiles([file]);
     expect(state.tabs.length).toBe(0);
     expect(ui.showMessage).toHaveBeenCalledOnce();
   });
 
-  it('asks before opening dropped files without a CSV-like extension', async () => {
-    const ui = stubUi({ confirm: vi.fn(async () => false) });
+  it('asks which kind to open a file whose name and content do not say, and opens nothing when cancelled', async () => {
+    const chooseFileType = vi.fn(async () => null);
+    const ui = stubUi({ chooseFileType });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('image.png', utf8('a,b\n'))], { confirmNonCsv: true });
-    expect(ui.confirm).toHaveBeenCalledOnce();
+    await commands.openFiles([opened('image.png', utf8('a,b\n'))]);
+    expect(chooseFileType).toHaveBeenCalledWith('image.png', 'open');
     expect(state.tabs.length).toBe(0);
+  });
+
+  it('opens a file whose name and content do not say as the kind the user picks', async () => {
+    const chooseFileType = vi.fn(async () => 'markdown' as const);
+    const { state, commands } = setup(stubUi({ chooseFileType }));
+    await commands.openFiles([opened('notes.dat', utf8('# Title\n'))]);
+    expect(state.tabs.length).toBe(1);
+    expect(state.activeTab?.name).toBe('notes.dat');
+    expect(state.activeTab?.textFile?.kind).toBe('markdown');
+  });
+
+  it('does not ask for a file whose name already says what it is', async () => {
+    const chooseFileType = vi.fn(async () => null);
+    const { state, commands } = setup(stubUi({ chooseFileType }));
+    await commands.openFiles([opened('plain.csv', utf8('a,b\n1,2\n')), opened('notes.md', utf8('# T\n'))]);
+    expect(chooseFileType).not.toHaveBeenCalled();
+    expect(state.tabs.length).toBe(2);
   });
 
   it('defaults an opened file to read-only protection (issue #443)', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('x,y\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('x,y\n'))]);
     const tab = state.activeTab!;
     expect(tab.readOnly).toBe(true);
     expect(state.editCell(tab, 0, 0, 'z')).toBe(false);
@@ -262,8 +281,8 @@ describe('opening a file that is already open', () => {
       o === disk.handle;
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
-    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    await commands.openFiles([disk.opened()]);
+    await commands.openFiles([disk.opened()]);
     expect(state.tabs).toHaveLength(1);
     expect(ui.notify).toHaveBeenCalledWith(t('notify.sameFile', { name: 'doc.rsf' }), 'info');
   });
@@ -289,12 +308,12 @@ describe('opening a file that is already open', () => {
         'doc.rsf',
         encodeRsf({ name: 'S', delimiter: ',', rowCount: 1, columnCount: 1, cells: [] }),
       );
-      await commands.openFiles([csv.opened(), rsf.opened()], { confirmNonCsv: false });
+      await commands.openFiles([csv.opened(), rsf.opened()]);
       expect(state.tabs).toHaveLength(0);
       expect(ui.notify).toHaveBeenCalledWith(t('notify.openInAnotherTab', { name: 'a.csv' }), 'warn');
       expect(ui.notify).toHaveBeenCalledWith(t('notify.openInAnotherTab', { name: 'doc.rsf' }), 'warn');
       // A file without a handle cannot be recognised and still opens.
-      await commands.openFiles([opened('b.csv', utf8('x\n'))], { confirmNonCsv: false });
+      await commands.openFiles([opened('b.csv', utf8('x\n'))]);
       expect(state.tabs).toHaveLength(1);
     } finally {
       uninstallOpenFilesChannel();
@@ -306,7 +325,7 @@ describe('saving', () => {
   it('overwrites through a File System Access handle and resets the baseline', async () => {
     const fake = fakeHandle();
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     state.editCell(tab, 0, 0, 'X');
@@ -321,7 +340,7 @@ describe('saving', () => {
     async function openEdited(ui: UiPort, name = 'a.csv', bytes = utf8('a,b\n')) {
       const disk = diskHandle(name, bytes);
       const { state, commands } = setup(ui);
-      await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+      await commands.openFiles([disk.opened()]);
       const tab = state.activeTab!;
       state.setReadOnly(tab, false);
       state.editCell(tab, 0, 0, 'X');
@@ -401,7 +420,7 @@ describe('saving', () => {
     URL.revokeObjectURL = vi.fn();
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))]);
     const ok = await commands.save(state.activeTab!, KEEP);
     expect(ok).toBe(true);
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
@@ -415,7 +434,7 @@ describe('saving', () => {
     const fake = fakeHandle({ failWrite: true });
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)]);
     const ok = await commands.save(state.activeTab!, KEEP);
     expect(ok).toBe(true);
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
@@ -427,7 +446,7 @@ describe('saving', () => {
     URL.revokeObjectURL = vi.fn();
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)]);
     const tab = state.activeTab!;
     tab.drive = { fileId: 'drive-file-1', name: 'a.csv' };
     state.setReadOnly(tab, false);
@@ -466,9 +485,7 @@ describe('saving', () => {
     const ui = stubUi({ confirmUnrepresentable: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
     // Real Japanese content so the file is detected as Shift_JIS.
-    await commands.openFiles([opened('a.csv', enc('名前,値\n', 'shift_jis'), fake.handle)], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([opened('a.csv', enc('名前,値\n', 'shift_jis'), fake.handle)]);
     expect(asCsv(state.activeTab!.doc).encoding).toBe('shift_jis');
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
@@ -483,9 +500,7 @@ describe('saving', () => {
     const fake = fakeHandle();
     const ui = stubUi({ confirmUnrepresentable: vi.fn(async () => true) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', enc('名前,値\n', 'shift_jis'), fake.handle)], {
-      confirmNonCsv: false,
-    });
+    await commands.openFiles([opened('a.csv', enc('名前,値\n', 'shift_jis'), fake.handle)]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     state.editCell(tab, 0, 1, '😀');
@@ -500,7 +515,7 @@ describe('saving', () => {
     const ui = stubUi({ confirmUndecodableEdit: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
     const bytes = new Uint8Array([...utf8('a,'), 0xff, ...utf8('\n')]);
-    await commands.openFiles([opened('a.csv', bytes, fake.handle)], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', bytes, fake.handle)]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     // Reinterpret as UTF-8 so the 0xff byte is undecodable.
@@ -517,7 +532,7 @@ describe('closing tabs', () => {
   it('cancel keeps the dirty tab open', async () => {
     const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'cancel' as const) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a\n'))]);
     state.setReadOnly(state.activeTab!, false);
     state.editCell(state.activeTab!, 0, 0, 'X');
     await commands.closeTab(state.activeTab!);
@@ -527,7 +542,7 @@ describe('closing tabs', () => {
   it('discard closes without saving', async () => {
     const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'discard' as const) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a\n'))]);
     state.setReadOnly(state.activeTab!, false);
     state.editCell(state.activeTab!, 0, 0, 'X');
     await commands.closeTab(state.activeTab!);
@@ -538,7 +553,7 @@ describe('closing tabs', () => {
     const fake = fakeHandle();
     const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'save' as const) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a\n'), fake.handle)], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a\n'), fake.handle)]);
     state.setReadOnly(state.activeTab!, false);
     state.editCell(state.activeTab!, 0, 0, 'X');
     await commands.closeTab(state.activeTab!);
@@ -549,7 +564,7 @@ describe('closing tabs', () => {
   it('clean tabs close without confirmation', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a\n'))]);
     await commands.closeTab(state.activeTab!);
     expect(state.tabs.length).toBe(0);
     expect(ui.confirmUnsaved).not.toHaveBeenCalled();
@@ -559,7 +574,7 @@ describe('closing tabs', () => {
 describe('new document', () => {
   it('opens a blank unsaved RSF in a new active tab without touching others', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('x,y\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('x,y\n'))]);
     const csvTab = state.activeTab!;
     await commands.run('file.new');
     expect(state.tabs.length).toBe(2);
@@ -590,7 +605,7 @@ describe('convert to RSF command', () => {
   it('opens the converted sheet in a new tab and preserves the source CSV tab', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('data.csv', utf8('a,b\n1,2\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('data.csv', utf8('a,b\n1,2\n'))]);
     const csvTab = state.activeTab!;
     state.setReadOnly(csvTab, false);
     // An unsaved edit must be carried into the conversion (current state).
@@ -618,7 +633,7 @@ describe('convert to RSF command', () => {
   it('declining the confirmation leaves the CSV unchanged and opens no tab', async () => {
     const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('data.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('data.csv', utf8('a,b\n'))]);
     await commands.run('sheet.convert');
     expect(state.tabs.length).toBe(1);
     expect(state.activeTab!.doc.kind).toBe('csv');
@@ -628,7 +643,7 @@ describe('convert to RSF command', () => {
     const { commands } = setup();
     await commands.run('file.new');
     expect(commands.isEnabled('sheet.convert')).toBe(false); // already RSF
-    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))]);
     expect(commands.isEnabled('sheet.convert')).toBe(true);
   });
 });
@@ -637,7 +652,7 @@ describe('read-only protection (issue #443)', () => {
   it('ensureRsf refuses the implicit CSV -> RSF conversion on a protected tab while it stays protected', async () => {
     const ui = stubUi({ confirm: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))]);
     const tab = state.activeTab!;
     expect(tab.readOnly).toBe(true);
     const result = await commands.ensureRsf(tab, 'formula');
@@ -649,7 +664,7 @@ describe('read-only protection (issue #443)', () => {
   it('ensureRsf warns that the book is protected and offers to unlock it (#541)', async () => {
     const ui = stubUi({ confirm: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))]);
     const tab = state.activeTab!;
 
     const result = await commands.ensureRsf(tab, 'formula');
@@ -669,7 +684,7 @@ describe('read-only protection (issue #443)', () => {
   it('ensureRsf goes on to the conversion prompt once the warning unlocks the book', async () => {
     const ui = stubUi({ confirm: vi.fn(async () => true) });
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))]);
     const tab = state.activeTab!;
 
     const result = await commands.ensureRsf(tab, 'formula');
@@ -682,7 +697,7 @@ describe('read-only protection (issue #443)', () => {
 
   it('file.toggleProtect flips the active tab and back', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))]);
     const tab = state.activeTab!;
     expect(tab.readOnly).toBe(true);
     await commands.run('file.toggleProtect');
@@ -697,7 +712,7 @@ describe('sheet timezone command', () => {
     const { commands } = setup();
     await commands.run('file.new');
     expect(commands.isEnabled('sheet.timezone')).toBe(true);
-    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))]);
     expect(commands.isEnabled('sheet.timezone')).toBe(false);
   });
 
@@ -732,7 +747,7 @@ describe('sheet display language command', () => {
     const { commands } = setup();
     await commands.run('file.new');
     expect(commands.isEnabled('sheet.displayLanguage')).toBe(true);
-    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))]);
     expect(commands.isEnabled('sheet.displayLanguage')).toBe(false);
   });
 
@@ -767,7 +782,7 @@ describe('sheet version history commands', () => {
     const { commands } = setup();
     await commands.run('file.new');
     expect(commands.isEnabled('sheet.versionHistory')).toBe(true);
-    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))]);
     expect(commands.isEnabled('sheet.versionHistory')).toBe(false);
   });
 
@@ -980,7 +995,7 @@ describe('opening files by format', () => {
       columnCount: 2,
       cells: [[0, 0, 'hi']],
     });
-    await commands.openFiles([opened('doc.rsf', bytes)], { confirmNonCsv: false });
+    await commands.openFiles([opened('doc.rsf', bytes)]);
     const tab = state.activeTab!;
     expect(tab.doc.kind).toBe('rsf');
     expect(tab.name).toBe('doc.rsf');
@@ -992,7 +1007,7 @@ describe('opening files by format', () => {
     const { state, commands } = setup(ui);
     // The first bytes of the binary container earlier releases wrote.
     const bytes = new Uint8Array([0x52, 0x43, 0x53, 0x56, 2, 0, 0, 0, ...new Array(16).fill(0)]);
-    await commands.openFiles([opened('old.rcsv', bytes)], { confirmNonCsv: false });
+    await commands.openFiles([opened('old.rcsv', bytes)]);
     expect(state.tabs).toHaveLength(0);
     expect(ui.showMessage).toHaveBeenCalledWith(
       t('dialog.rsfInvalid.title'),
@@ -1008,7 +1023,7 @@ describe('opening files by format', () => {
       { name: 'Beta', rows: [['c']] },
     ];
     const bytes = buildXlsxExport(sheets);
-    await commands.openFiles([opened('book.xlsx', bytes)], { confirmNonCsv: true });
+    await commands.openFiles([opened('book.xlsx', bytes)]);
     const tab = state.activeTab!;
     expect(tab.doc.kind).toBe('rsf');
     expect(tab.name).toBe('book.rsf');
@@ -1026,7 +1041,7 @@ describe('opening files by format', () => {
   it('reports an unreadable .xlsx without creating a tab', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('broken.xlsx', utf8('not actually a zip'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('broken.xlsx', utf8('not actually a zip'))]);
     expect(state.tabs).toHaveLength(0);
     expect(ui.showMessage).toHaveBeenCalledWith(
       expect.stringContaining('XLSX'),
@@ -1045,7 +1060,7 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
     const disk = diskHandle(name, utf8('hello\n'));
-    await commands.openFiles([disk.opened()], { confirmNonCsv: true });
+    await commands.openFiles([disk.opened()]);
     const tab = state.activeTab!;
     expect(tab.name).toBe(name);
     expect(tab.handle).toBe(disk.handle);
@@ -1062,7 +1077,7 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
     const disk = diskHandle('ci.yaml', utf8('a: 1\r\nb: 2\r\n'));
-    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    await commands.openFiles([disk.opened()]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     state.editCell(tab, 0, 0, 'a: 1\nb: 3\n');
@@ -1081,7 +1096,7 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
   it('remembers the size of the file it opened and of each save, for the status bar', async () => {
     const { state, commands } = setup();
     const disk = diskHandle('ci.yaml', utf8('a: 1\n'));
-    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    await commands.openFiles([disk.opened()]);
     const tab = state.activeTab!;
     expect(tab.fileSize).toBe(5);
     state.setReadOnly(tab, false);
@@ -1120,7 +1135,7 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
     const disk = diskHandle('notes.md', utf8('# hi\n'));
-    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    await commands.openFiles([disk.opened()]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     if (tab.doc.kind === 'rsf') {
@@ -1244,7 +1259,7 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
       const { dialog } = withSaveDialog('other.md');
       const { state, commands } = setup();
       const disk = diskHandle('notes.md', utf8('# hi\n'));
-      await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+      await commands.openFiles([disk.opened()]);
       const tab = state.activeTab!;
       state.setReadOnly(tab, false);
       state.editCell(tab, 0, 0, '# hello\n');
@@ -1354,7 +1369,7 @@ describe('saving a new CSV file', () => {
     const { dialog } = withSaveDialog('other.csv');
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('people.csv', utf8('id,name\n1,Ann\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('people.csv', utf8('id,name\n1,Ann\n'))]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     state.editCell(tab, 1, 1, 'Bo');
@@ -1449,7 +1464,7 @@ describe('print area commands', () => {
   it('sets the print area from the selection and clears it, saying so', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    await commands.openFiles([opened('a.csv', utf8('a,b,c\n1,2,3\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('a,b,c\n1,2,3\n'))]);
     const tab = state.activeTab!;
     expect(commands.isEnabled('file.clearPrintArea')).toBe(false);
     state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
@@ -1467,7 +1482,7 @@ describe('print area commands', () => {
 describe('replace all', () => {
   it('is a single atomic undoable operation with counts', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('cat,catalog\ndog,cat\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('cat,catalog\ndog,cat\n'))]);
     const tab = state.activeTab!;
     state.setReadOnly(tab, false);
     const query = compileQuery({ text: 'cat', matchCase: false, regex: false });
@@ -1481,7 +1496,7 @@ describe('replace all', () => {
 
   it('supports regex capture replacement across cells', async () => {
     const { state, commands } = setup();
-    await commands.openFiles([opened('a.csv', utf8('2026-07-16,2025-01-02\n'))], { confirmNonCsv: false });
+    await commands.openFiles([opened('a.csv', utf8('2026-07-16,2025-01-02\n'))]);
     state.setReadOnly(state.activeTab!, false);
     const query = compileQuery({ text: '(\\d{4})-(\\d{2})-(\\d{2})', matchCase: false, regex: true });
     await commands.replaceAll(query, '$3/$2/$1');

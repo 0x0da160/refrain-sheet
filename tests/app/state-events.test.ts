@@ -36,9 +36,7 @@ describe('AppState event sequence (characterization)', () => {
 
     const bytes = utf8('a,b\n1,2\n3,4\n');
     await record('open csv', () =>
-      commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }], {
-        confirmNonCsv: false,
-      }),
+      commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }]),
     );
     const csv = state.activeTab!;
     await record('unprotect', () => state.setReadOnly(csv, false));

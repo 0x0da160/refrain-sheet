@@ -2,19 +2,23 @@
 /**
  * Opening files — picked, dropped, recent, and reopened with other options —
  * and turning each supported format (CSV-like text, .rsf, .xlsx, and the
- * Markdown/JSON/YAML/text files that open in an editor) into a tab. Validation problems are shown before anything opens; a file already
- * open in another tab is activated instead of opened twice.
+ * Markdown/JSON/YAML/text files that open in an editor) into a tab. A file whose
+ * name and content do not say what it is is opened as the kind the user picks.
+ * Validation problems are shown before anything opens; a file already open in
+ * another tab is activated instead of opened twice. A document tab can also be
+ * reopened as another kind (see `reopenAs`).
  */
 import { isMinimalEdition } from '../edition';
-import { isCsv, isWorkbook } from '../../core/editor-document';
+import { isCsv, isWorkbook, type EditorDocument } from '../../core/editor-document';
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import { detectEncoding, type EncodingDetection } from '../../core/csv/encoding';
 import {
   decodeTextFile,
-  textFileBaseName,
   textFileKindOf,
+  type TextFileFormat,
   type TextFileKind,
 } from '../../core/interchange/text-file';
+import { sniffContentKind, type OpenAsKind } from '../../core/interchange/open-kind';
 import { isValidSheetName } from '../../core/formula';
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import {
@@ -41,15 +45,46 @@ import {
 import { clearRecentDriveFiles, listRecentDriveFiles } from '../recent-drive-files';
 import { getLocale, t } from '../i18n';
 import { getAutoFitOnOpen, getMaxFileSize } from '../settings';
-import { isGridSurface, LARGE_OPEN_BYTES, withBusyIfLarge } from './shared';
+import {
+  CSV_EXTENSION,
+  isGridSurface,
+  LARGE_OPEN_BYTES,
+  warnProtectedAndOfferUnlock,
+  withBusyIfLarge,
+} from './shared';
+import { csvRows, sheetNameBase } from './tab-as-sheet';
 
 import type { FileIoCommands } from './file-io';
 import type { RecentFileChoice } from '../ui-port';
-import { CSV_EXTENSION } from './shared';
 
-const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
 const XLSX_EXTENSION = '.xlsx';
 const JSON_EXTENSION = '.json';
+const TSV_EXTENSION = '.tsv';
+
+/** The kind a file opens as: the XLSX importer, or one of the kinds in {@link OpenAsKind}. */
+type OpenChoice = 'xlsx' | OpenAsKind;
+
+/** A document made from a file's bytes as one kind, not yet in a tab. */
+interface LoadedDocument {
+  doc: EditorDocument;
+  /** For a plain-text file, how its bytes are laid out (see `TextFileFormat`); null otherwise. */
+  textFile: TextFileFormat | null;
+}
+
+/**
+ * The kind a file opens as from its name alone, or null when the name does not
+ * say (then its content, or the user, decides; see `FileOpening.choiceFor`).
+ */
+function kindOfName(name: string): OpenAsKind | null {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(RSF_EXTENSION) || lower.endsWith(RSF_LEGACY_EXTENSION)) {
+    return 'rsf';
+  }
+  if (lower.endsWith(CSV_EXTENSION) || lower.endsWith(TSV_EXTENSION)) {
+    return 'csv';
+  }
+  return textFileKindOf(name);
+}
 
 /** Opens a Drive file from File > Open Recent… again (`DriveIoCommands.reopen`). */
 export interface RecentDriveOpener {
@@ -77,9 +112,9 @@ export class FileOpening {
   }
 
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
-  async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
+  async openFiles(files: OpenedFile[]): Promise<void> {
     for (const file of files) {
-      await this.openFile(file, opts);
+      await this.openFile(file);
       // Only a file opened through the File System Access API can be read
       // again later, so only those join File > Open Recent (#598).
       if (file.handle && !file.tooLarge) {
@@ -174,7 +209,7 @@ export class FileOpening {
       return;
     }
     const opened = await readFileObject(file, entry.handle, getMaxFileSize());
-    await this.openFiles([opened], { confirmNonCsv: false });
+    await this.openFiles([opened]);
   }
 
   async openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {
@@ -193,7 +228,7 @@ export class FileOpening {
         );
       }
     }
-    await this.openFiles(files, { confirmNonCsv: true });
+    await this.openFiles(files);
   }
 
   /** Report a file over the size limit; true when it must not be opened. */
@@ -228,56 +263,78 @@ export class FileOpening {
     return true;
   }
 
-  private async openFile(file: OpenedFile, opts: { confirmNonCsv: boolean }): Promise<void> {
+  private async openFile(file: OpenedFile): Promise<void> {
     if (await this.refuseTooLarge(file)) {
       return;
     }
-
-    const lowerName = file.name.toLowerCase();
     if (isMinimalEdition() && this.refuseInMinimal(file)) {
       return;
     }
-    if (lowerName.endsWith(RSF_EXTENSION) || lowerName.endsWith(RSF_LEGACY_EXTENSION)) {
-      if (await this.alreadyOpen(file)) {
-        return;
-      }
-      await this.openRsfFile(file);
-      return;
-    }
-
-    if (lowerName.endsWith(XLSX_EXTENSION)) {
+    const choice = await this.choiceFor(file);
+    if (choice === 'xlsx') {
       await this.openXlsxFile(file);
-      return;
+    } else if (choice !== null) {
+      await this.openAs(file, choice);
     }
+  }
 
-    const textKind = textFileKindOf(file.name);
-    if (textKind && !isMinimalEdition()) {
-      if (await this.alreadyOpen(file)) {
-        return;
-      }
-      await this.openTextFile(file, textKind);
-      return;
+  /**
+   * The kind a file opens as. Its name decides when it names a kind the app
+   * knows. Otherwise its content decides when the content says what the file
+   * is (an RSF file, an XLSX workbook, a JSON document). Otherwise the user
+   * picks, and null means the pick was cancelled. The CSV-only edition has one
+   * kind to open as, so it never asks.
+   */
+  private async choiceFor(file: OpenedFile): Promise<OpenChoice | null> {
+    if (file.name.toLowerCase().endsWith(XLSX_EXTENSION)) {
+      return 'xlsx';
     }
-
-    if (opts.confirmNonCsv) {
-      const lower = file.name.toLowerCase();
-      if (!CSV_LIKE_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
-        const open = await this.core.ui.confirm(
-          t('dialog.nonCsv.title'),
-          t('dialog.nonCsv.message', { name: file.name }),
-          t('dialog.nonCsv.open'),
-          t('dialog.nonCsv.cancel'),
-        );
-        if (!open) {
-          return;
-        }
-      }
+    if (isMinimalEdition()) {
+      return 'csv';
     }
+    const named = kindOfName(file.name);
+    if (named !== null) {
+      return named;
+    }
+    const content = sniffContentKind(file.bytes);
+    if (content !== null) {
+      return content;
+    }
+    return this.core.ui.chooseFileType(file.name, 'open');
+  }
 
+  /** Open `file` as `kind` in a new tab, unless it is already open, in which case that tab is shown. */
+  private async openAs(file: OpenedFile, kind: OpenAsKind): Promise<void> {
     if (await this.alreadyOpen(file)) {
       return;
     }
+    switch (kind) {
+      case 'csv':
+        await this.openCsvFile(file);
+        return;
+      case 'rsf':
+        await this.openRsfFile(file);
+        return;
+      default:
+        await this.openTextFile(file, kind);
+    }
+  }
 
+  private async openCsvFile(file: OpenedFile): Promise<void> {
+    const doc = await this.loadCsv(file);
+    if (!doc) {
+      return;
+    }
+    const tab = this.core.state.addTab(file.name, doc, file.handle, true);
+    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
+    await this.autoFitOnOpen(tab);
+  }
+
+  /**
+   * A CSV document from `file`'s bytes, or null when they could not be read or
+   * the user declines the problems found in them (the reason is shown first).
+   */
+  private async loadCsv(file: OpenedFile): Promise<LosslessDocument | null> {
     await this.warnAboutEncoding(file, detectEncoding(file.bytes));
 
     let doc: LosslessDocument;
@@ -299,22 +356,33 @@ export class FileOpening {
         t('notify.openFailed', { name: file.name, error: err instanceof Error ? err.message : String(err) }),
         'error',
       );
-      return;
+      return null;
     }
 
     if (doc.diagnostics.length > 0) {
       const openAnyway = await this.core.ui.confirmValidation(file.name, validateDocument(doc));
       if (!openAnyway) {
-        return;
+        return null;
       }
     }
-
-    const tab = this.core.state.addTab(file.name, doc, file.handle, true);
-    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
-    await this.autoFitOnOpen(tab);
+    return doc;
   }
 
   private async openRsfFile(file: OpenedFile): Promise<void> {
+    const doc = await this.loadRsf(file);
+    if (!doc) {
+      return;
+    }
+    const tab = this.core.state.addTab(file.name, doc, file.handle, true);
+    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
+    tab.fileSize = file.bytes.length;
+    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
+    // No auto-fit: an RSF workbook's worksheets keep the widths they were
+    // saved with, and fitting them to content gave unintended widths.
+  }
+
+  /** A workbook from `file`'s `.rsf` bytes, or null when they are not a valid RSF file (the reason is shown). */
+  private async loadRsf(file: OpenedFile): Promise<RsfDocument | null> {
     const result = await withBusyIfLarge(
       file.size > LARGE_OPEN_BYTES,
       this.core.ui,
@@ -338,20 +406,14 @@ export class FileOpening {
         t('dialog.rsfInvalid.title'),
         t('dialog.rsfInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
       );
-      return;
+      return null;
     }
-    const name = file.name;
-    const tab = this.core.state.addTab(name, result.doc, file.handle, true);
-    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
-    tab.fileSize = file.bytes.length;
-    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     if (result.doc.filterDropped) {
       // The container carried filter metadata that failed validation; it was
       // ignored (never guessed at) and the sheet itself loaded normally.
-      this.core.ui.notify(t('notify.filterDropped', { name }), 'warn');
+      this.core.ui.notify(t('notify.filterDropped', { name: file.name }), 'warn');
     }
-    // No auto-fit: an RSF workbook's worksheets keep the widths they were
-    // saved with, and fitting them to content gave unintended widths.
+    return result.doc;
   }
 
   /**
@@ -423,15 +485,24 @@ export class FileOpening {
    * the text back into the same file (see `FileIoCommands.save`).
    */
   private async openTextFile(file: OpenedFile, kind: TextFileKind): Promise<void> {
-    const { text, format, detection } = decodeTextFile(file.bytes, kind);
-    await this.warnAboutEncoding(file, detection);
-    const base = textFileBaseName(file.name).trim();
-    const sheetName = base && isValidSheetName(base) ? base : defaultSheetName();
-    const doc = RsfDocument.fromSourceText(file.name, kind, text, sheetName, getLocale());
+    const { doc, textFile } = await this.loadText(file, kind);
     const tab = this.core.state.addTab(file.name, doc, file.handle, true);
     tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
-    tab.textFile = format;
+    tab.textFile = textFile;
     tab.fileSize = file.bytes.length;
+  }
+
+  /** A plain-text file's document (one worksheet of `kind`), and how its bytes are laid out. */
+  private async loadText(
+    file: OpenedFile,
+    kind: TextFileKind,
+  ): Promise<{ doc: RsfDocument; textFile: TextFileFormat }> {
+    const { text, format, detection } = decodeTextFile(file.bytes, kind);
+    await this.warnAboutEncoding(file, detection);
+    const base = sheetNameBase(file.name);
+    const sheetName = base && isValidSheetName(base) ? base : defaultSheetName();
+    const doc = RsfDocument.fromSourceText(file.name, kind, text, sheetName, getLocale());
+    return { doc, textFile: format };
   }
 
   /**
@@ -535,16 +606,7 @@ export class FileOpening {
       }
       const base = file.name.replace(/\.(csv|tsv|txt)$/i, '').trim();
       const name = doc.uniqueSheetName(base && isValidSheetName(base) ? base : defaultSheetName());
-      // Read the same way as Convert to RSF (`RsfDocument.fromLossless`).
-      const rows: string[][] = [];
-      for (let r = 0; r < csv.rowCount; r++) {
-        const row: string[] = [];
-        for (let c = 0; c < csv.fieldCount(r); c++) {
-          row.push(csv.getValue(r, c));
-        }
-        rows.push(row);
-      }
-      const sheet = this.core.state.addSheetFromValues(tab, name, rows);
+      const sheet = this.core.state.addSheetFromValues(tab, name, csvRows(csv));
       if (sheet) {
         this.core.ui.notify(t('notify.csvSheetAdded', { name: sheet.name, file: file.name }), 'info');
       }
@@ -602,5 +664,84 @@ export class FileOpening {
     if (doc.diagnostics.length > 0) {
       await this.core.ui.confirmValidation(tab.name, validateDocument(doc));
     }
+  }
+
+  /**
+   * File > Reopen as…: read the tab's file again as a kind the user picks, as
+   * Reopen with Encoding does for a CSV. The file itself is not changed, and
+   * unsaved edits are discarded. A spreadsheet file (an RSF, or an XLSX by its
+   * content) has no text or table reading, so it is refused with a message.
+   */
+  async reopenAs(tab: Tab): Promise<void> {
+    // A protected tab is not changed without the user first unlocking it.
+    if (tab.readOnly && !(await warnProtectedAndOfferUnlock(this.core.ui, this.core.state, tab, 'book'))) {
+      return;
+    }
+    const source = await this.tabSource(tab);
+    if (source === null) {
+      this.core.ui.notify(t('notify.reopenUnavailable', { name: tab.name }), 'warn');
+      return;
+    }
+    if (await this.refuseTooLarge(source)) {
+      return;
+    }
+    const content = sniffContentKind(source.bytes);
+    if (content === 'rsf' || content === 'xlsx') {
+      this.core.ui.notify(t('notify.reopenWorkbook', { name: tab.name }), 'warn');
+      return;
+    }
+    // The dialog itself warns that unsaved edits are discarded.
+    const kind = await this.core.ui.chooseFileType(tab.name, 'reopen');
+    if (kind === null) {
+      return;
+    }
+    const loaded = await this.loadAs(source, kind);
+    if (!loaded) {
+      return;
+    }
+    // The new document replaces the old one and clears its undo history, as a
+    // reopen with another encoding does. The view (zoom, widths, selection)
+    // stays where it was.
+    this.core.state.setBaseline(tab, loaded.doc);
+    tab.textFile = loaded.textFile;
+    tab.fileSize = kind === 'csv' ? null : source.bytes.length;
+    tab.diskStamp = source.handle ? (source.stamp ?? null) : null;
+  }
+
+  /** The document `file` holds as `kind`, or null when it could not be loaded (the reason is shown). */
+  private async loadAs(file: OpenedFile, kind: OpenAsKind): Promise<LoadedDocument | null> {
+    if (kind === 'csv') {
+      const doc = await this.loadCsv(file);
+      return doc ? { doc, textFile: null } : null;
+    }
+    if (kind === 'rsf') {
+      const doc = await this.loadRsf(file);
+      return doc ? { doc, textFile: null } : null;
+    }
+    return this.loadText(file, kind);
+  }
+
+  /**
+   * The bytes to read a tab's file again from: the file on disk through the
+   * tab's handle when it has one, else the bytes the tab still holds (a CSV's
+   * original bytes, a text file's last read or written bytes). Null when
+   * neither is available, as for a workbook with no file behind it.
+   */
+  private async tabSource(tab: Tab): Promise<OpenedFile | null> {
+    if (tab.handle) {
+      try {
+        return await readFileObject(await tab.handle.getFile(), tab.handle, getMaxFileSize());
+      } catch {
+        return null;
+      }
+    }
+    if (isCsv(tab.doc)) {
+      return { name: tab.name, bytes: tab.doc.bytes, handle: null, size: tab.doc.bytes.length };
+    }
+    if (tab.textFile) {
+      const bytes = tab.textFile.savedBytes;
+      return { name: tab.name, bytes, handle: null, size: bytes.length };
+    }
+    return null;
   }
 }

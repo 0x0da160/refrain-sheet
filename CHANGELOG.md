@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.32] - 2026-11-12
+
 ### Added
 
 - Opening a file whose name and content do not say what kind it is asks which

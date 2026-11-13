@@ -24,6 +24,7 @@ import { CSS_NAMED_COLORS } from './css-named-colors';
 import { SWATCH_COLORS } from './document-colors';
 import { el } from './dom';
 import { createIcon } from './icon';
+import { isComposingKey } from './ime';
 
 /** Swatches per row in every section, the palette's nine hues. */
 const COLUMNS = 9;
@@ -178,7 +179,7 @@ function moreColors(current: string | null, pick: (color: string) => void): HTML
     }
   };
   code.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.isComposing) {
+    if (event.key === 'Enter' && !isComposingKey(event)) {
       event.preventDefault();
       useCode();
     }

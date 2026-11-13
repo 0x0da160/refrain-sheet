@@ -21,6 +21,7 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide, ListFilter } from 'lucide';
 import type { ColumnMenuInput, ColumnMenuResult } from '../app/commands';
 import { t } from '../app/i18n';
 import { el, focusWithoutKeyboard } from './dom';
+import { isComposingKey } from './ime';
 import { createIcon } from './icon';
 import { positionPopup } from './popup';
 
@@ -129,7 +130,7 @@ export function openColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult
     });
     search.addEventListener('input', renderValues);
     search.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.isComposing) {
+      if (event.key === 'Enter' && !isComposingKey(event)) {
         event.preventDefault();
         apply();
       }
@@ -265,7 +266,7 @@ function wireDismissal(
 ): void {
   root.addEventListener('keydown', (event) => {
     event.stopPropagation(); // keys typed here never reach the grid or app shortcuts
-    if (event.key === 'Escape' && !event.isComposing) {
+    if (event.key === 'Escape' && !isComposingKey(event)) {
       event.preventDefault();
       finish(null);
     }

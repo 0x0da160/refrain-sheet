@@ -41,6 +41,7 @@ really is internal, rather than inventing an entry to satisfy it.
 ### Fixed
 
 - In Safari, pressing Enter to confirm a Japanese conversion in a dialog's text box (such as a new sheet's name or a number format's currency symbol) no longer closes the dialog by mistake. Enter still submits the dialog once the conversion is finished.
+- Menu-bar and toolbar items show a focus ring when reached with the keyboard, and the Markdown, JSON, YAML, and text worksheet editors show a focus ring while they have the caret.
 
 ## [0.9.34] - 2026-11-13
 

@@ -222,8 +222,8 @@
 /* ---------- Worksheet source editors (`ui/source-editor.ts`) ----------
    The Markdown/JSON/YAML/text worksheets are edited as documents, so their
    textarea is drawn as an editing surface filling the sheet area rather than
-   as a form field: no box, focus ring or resize grip, tab stops of four
-   columns, and roomier lines. */
+   as a form field: no box or resize grip, a focus ring only while it has the
+   caret, tab stops of four columns, and roomier lines. */
 .source-editor {
   border: none;
   border-radius: 0;
@@ -240,9 +240,11 @@
   tab-size: 4;
 }
 
-.source-editor:focus,
+/* Text fields always match :focus-visible, so this ring shows whenever the
+   editor has the caret; the editor draws no ring at rest. */
 .source-editor:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* The editor fills its worksheet edge to edge; the toolbar above it (preview

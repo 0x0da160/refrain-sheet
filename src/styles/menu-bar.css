@@ -151,7 +151,12 @@
 .menu-item:hover:not(:disabled),
 .menu-item:focus-visible {
   background: var(--accent-subtle);
-  outline: none;
+}
+
+/* Keyboard focus keeps a visible ring inside the item, as the other controls do. */
+.menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .menu-item:disabled {

@@ -29,6 +29,7 @@ import {
 import { blockToMarkdown } from '../core/markdown-serialize';
 import { t } from '../app/i18n';
 import { el } from './dom';
+import { caretAtStart, placeCaret, selectionRange } from './caret';
 import { renderMarkdownBlock } from './markdown-render';
 import { moveMarkdownBlock } from '../core/markdown-blocks';
 import { buildBlockTools, type BlockAction } from './markdown-block-tools';
@@ -49,6 +50,16 @@ export const MARKDOWN_BLOCK_KINDS: readonly MarkdownBlockKind[] = [
 ];
 
 const HEADING_LEVEL: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = { H1: 1, H2: 2, H3: 3, H4: 4, H5: 5, H6: 6 };
+
+/**
+ * How long after a composition ends its confirming Enter can still arrive and
+ * count as that conversion's Enter. Safari sends `compositionend` before the
+ * keydown that confirms a candidate (WebKit bug 165004), so that keydown has
+ * `isComposing` false; in practice it follows within a few milliseconds. A
+ * person's next Enter comes much later than this.
+ */
+const CONFIRMING_ENTER_MS = 100;
+
 const INLINE_TAGS: Record<'strong' | 'em' | 'code', string[]> = {
   strong: ['STRONG', 'B'],
   em: ['EM', 'I'],
@@ -251,44 +262,6 @@ function markdownOf(block: MarkdownBlock): string {
 
 // ----- Caret helpers -----
 
-function selectionRange(): Range | null {
-  const selection = document.getSelection();
-  return selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-}
-
-/** Put the caret `offset` characters into `element`'s text (clamped to its end). */
-function placeCaret(element: HTMLElement, offset: number): void {
-  const selection = document.getSelection();
-  if (!selection) {
-    return;
-  }
-  const range = document.createRange();
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  let left = offset;
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const length = node.textContent?.length ?? 0;
-    if (left <= length) {
-      range.setStart(node, left);
-      range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      return;
-    }
-    left -= length;
-  }
-  // No text to go past: into the innermost last element (the empty item of
-  // a new list, the empty paragraph of a new quote), so what is typed next
-  // lands inside it rather than beside it.
-  let inner = element;
-  while (inner.lastElementChild instanceof HTMLElement && inner.lastElementChild.tagName !== 'BR') {
-    inner = inner.lastElementChild;
-  }
-  range.selectNodeContents(inner);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
 /** The inline content before and after the caret in `element`. */
 function splitAtCaret(element: HTMLElement, caret: Range): [MarkdownInline[], MarkdownInline[]] {
   const before = document.createRange();
@@ -303,16 +276,6 @@ function splitAtCaret(element: HTMLElement, caret: Range): [MarkdownInline[], Ma
     return div;
   };
   return [readInline(holder(before)), readInline(holder(after))];
-}
-
-function caretAtStart(element: HTMLElement, caret: Range): boolean {
-  if (!caret.collapsed) {
-    return false;
-  }
-  const before = document.createRange();
-  before.selectNodeContents(element);
-  before.setEnd(caret.startContainer, caret.startOffset);
-  return before.toString() === '' && before.cloneContents().querySelector('br') === null;
 }
 
 // ----- The editor -----
@@ -340,6 +303,8 @@ export class MarkdownVisualEditor {
   private readOnly = false;
   /** The block being dragged by its grip, or null. */
   private dragFrom: number | null = null;
+  /** When the last composition ended (`performance.now()`); see `CONFIRMING_ENTER_MS`. */
+  private compositionEndedAt = Number.NEGATIVE_INFINITY;
 
   constructor() {
     this.element = el('div', {
@@ -349,6 +314,7 @@ export class MarkdownVisualEditor {
     this.element.addEventListener('input', (event) => this.onInput(event));
     // A marker typed through an input method is only final once composing ends.
     this.element.addEventListener('compositionend', (event) => {
+      this.compositionEndedAt = performance.now();
       const index = this.indexOf(event.target);
       if (index >= 0 && !this.readOnly) {
         this.convertTyped(index);
@@ -707,10 +673,26 @@ export class MarkdownVisualEditor {
       event.preventDefault();
       this.act(index, event.key === 'ArrowUp' ? 'up' : 'down');
     } else if (event.key === 'Enter' && !event.shiftKey) {
+      if (this.takeConfirmingEnter()) {
+        // The Enter that confirmed a conversion ends it; it must not also start a new paragraph.
+        event.preventDefault();
+        return;
+      }
       this.onEnter(event, index, element, range);
     } else if (event.key === 'Backspace' && (element.tagName === 'P' || element.tagName in HEADING_LEVEL)) {
       this.onBackspace(event, index, element, range);
     }
+  }
+
+  /**
+   * True once for the Enter that confirms a conversion when the browser sends it
+   * after `compositionend` (see `CONFIRMING_ENTER_MS`). Every Enter clears the
+   * window, so at most one Enter is taken this way.
+   */
+  private takeConfirmingEnter(): boolean {
+    const confirming = performance.now() - this.compositionEndedAt < CONFIRMING_ENTER_MS;
+    this.compositionEndedAt = Number.NEGATIVE_INFINITY;
+    return confirming;
   }
 
   private onEnter(event: KeyboardEvent, index: number, element: HTMLElement, range: Range): void {

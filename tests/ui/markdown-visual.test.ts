@@ -5,7 +5,7 @@
  * rewrites only that block's Markdown, and every other line of the source
  * stays exactly as it was.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '../../src/app/i18n';
 import { MarkdownVisualEditor } from '../../src/ui/markdown-visual';
 
@@ -312,5 +312,50 @@ describe('MarkdownVisualEditor: Markdown typed at the start of a line', () => {
     paragraph.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(blocks(visual)[0].tagName).toBe('PRE');
     expect(last(changes)).toBe('```js\n\n```');
+  });
+});
+
+describe('MarkdownVisualEditor: the Enter that confirms a Japanese conversion', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not split the paragraph on the Enter that follows compositionend', () => {
+    const { visual, changes } = editor('Hello world');
+    const paragraph = blocks(visual)[0];
+    caretIn(paragraph.firstChild!, 5);
+    const before = changes.length;
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    paragraph.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    clock.mockReturnValue(1004); // Safari: the confirming Enter follows within a few milliseconds
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    paragraph.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(changes).toHaveLength(before);
+    expect(blocks(visual).map((node) => node.textContent)).toEqual(['Hello world', '']);
+  });
+
+  it('splits on the next Enter, once the confirming one has been taken', () => {
+    const { visual, changes } = editor('Hello world');
+    const paragraph = blocks(visual)[0];
+    caretIn(paragraph.firstChild!, 5);
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    paragraph.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    clock.mockReturnValue(1004);
+    paragraph.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    clock.mockReturnValue(1006); // still inside the window, but the confirming Enter has used it up
+    paragraph.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(last(changes)).toBe('Hello\n\n world');
+  });
+
+  it('splits on an Enter that comes long after a conversion ended', () => {
+    const { visual, changes } = editor('Hello world');
+    const paragraph = blocks(visual)[0];
+    caretIn(paragraph.firstChild!, 5);
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    paragraph.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    clock.mockReturnValue(1500);
+    paragraph.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(last(changes)).toBe('Hello\n\n world');
   });
 });

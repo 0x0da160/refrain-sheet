@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeResizable } from '../drag-resize';
+import { isComposingKey } from '../ime';
 import { t } from '../../app/i18n';
 
 /**
@@ -149,10 +150,12 @@ export function openDialog<T>(
 /**
  * Makes Enter submit a single-line dialog input, mirroring how a native
  * `<form>` treats Enter in a text/number field. Ignored while an IME
- * composition is in progress — `compositionstart`/`compositionend` are
- * tracked explicitly because `isComposing` is not set on the keydown that
- * commits a candidate in every browser — so committing a Japanese candidate
- * with Enter never submits the dialog by accident.
+ * composition is in progress: `isComposingKey` (`src/ui/ime.ts`) checks the
+ * tracked `compositionstart`/`compositionend` flag, `isComposing`, and the
+ * `keyCode === 229` sentinel. The sentinel is needed because Safari delivers
+ * `compositionend` before the Enter keydown that confirms a candidate (WebKit
+ * bug 165004), so `isComposing` is already false by then. Committing a Japanese
+ * candidate with Enter therefore never submits the dialog by accident.
  */
 export function submitOnEnter(input: HTMLElement, submit: () => void): void {
   let composing = false;
@@ -164,7 +167,7 @@ export function submitOnEnter(input: HTMLElement, submit: () => void): void {
   });
   input.addEventListener('keydown', (event) => {
     const keyboardEvent = event as KeyboardEvent;
-    if (keyboardEvent.key === 'Enter' && !composing && !keyboardEvent.isComposing) {
+    if (keyboardEvent.key === 'Enter' && !isComposingKey(keyboardEvent, composing)) {
       event.preventDefault();
       submit();
     }

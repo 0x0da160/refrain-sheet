@@ -104,6 +104,26 @@ describe('Enter submits single-line dialog inputs', () => {
     expect(await promise).toBeNull();
   });
 
+  it('does not submit on the Enter that confirms a Japanese candidate in Safari', async () => {
+    const promise = new Dialogs().chooseNumberFormat(null);
+    const panel = document.querySelector('.side-panel')!;
+    const decimals = panel.querySelector<HTMLInputElement>('#format-number-decimals')!;
+    decimals.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+    decimals.value = '3';
+    decimals.dispatchEvent(new Event('compositionend', { bubbles: true }));
+
+    // Safari (WebKit bug 165004) delivers the confirming Enter after
+    // compositionend, with isComposing false and keyCode 229.
+    const confirming = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    Object.defineProperty(confirming, 'keyCode', { value: 229 });
+    decimals.dispatchEvent(confirming);
+    expect(document.querySelector('.side-panel')).not.toBeNull();
+
+    enter(decimals);
+    const result = await promise;
+    expect(result).toMatchObject({ action: 'apply', format: { kind: 'number', decimals: 3 } });
+  });
+
   it('keeps Apply disabled for a blank or whitespace-only numeric value (issue #339)', async () => {
     const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
     const panel = document.querySelector('.side-panel')!;

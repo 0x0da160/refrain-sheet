@@ -9,6 +9,7 @@
 import type { SheetObject, SheetObjectKind } from '../../core/workbook/sheet-objects';
 import { MAX_OBJECT_TEXT_LENGTH } from '../../core/workbook/sheet-objects';
 import { el } from '../dom';
+import { isComposingKey } from '../ime';
 import { objectTextBox } from '../sheet-object-view';
 
 /** The kinds whose text is typed on the shape; the others open the object list. */
@@ -46,7 +47,7 @@ export function editObjectText(node: HTMLElement, o: SheetObject, done: (text: s
   };
   field.addEventListener('keydown', (event) => {
     event.stopPropagation();
-    if (event.isComposing) {
+    if (isComposingKey(event)) {
       return;
     }
     if (event.key === 'Escape') {

@@ -26,6 +26,7 @@ import {
   type SidePanelChrome,
 } from './dialogs/side-panel';
 import { clearChildren, el, focusWithoutKeyboard } from './dom';
+import { isComposingKey } from './ime';
 
 import { markedText } from './find-marks';
 import type { Grid } from './grid';
@@ -209,19 +210,19 @@ export class FindBar {
     this.regexBox.addEventListener('change', requestRecompute);
     this.scopeSelect.addEventListener('change', requestRecompute);
     this.findInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.isComposing) {
+      if (event.key === 'Enter' && !isComposingKey(event)) {
         event.preventDefault();
         this.next(event.shiftKey ? -1 : 1);
       }
     });
     this.replaceInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.isComposing) {
+      if (event.key === 'Enter' && !isComposingKey(event)) {
         event.preventDefault();
         this.replaceCurrent();
       }
     });
     this.element.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && !event.isComposing) {
+      if (event.key === 'Escape' && !isComposingKey(event)) {
         event.preventDefault();
         this.close();
       }

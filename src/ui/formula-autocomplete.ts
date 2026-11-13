@@ -62,11 +62,26 @@ export class FormulaAutocomplete {
       // `onViewportResize` — rather than this popup doing its own
       // independent measure/write on every `visualViewport` resize event.
       const offViewportResize = onViewportResize(reposition);
-      document.addEventListener('scroll', reposition, true);
+      // One scroll event fires per scrolling element, so a single frame can
+      // carry several. Re-clamp once per frame, before the frame is painted.
+      let frame = 0;
+      const repositionOnScroll = (): void => {
+        if (frame === 0) {
+          frame = requestAnimationFrame(() => {
+            frame = 0;
+            reposition();
+          });
+        }
+      };
+      document.addEventListener('scroll', repositionOnScroll, true);
       this.offListeners.push(() => {
         window.removeEventListener('resize', reposition);
         offViewportResize();
-        document.removeEventListener('scroll', reposition, true);
+        document.removeEventListener('scroll', repositionOnScroll, true);
+        if (frame !== 0) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
       });
     }
     parent.append(this.popup);

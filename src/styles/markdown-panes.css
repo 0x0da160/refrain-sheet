@@ -129,11 +129,15 @@
   margin-top: 0;
 }
 
+/* The <pre> takes the code block's fixed-pitch face too: text typed straight
+   into a code block (not inside its <code>) would otherwise get the browser's
+   generic monospace, so ASCII art would not match the rest of the block. */
 .markdown-editor-preview pre {
   background: var(--bg-raised);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
   overflow: auto;
+  font-family: var(--font-code);
 }
 
 .markdown-editor-preview code {

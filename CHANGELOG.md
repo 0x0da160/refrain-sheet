@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.35] - 2026-11-13
+
 ### Changed
 
 - In Chrome and Edge, Open now lists by default only the files the app can open, such as spreadsheets, text, Markdown, JSON, and YAML files. Choose All files in the file type list to see every file.

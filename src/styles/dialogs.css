@@ -31,8 +31,17 @@ dialog[data-size='lg'] {
   width: min(var(--dialog-w-lg), calc(100vw - 32px));
 }
 
+/* Scroll gestures over a modal dialog or its backdrop must not chain to the
+   page behind it. ::backdrop is not a scroll container by default, so it needs
+   overflow: hidden before overscroll-behavior applies to it. */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
 dialog::backdrop {
   background: var(--overlay);
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 /* The column-filter popover (see openPopover in src/ui/dialogs/index.ts): the same

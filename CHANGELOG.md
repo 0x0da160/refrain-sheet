@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.33] - 2026-11-13
+
 ### Fixed
 
 - A code block in a Markdown sheet's formatted (見たまま) view now uses the code

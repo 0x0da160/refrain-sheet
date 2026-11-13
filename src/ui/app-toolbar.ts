@@ -163,7 +163,7 @@ export class AppToolbar {
     button.addEventListener('click', () => {
       if (this.commands.isEnabled(command.id)) {
         // A color or border picker this starts opens under the button.
-        noteInvoker({ kind: 'below', rect: button.getBoundingClientRect() });
+        noteInvoker({ kind: 'below', rect: button.getBoundingClientRect(), anchor: button });
         void this.commands.run(command.id);
       }
     });

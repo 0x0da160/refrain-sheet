@@ -140,6 +140,15 @@
   font-family: var(--font-code);
 }
 
+/* Code blocks in the formatted Markdown views (the visual editor and the
+   preview panel) use a tighter line height than the prose, so ASCII art keeps
+   its rows close together. The reading theme's 1.9 would otherwise stretch
+   them too. The JSON and YAML previews share this markup but keep their own
+   spacing. */
+:is(.markdown-preview-panel, .markdown-sheet-view) .markdown-editor-preview pre {
+  line-height: 1.3;
+}
+
 .markdown-editor-preview code {
   font-family: var(--font-code);
   font-size: 0.9em;

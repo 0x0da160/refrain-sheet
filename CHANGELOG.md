@@ -38,6 +38,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- Code blocks in a Markdown sheet's formatted (見たまま) view and its preview panel now have a tighter line height, so ASCII art no longer looks stretched vertically. This applies in every display theme. Other text is unchanged, including the JSON and YAML previews.
+
 ## [0.9.33] - 2026-11-13
 
 ### Fixed

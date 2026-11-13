@@ -38,6 +38,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- A line or arrow on a sheet now shows a focus glow that follows its stroke when reached with the keyboard, so you can see which one has focus. In high-contrast mode, the focus appears as an outline instead.
+
 ## [0.9.35] - 2026-11-13
 
 ### Changed

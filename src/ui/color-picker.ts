@@ -305,7 +305,7 @@ export function colorField(id: string | null, value: string, label?: string): HT
   button.addEventListener('click', () => {
     const rect = button.getBoundingClientRect();
     void openAnchoredPopover({
-      placement: { kind: 'below', rect },
+      placement: { kind: 'below', rect, anchor: button },
       label: label ?? t('colorPicker.title'),
       className: 'color-popover',
       container: button.closest('dialog') ?? undefined,

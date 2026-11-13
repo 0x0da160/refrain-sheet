@@ -509,7 +509,7 @@ export class StatusBar {
     ];
     button.addEventListener('click', () => {
       void openAnchoredPopover({
-        placement: { kind: 'below', rect: button.getBoundingClientRect() },
+        placement: { kind: 'below', rect: button.getBoundingClientRect(), anchor: button },
         label: t('status.details'),
         className: 'status-details-popover',
         build: (root, close) => {

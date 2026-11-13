@@ -16,7 +16,7 @@
  */
 import { el, focusWithoutKeyboard } from './dom';
 import { isComposingKey } from './ime';
-import { positionPopup, type PopupPlacement } from './popup';
+import { keepInViewport, positionPopup, type PopupPlacement } from './popup';
 
 /** How long a recorded invoker stays valid for the command it started. */
 const INVOKER_TTL_MS = 1000;
@@ -42,6 +42,28 @@ function closeAnchoredPopover(): void {
 }
 
 /**
+ * The element CSS anchor positioning places the popover from, or null when the
+ * JavaScript placement does it: the placement is not below an element, the
+ * element has left the page (a context menu closes before its command runs),
+ * or the browser has no CSS anchor positioning.
+ */
+function cssAnchorFor(placement: PopupPlacement): HTMLElement | null {
+  if (placement.kind !== 'below' || !placement.anchor?.isConnected) {
+    return null;
+  }
+  const supported = typeof CSS !== 'undefined' && CSS.supports('anchor-name: --a');
+  return supported ? placement.anchor : null;
+}
+
+/** Whether the popover API is there, so the popover is shown in the top layer. */
+function hasNativePopover(): boolean {
+  return typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
+}
+
+/** Gives each anchored popover its own anchor name, so no two share one. */
+let anchorSeq = 0;
+
+/**
  * Open a popover at `placement`, filled by `build` (which gets a `close`
  * function). Resolves when it closes, however that happens.
  */
@@ -59,6 +81,12 @@ export function openAnchoredPopover(options: {
       className: `anchored-popover${options.className ? ` ${options.className}` : ''}`,
       attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-label': options.label },
     });
+    const native = hasNativePopover();
+    if (native) {
+      // Shown in the top layer once attached. Escape and outside presses stay handled here (manual).
+      root.setAttribute('popover', 'manual');
+    }
+    let anchored: HTMLElement | null = null;
     const listeners: Array<() => void> = [];
     const on = (target: EventTarget, type: string, handler: (event: Event) => void): void => {
       target.addEventListener(type, handler, true);
@@ -73,6 +101,10 @@ export function openAnchoredPopover(options: {
       openClose = null;
       for (const off of listeners) {
         off();
+      }
+      anchored?.style.removeProperty('anchor-name');
+      if (native) {
+        root.hidePopover();
       }
       root.remove();
       resolve();
@@ -96,7 +128,19 @@ export function openAnchoredPopover(options: {
     on(window, 'resize', close);
     options.build(root, close);
     (options.container ?? document.body).append(root);
-    positionPopup(root, options.placement);
+    if (native) {
+      root.showPopover();
+    }
+    anchored = cssAnchorFor(options.placement);
+    if (anchored) {
+      const name = `--anchored-popover-${++anchorSeq}`;
+      anchored.style.setProperty('anchor-name', name);
+      root.style.setProperty('position-anchor', name);
+      root.classList.add('anchored-popover-anchored');
+      keepInViewport(root);
+    } else {
+      positionPopup(root, options.placement);
+    }
     const first = root.querySelector<HTMLElement>('[data-autofocus], button, input, select');
     if (first) {
       focusWithoutKeyboard(first);

@@ -32,8 +32,13 @@ export interface AnchorRect {
 export type PopupPlacement =
   /** At a pointer position (viewport coordinates), e.g. a context menu. */
   | { kind: 'point'; x: number; y: number }
-  /** Below an anchor (a menu-bar button), mirrored above when it does not fit. */
-  | { kind: 'below'; rect: AnchorRect }
+  /**
+   * Below an anchor (a menu-bar button), mirrored above when it does not fit.
+   * `anchor` is the element `rect` came from. Where CSS anchor positioning is
+   * available and the element is still on the page, an anchored popover is
+   * placed by CSS from it instead (see `anchored-popover.ts`).
+   */
+  | { kind: 'below'; rect: AnchorRect; anchor?: HTMLElement }
   /** Beside an anchor (a submenu's parent item), mirrored to the other side. */
   | { kind: 'beside'; rect: AnchorRect };
 
@@ -361,4 +366,46 @@ export function positionPopup(node: HTMLElement, placement: PopupPlacement): Pla
   node.style.left = `${Math.round(x.value)}px`;
   node.style.top = `${Math.round(y.value)}px`;
   return { left: x.value, top: y.value, flippedX: x.flipped, flippedY: y.flipped, scrollable };
+}
+
+/**
+ * Keep a surface that CSS has already placed inside the visible viewport. It
+ * caps the height the same way as `positionPopup`, then moves the surface with
+ * `translate` only when it still sticks out, so the anchor-relative position
+ * CSS chose stays put and the surface keeps following its anchor.
+ */
+export function keepInViewport(node: HTMLElement): void {
+  node.style.maxHeight = '';
+  node.style.overflowY = '';
+  node.style.translate = '';
+
+  const vp = visualViewportRect();
+  const minX = vp.left + VIEWPORT_MARGIN;
+  const maxX = vp.left + vp.width - VIEWPORT_MARGIN;
+  const minY = vp.top + VIEWPORT_MARGIN;
+  const maxY = vp.top + vp.height - VIEWPORT_MARGIN;
+
+  const available = Math.max(0, maxY - minY);
+  if (measure(node).height > available && available > 0) {
+    node.style.maxHeight = `${available}px`;
+    node.style.overflowY = 'auto';
+  }
+
+  const rect = node.getBoundingClientRect();
+  const dx = nudge(rect.left, rect.right, minX, maxX);
+  const dy = nudge(rect.top, rect.bottom, minY, maxY);
+  if (dx !== 0 || dy !== 0) {
+    node.style.translate = `${Math.round(dx)}px ${Math.round(dy)}px`;
+  }
+}
+
+/** How far a span from `start` to `end` must move to lie within `min`..`max`; 0 when it already does. */
+function nudge(start: number, end: number, min: number, max: number): number {
+  if (start < min) {
+    return min - start;
+  }
+  if (end > max) {
+    return max - end;
+  }
+  return 0;
 }

@@ -27,6 +27,29 @@
   font-weight: var(--weight-heading);
 }
 
+/* A native popover starts with the browser's centering defaults; its own
+   offsets place it instead. */
+.anchored-popover[popover] {
+  inset: auto;
+  margin: 0;
+}
+
+.anchored-popover[popover]:not(:popover-open) {
+  display: none;
+}
+
+/* Placed by CSS anchor positioning (src/ui/anchored-popover.ts): below its
+   control, flipping above and right-aligned to it when it does not fit.
+   Only added where the browser has anchor positioning. */
+.anchored-popover.anchored-popover-anchored {
+  top: anchor(bottom);
+  left: anchor(left);
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+}
+
 /* ---------- Color picker (src/ui/color-picker.ts) ---------- */
 
 .color-picker {

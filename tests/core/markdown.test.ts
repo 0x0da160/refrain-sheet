@@ -183,6 +183,49 @@ describe('parseMarkdown', () => {
     ]);
   });
 
+  it('accepts a fence indented up to three spaces and strips that indent from its lines', () => {
+    expect(parseMarkdown('  ```text\n  a\n   b\n  ```')).toEqual([
+      { type: 'codeBlock', text: 'a\n b', lang: 'text' },
+    ]);
+  });
+
+  it('parses an indented code block verbatim, with its four columns of indent removed', () => {
+    expect(parseMarkdown('Intro\n\n    ┌──┐\n    │ a  *b* │\n    └──┘\n\nAfter')).toEqual([
+      { type: 'paragraph', children: [text('Intro')] },
+      { type: 'codeBlock', text: '┌──┐\n│ a  *b* │\n└──┘', lang: null },
+      { type: 'paragraph', children: [text('After')] },
+    ]);
+  });
+
+  it('counts a tab as the indent of an indented code line', () => {
+    expect(parseMarkdown('\tcode')).toEqual([{ type: 'codeBlock', text: 'code', lang: null }]);
+  });
+
+  it('keeps blank lines inside an indented code block but leaves trailing ones out of it', () => {
+    expect(parseMarkdown('    a\n\n    b\n\n')).toEqual([{ type: 'codeBlock', text: 'a\n\nb', lang: null }]);
+  });
+
+  it('reads a four-space indented fence line as code text, not as a fence', () => {
+    expect(parseMarkdown('    ```\n    x\n    ```')).toEqual([
+      { type: 'codeBlock', text: '```\nx\n```', lang: null },
+    ]);
+  });
+
+  it('opens an indented code block right after a heading line', () => {
+    expect(parseMarkdown('# Art\n    ┌┐')).toEqual([
+      { type: 'heading', level: 1, children: [text('Art')] },
+      { type: 'codeBlock', text: '┌┐', lang: null },
+    ]);
+  });
+
+  it('keeps an indented line after a paragraph line in that paragraph', () => {
+    expect(parseMarkdown('line one\n    line two').map((block) => block.type)).toEqual(['paragraph']);
+  });
+
+  it('keeps an indented line after a list in the list, not in a code block', () => {
+    expect(parseMarkdown('- one\n\n    two').map((block) => block.type)).not.toContain('codeBlock');
+  });
+
   it('never renders an embedded HTML/script tag as anything but literal text in the AST', () => {
     const blocks = parseMarkdown('<script>alert(1)</script>');
     expect(blocks).toEqual([{ type: 'paragraph', children: [text('<script>alert(1)</script>')] }]);

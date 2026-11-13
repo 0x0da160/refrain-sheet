@@ -2,8 +2,8 @@
 /**
  * A hand-written, dependency-free Markdown parser for the in-workbook
  * Markdown worksheet (#433, `src/ui/markdown-sheet.ts`). It parses a scoped
- * subset — headings, paragraphs, bold/italic, inline code, fenced code
- * blocks, links, unordered/ordered lists, blockquotes, horizontal rules —
+ * subset — headings, paragraphs, bold/italic, inline code, fenced and
+ * indented code blocks, links, unordered/ordered lists, blockquotes, horizontal rules —
  * into a typed AST, never an HTML string. `src/ui/markdown-render.ts`
  * renders that AST into DOM nodes via `el()`/`textContent` (see
  * `src/ui/dom.ts`), the same convention every other surface in this app
@@ -50,7 +50,10 @@ export type MarkdownBlock =
     };
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
-const FENCE_OPEN_RE = /^(`{3,}|~{3,})\s*(\S*)\s*$/;
+/** A fence opener: up to three spaces of indent, three or more backticks or tildes, then an optional language. */
+const FENCE_OPEN_RE = /^ {0,3}(`{3,}|~{3,})\s*(\S*)\s*$/;
+/** One line of an indented code block: four columns of indent, or a tab. */
+const CODE_INDENT_RE = /^(?: {4}|\t)/;
 const HR_RE = /^ {0,3}([-*_])(?: *\1){2,}\s*$/;
 const BLOCKQUOTE_RE = /^ {0,3}>/;
 const BLOCKQUOTE_STRIP_RE = /^ {0,3}> ?/;
@@ -109,17 +112,58 @@ function readFencedCode(
   const fenceChar = match[1][0];
   const fenceLen = match[1].length;
   const lang = match[2] || null;
-  const closeRe = new RegExp(`^${fenceChar}{${fenceLen},}\\s*$`);
+  // A fence may be indented up to three spaces, and its content loses that much indent.
+  const indent = lines[i].length - lines[i].trimStart().length;
+  const stripIndent = new RegExp(`^ {0,${indent}}`);
+  const closeRe = new RegExp(`^ {0,3}${fenceChar}{${fenceLen},}\\s*$`);
   const codeLines: string[] = [];
   let next = i + 1;
   while (next < lines.length && !closeRe.test(lines[next])) {
-    codeLines.push(lines[next]);
+    codeLines.push(lines[next].replace(stripIndent, ''));
     next++;
   }
   if (next < lines.length) {
     next++; // consume the closing fence
   }
   return { block: { type: 'codeBlock', text: codeLines.join('\n'), lang }, next };
+}
+
+/**
+ * Whether the indented line at `i` opens an indented code block, given the
+ * block before it. An indented line that continues a paragraph never gets
+ * here (the paragraph loop takes it). After a list it is that list's
+ * continuation, so it is not code; after a quote or a table it must follow a
+ * blank line.
+ */
+function canOpenIndentedCode(lines: string[], i: number, previous: MarkdownBlock | undefined): boolean {
+  if (i === 0 || lines[i - 1].trim() === '') {
+    return previous?.type !== 'list';
+  }
+  return previous?.type === 'heading' || previous?.type === 'hr' || previous?.type === 'codeBlock';
+}
+
+/**
+ * An indented code block starting at line `i`: each of its lines loses four
+ * columns of indent (a tab counts as four), blank lines inside it stay blank,
+ * and it ends at its last indented line, so any blank lines after that are
+ * left to the caller.
+ */
+function readIndentedCode(lines: string[], i: number): { block: MarkdownBlock; next: number } {
+  const codeLines: string[] = [];
+  let end = i;
+  for (let next = i; next < lines.length; next++) {
+    const line = lines[next];
+    if (line.trim() === '') {
+      codeLines.push('');
+    } else if (CODE_INDENT_RE.test(line)) {
+      codeLines.push(line.replace(CODE_INDENT_RE, ''));
+      end = next + 1;
+    } else {
+      break;
+    }
+  }
+  const text = codeLines.slice(0, end - i).join('\n');
+  return { block: { type: 'codeBlock', text, lang: null }, next: end };
 }
 
 /** A pipe table starting at line `i` (header row + delimiter row), or null when there is none. */
@@ -180,6 +224,13 @@ function parseBlocks(lines: string[], ranges?: Array<{ start: number; end: numbe
       const fence = readFencedCode(lines, i, fenceMatch);
       blocks.push(fence.block);
       i = fence.next;
+      continue;
+    }
+
+    if (CODE_INDENT_RE.test(line) && canOpenIndentedCode(lines, i, blocks[blocks.length - 1])) {
+      const indented = readIndentedCode(lines, i);
+      blocks.push(indented.block);
+      i = indented.next;
       continue;
     }
 

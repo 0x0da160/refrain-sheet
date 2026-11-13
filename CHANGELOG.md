@@ -38,6 +38,16 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- A code block in a Markdown sheet's formatted (見たまま) view now uses the code
+  font, so ASCII art keeps its columns. A block indented by four spaces or a
+  tab, and a fenced block indented by up to three spaces, used to show as
+  ordinary text in the interface font with its spaces collapsed; they now show
+  as code blocks. Text typed straight into a code block also uses the code
+  font. The saved text does not change until you edit a block, and an edited
+  indented block is saved as a fenced block.
+
 ## [0.9.32] - 2026-11-12
 
 ### Added

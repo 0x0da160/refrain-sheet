@@ -68,6 +68,11 @@ describe('blockToMarkdown', () => {
     expect(md).toBe('````\nx\n```\ny\n````');
     expect(parseMarkdown(md)).toEqual([{ type: 'codeBlock', text: 'x\n```\ny', lang: null }]);
   });
+
+  it('writes an indented code block back as a fenced one that parses to the same block', () => {
+    const blocks = parseMarkdown('Intro\n\n    ┌──┐\n    │ x │\n\n    later');
+    expect(parseMarkdown(blocksToMarkdown(blocks))).toEqual(blocks);
+  });
 });
 
 describe('parseMarkdownRanges', () => {
@@ -84,6 +89,15 @@ describe('parseMarkdownRanges', () => {
       [21, 24],
     ]);
     expect(ranges.map((r) => r.block)).toEqual(parseMarkdown(SAMPLE));
+  });
+
+  it('leaves the blank lines after an indented code block out of its range', () => {
+    const ranges = parseMarkdownRanges('Intro\n\n    art\n\nEnd');
+    expect(ranges.map(({ start, end }) => [start, end])).toEqual([
+      [0, 1],
+      [2, 3],
+      [4, 5],
+    ]);
   });
 
   it('is empty for blank text', () => {

@@ -5,6 +5,7 @@
  */
 import { MAX_SHEET_NAME_LENGTH } from '../core/formula';
 import { el } from './dom';
+import { isComposingKey } from './ime';
 
 export interface NameFieldOptions {
   /** The name shown now. */
@@ -56,7 +57,7 @@ export function editNameInPlace(label: HTMLElement, options: NameFieldOptions): 
   };
   input.addEventListener('keydown', (event) => {
     event.stopPropagation(); // arrows, Home/End and F2 belong to the text here
-    if (event.isComposing) {
+    if (isComposingKey(event)) {
       return;
     }
     if (event.key === 'Enter') {

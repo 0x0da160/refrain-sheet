@@ -93,6 +93,8 @@ export function closeModal(dialog: HTMLDialogElement, restoreFocus: HTMLElement 
   }
 }
 
+let dialogTitleSeq = 0;
+
 /**
  * Modal dialogs built on the native <dialog> element, which provides the
  * focus trap and Escape handling. All content is added via textContent.
@@ -110,11 +112,13 @@ export function openDialog<T>(
   size: DialogSize = 'md',
 ): Promise<T> {
   return new Promise((resolve) => {
-    const dialog = el('dialog', { attrs: { 'aria-labelledby': 'dialog-title', 'data-size': size } });
+    // A unique id per dialog: a fixed id made a second open dialog (one opened from another) name itself with the first one's title.
+    const titleId = `dialog-title-${++dialogTitleSeq}`;
+    const dialog = el('dialog', { attrs: { 'aria-labelledby': titleId, 'data-size': size } });
     const heading = el('h2', {
       className: 'dialog-title',
       text: title,
-      attrs: { id: 'dialog-title', title: t('dialog.dragHandle') },
+      attrs: { id: titleId, title: t('dialog.dragHandle') },
     });
     const body = el('div', { className: 'dialog-body form-layout' });
     const buttons = el('div', { className: 'dialog-buttons' });

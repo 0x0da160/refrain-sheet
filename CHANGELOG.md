@@ -41,6 +41,8 @@ really is internal, rather than inventing an entry to satisfy it.
 ### Fixed
 
 - In Safari, pressing Enter to confirm a Japanese conversion in a dialog's text box (such as a new sheet's name or a number format's currency symbol) no longer closes the dialog by mistake. Enter still submits the dialog once the conversion is finished.
+- While a dialog is open, scrolling over its dimmed backdrop or inside the dialog no longer scrolls the page behind it.
+- When one dialog opens another, screen readers now announce the new dialog by its own title instead of the first dialog's title.
 
 ## [0.9.34] - 2026-11-13
 

@@ -93,18 +93,47 @@ export async function readFileObject(
 }
 
 /**
+ * The file types the open chooser offers by default. `.rsf` is the current
+ * spreadsheet format; `.rcsv` is the legacy name, still accepted so existing
+ * files open (then re-save as `.rsf`). `.xlsx` imports as a new `.rsf` tab;
+ * Markdown, JSON, YAML, and text files open in their editors (see
+ * `FileOpening.openFile`).
+ */
+function openableAccept(): string {
+  return isMinimalEdition()
+    ? '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'
+    : '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+}
+
+/**
+ * The extensions of an `accept` list in the File System Access form the
+ * native open dialog takes. MIME entries are left out: the dialog filters by
+ * extension, and the fallback chooser's MIME entries cover the same files.
+ */
+function openPickerTypes(accept: string): Array<{ accept: Record<string, string[]> }> {
+  const extensions = accept
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => /^\.[a-z0-9]+$/i.test(part));
+  return extensions.length > 0 ? [{ accept: { 'application/octet-stream': extensions } }] : [];
+}
+
+/**
  * Ask the user to pick one or more files. Uses the File System Access API
  * when available (so saves can overwrite the original file); otherwise falls
  * back to a hidden <input type="file"> element. The configured size limit is
  * enforced before any file's bytes are read into memory. `accept` narrows
- * the fallback chooser's file types (default: every type the app opens).
+ * both choosers' file types (default: every type the app opens).
  */
 export async function pickFiles(doc: Document, maxSize: number, accept?: string): Promise<OpenedFile[]> {
   const picker = (globalThis as FilePickerCapableWindow).showOpenFilePicker;
   if (typeof picker === 'function') {
+    const types = openPickerTypes(accept ?? openableAccept());
     let handles: FileSystemFileHandle[];
     try {
-      handles = await picker.call(globalThis, { multiple: true });
+      // The same extensions as the fallback chooser, so both filter alike.
+      // The browser adds "All files" itself, so every file stays reachable.
+      handles = await picker.call(globalThis, { multiple: true, ...(types.length > 0 ? { types } : {}) });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return [];
@@ -121,15 +150,7 @@ export async function pickFiles(doc: Document, maxSize: number, accept?: string)
     const input = doc.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    // `.rsf` is the current spreadsheet format; `.rcsv` is the legacy name,
-    // still accepted so existing files open (then re-save as `.rsf`). `.xlsx`
-    // imports as a new `.rsf` tab; Markdown, JSON, YAML, and text files open
-    // in their editors (see `FileOpening.openFile`).
-    input.accept =
-      accept ??
-      (isMinimalEdition()
-        ? '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'
-        : '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    input.accept = accept ?? openableAccept();
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);

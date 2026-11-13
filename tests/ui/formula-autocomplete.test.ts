@@ -14,6 +14,11 @@ function stubRect(node: HTMLElement, rect: Partial<DOMRect>): void {
     ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, ...rect }) as DOMRect;
 }
 
+/** Resolves after the scroll handler's frame has run. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+}
+
 describe('FormulaAutocomplete (floating popup)', () => {
   let field: HTMLInputElement;
   let parent: HTMLElement;
@@ -65,13 +70,39 @@ describe('FormulaAutocomplete (floating popup)', () => {
     expect(parseFloat(autocomplete.popup.style.top)).toBe(520);
   });
 
-  it('re-positions on a capturing scroll event while open', () => {
+  it('re-positions on a capturing scroll event while open', async () => {
     stubRect(field, { left: 100, top: 100, right: 150, bottom: 120 });
     const autocomplete = open();
 
     stubRect(field, { left: 200, top: 300, right: 250, bottom: 320 });
     document.dispatchEvent(new Event('scroll'));
+    await nextFrame();
     expect(parseFloat(autocomplete.popup.style.top)).toBe(320);
+  });
+
+  it('re-positions once per frame however many scroll events arrive', async () => {
+    stubRect(field, { left: 100, top: 100, right: 150, bottom: 120 });
+    open();
+    const measure = vi.spyOn(field, 'getBoundingClientRect');
+
+    document.dispatchEvent(new Event('scroll'));
+    document.dispatchEvent(new Event('scroll'));
+    document.dispatchEvent(new Event('scroll'));
+    expect(measure).not.toHaveBeenCalled();
+    await nextFrame();
+    expect(measure).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a pending scroll frame when disposed', async () => {
+    stubRect(field, { left: 100, top: 100, right: 150, bottom: 120 });
+    const autocomplete = open();
+    const topBeforeScroll = autocomplete.popup.style.top;
+
+    stubRect(field, { left: 200, top: 300, right: 250, bottom: 320 });
+    document.dispatchEvent(new Event('scroll'));
+    autocomplete.dispose();
+    await nextFrame();
+    expect(autocomplete.popup.style.top).toBe(topBeforeScroll);
   });
 
   it('stops repositioning after dispose', () => {

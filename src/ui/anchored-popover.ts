@@ -15,6 +15,7 @@
  * chooser can be used from inside it.
  */
 import { el, focusWithoutKeyboard } from './dom';
+import { isComposingKey } from './ime';
 import { positionPopup, type PopupPlacement } from './popup';
 
 /** How long a recorded invoker stays valid for the command it started. */
@@ -79,7 +80,7 @@ export function openAnchoredPopover(options: {
     openClose = close;
     root.addEventListener('keydown', (event) => {
       event.stopPropagation(); // keys typed here never reach the grid or app shortcuts
-      if (event.key === 'Escape' && !event.isComposing) {
+      if (event.key === 'Escape' && !isComposingKey(event)) {
         event.preventDefault();
         close();
       }

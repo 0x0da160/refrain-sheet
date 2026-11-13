@@ -48,6 +48,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - In Safari, Enter and Escape that confirm or cancel a Japanese conversion no longer act on the find bar, the column menu, the color picker's code box, the sheet-name field, popovers, or the text typed into a shape. Escape no longer discards a shape's text in the middle of a conversion. Both keys work as usual once the conversion is finished.
 - While a dialog is open, scrolling over its dimmed backdrop or inside the dialog no longer scrolls the page behind it.
 - When one dialog opens another, screen readers now announce the new dialog by its own title instead of the first dialog's title.
+- Menu-bar and toolbar items show a focus ring when reached with the keyboard, and the Markdown, JSON, YAML, and text worksheet editors show a focus ring while they have the caret.
 
 ## [0.9.34] - 2026-11-13
 

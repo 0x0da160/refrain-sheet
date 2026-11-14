@@ -1362,7 +1362,7 @@
   "dialog.pivot.aggregation": "集計方法",
   "dialog.pivot.create": "新しいシートに作成",
   "dialog.pivot.status.created": "ピボットテーブルを「{name}」に作成しました。",
-  "dialog.pivot.status.ignored": "数値ではない値 {count} 個は、合計から除きました。",
+  "dialog.pivot.status.ignored": "数値ではない値 {count} 個は、合計、平均、最小、最大の計算から除きました。",
   "dialog.diff.title": "比較 / 差分",
   "dialog.diff.intro": "表示中のタブと、開いている別のタブを、キー列で照合して比較します。どちらのデータも変更しません。",
   "dialog.diff.current": "今回のデータ: {name}",

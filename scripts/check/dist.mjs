@@ -356,7 +356,7 @@ if (mode === 'offline') {
   }
   // The bundle is minified, so the registration appears as the worker's URL and its
   // update message, not as a readable `serviceWorker.register` call.
-  if (/rel="manifest"/.test(indexHtml) || /\.\/sw\.js|SKIP_WAITING/.test(bundle)) {
+  if (/rel="manifest"/.test(indexHtml) || /\/sw\.js|SKIP_WAITING/.test(bundle)) {
     fail('the offline build links a manifest or registers a service worker — both are hosted-only');
   } else {
     ok('offline build neither links a manifest nor registers a service worker');
@@ -367,10 +367,10 @@ if (mode === 'offline') {
   if (!existsSync(workerPath) || !existsSync(manifestPath)) {
     fail(`hosted build in ${targetDir} is missing sw.js or manifest.webmanifest`);
   } else {
-    if (/\.\/sw\.js/.test(bundle) && /SKIP_WAITING/.test(bundle)) {
-      ok('hosted bundle registers ./sw.js and answers SKIP_WAITING');
+    if (/\/sw\.js/.test(bundle) && /SKIP_WAITING/.test(bundle)) {
+      ok('hosted bundle registers /sw.js and answers SKIP_WAITING');
     } else {
-      fail('hosted bundle does not register ./sw.js or does not answer SKIP_WAITING');
+      fail('hosted bundle does not register /sw.js or does not answer SKIP_WAITING');
     }
     const worker = readFileSync(workerPath, 'utf8');
     const precacheMatch = /const PRECACHE = (\[[^\n]*\]);/.exec(worker);
@@ -391,10 +391,17 @@ if (mode === 'offline') {
     } else {
       ok('sw.js names no absolute URL');
     }
-    if (!/<link rel="manifest" href="\.\/manifest\.webmanifest"/.test(indexHtml)) {
-      fail('index.html does not link ./manifest.webmanifest');
+    if (!/<link rel="manifest" href="\/manifest\.webmanifest"/.test(indexHtml)) {
+      fail('index.html does not link /manifest.webmanifest');
     } else {
       ok('index.html links the web app manifest');
+    }
+    // A deep address such as /settings/deep resolves a relative path under that address,
+    // so the hosted page must name every file from the site root.
+    if (/(?:src|href)="\.\//.test(indexHtml) || !/src="\/assets\//.test(indexHtml)) {
+      fail('index.html names a file with a relative path, so a deep address cannot load it');
+    } else {
+      ok('index.html names its files from the site root');
     }
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     const missingIcons = manifest.icons.map((icon) => icon.src).filter((src) => !existsSync(join(dist, src)));

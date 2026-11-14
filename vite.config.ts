@@ -148,10 +148,13 @@ function hostedOfflinePlugin(enabled: boolean): Plugin {
       if (!html.includes('</head>')) {
         throw new Error('index.html has no </head> to hold the hosted manifest links');
       }
-      return html.replace(
-        '</head>',
-        `    <link rel="manifest" href="./${MANIFEST_FILE}" />\n    <link rel="apple-touch-icon" href="./icons/${APPLE_TOUCH_ICON_NAME}" />\n  </head>`,
-      );
+      // The favicon link is root-absolute too, so a deep address finds it.
+      return html
+        .replace('href="./favicon.svg"', 'href="/favicon.svg"')
+        .replace(
+          '</head>',
+          `    <link rel="manifest" href="/${MANIFEST_FILE}" />\n    <link rel="apple-touch-icon" href="/icons/${APPLE_TOUCH_ICON_NAME}" />\n  </head>`,
+        );
     },
     writeBundle(options) {
       if (!enabled) {
@@ -191,7 +194,10 @@ export default defineConfig(({ command, mode }) => {
   const hostedEnv = (name: string) => JSON.stringify(buildMode === 'hosted' ? (process.env[name] ?? '') : '');
 
   return {
-    base: './',
+    // The hosted site is served from its root, so its assets load from there at any
+    // address, a deep link such as /settings/deep included. The offline file:// build
+    // keeps relative paths, which is what lets it open from any folder.
+    base: buildMode === 'hosted' ? '/' : './',
     // No public/ directory: the only static file (the favicon) comes from the
     // design-system master through the brand-favicon plugin below.
     publicDir: false,

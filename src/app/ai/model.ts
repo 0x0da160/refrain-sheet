@@ -87,8 +87,8 @@ export function setAiModelForTests(model: AiModelInfo | null): void {
 }
 
 /**
- * The inference runtimes' own files, served next to the hosted app from
- * `ai-runtime/` (vite.config.ts copies or builds them). Fetched only when a
+ * The inference runtimes' own files, served from `ai-runtime/` under the build's
+ * base path (`./` offline, `/` hosted; vite.config.ts copies or builds them). Fetched only when a
  * model is downloaded or started, never on page load.
  */
 export function aiRuntimeFiles(): {
@@ -98,11 +98,12 @@ export function aiRuntimeFiles(): {
   webllmScript: string;
 } {
   const v = __WLLAMA_VERSION__;
+  const base = import.meta.env.BASE_URL;
   return {
-    wasm: `ai-runtime/wllama-${v}.wasm`,
-    compatWasm: `ai-runtime/wllama-compat-${v}.wasm`,
-    compatWorker: `ai-runtime/wllama-compat-${v}.js`,
-    webllmScript: `ai-runtime/webllm-${__WEBLLM_VERSION__}.js`,
+    wasm: `${base}ai-runtime/wllama-${v}.wasm`,
+    compatWasm: `${base}ai-runtime/wllama-compat-${v}.wasm`,
+    compatWorker: `${base}ai-runtime/wllama-compat-${v}.js`,
+    webllmScript: `${base}ai-runtime/webllm-${__WEBLLM_VERSION__}.js`,
   };
 }
 

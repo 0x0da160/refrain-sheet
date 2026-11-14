@@ -166,7 +166,7 @@ describe('which model the browser gets', () => {
   });
 
   it('names the WebLLM runtime script by version under ai-runtime/', () => {
-    expect(aiRuntimeFiles().webllmScript).toMatch(/^ai-runtime\/webllm-\d+\.\d+\.\d+\.js$/);
+    expect(aiRuntimeFiles().webllmScript).toMatch(/^(\.\/|\/)?ai-runtime\/webllm-\d+\.\d+\.\d+\.js$/);
   });
 });
 

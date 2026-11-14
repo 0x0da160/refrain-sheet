@@ -8,8 +8,8 @@
  * __HOSTED_PWA__).
  */
 
-/** The worker script, relative to the hosted root, so its scope is the whole app. */
-export const SERVICE_WORKER_URL = './sw.js';
+/** The worker script at the hosted site root, so its scope covers the whole app. */
+export const SERVICE_WORKER_URL = '/sw.js';
 
 export interface OfflineSupport {
   /** Lets the waiting version take over, then reloads the page into it. */

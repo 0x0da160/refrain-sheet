@@ -36,7 +36,6 @@ import {
   SwatchBook,
   Table,
   Type as TypeIcon,
-  type IconNode,
   SquareDashed,
   ZoomIn,
 } from 'lucide';
@@ -47,9 +46,7 @@ import type { Arrangement } from '../../core/workbook/object-arrange';
 import { getLocale } from '../../app/i18n';
 import { getShiftPasteMode, type ShiftPasteMode } from '../../app/settings';
 import { displayShortcut, isMacPlatform } from '../../app/shortcuts';
-import type { SheetFontId } from '../../app/sheet-font';
-import type { DensityChoice } from '../../app/density';
-import type { ThemeChoice } from '../../app/theme';
+import type { MenuChecks, MenuDef, MenuItemDef } from './menu-model';
 import {
   barItems,
   densityItems,
@@ -73,101 +70,7 @@ export function shortcutLabel(shortcut: MenuItemDef['shortcut']): string {
 const shiftPasteShortcut = (mode: ShiftPasteMode) => (): string | undefined =>
   getShiftPasteMode() === mode ? 'Ctrl+Shift+V' : undefined;
 
-export interface MenuItemDef {
-  /**
-   * Usually a fixed i18n key. Some items' wording depends on live state
-   * (e.g. "Protect Book" flips to "Unprotect Book" once protected) rather
-   * than just their checkmark — those pass a getter instead, evaluated fresh
-   * on every render exactly like `checked` below (this whole tree is built
-   * once, in the constructor, not rebuilt per render).
-   */
-  labelKey: string | (() => string);
-  /** Omitted for a non-interactive group heading (see `heading`). */
-  command?: CommandId;
-  /** Written the Windows/Linux way; a getter when it depends on a setting. */
-  shortcut?: string | (() => string | undefined);
-  checked?: () => boolean;
-  /** Render as a non-interactive group heading instead of a command item. */
-  heading?: boolean;
-  /**
-   * A decorative leading icon (see `ICON_BY_COMMAND` for plain command
-   * items — this is only needed to give a *submenu-parent* entry an icon,
-   * since those have no `command` to key off of).
-   */
-  icon?: IconNode;
-  /**
-   * Nested items. An entry with a submenu opens a second list beside itself
-   * instead of running a command, keeping a long menu (View) short enough to
-   * fit any viewport. The nested items are ordinary definitions dispatching
-   * the same shared commands — nothing is duplicated.
-   */
-  submenu?: Array<MenuItemDef | 'separator'>;
-}
-
-export interface MenuDef {
-  labelKey: string;
-  items: Array<MenuItemDef | 'separator'>;
-}
-
-export interface MenuChecks {
-  wrap: () => boolean;
-  stickyFirstRow: () => boolean;
-  stickyFirstColumn: () => boolean;
-  /** Whether the active tab is frozen at a selected cell. */
-  freezeAtSelection: () => boolean;
-  /** The font the active worksheet shows; null when a text worksheet shows the interface font. */
-  sheetFont: () => SheetFontId | null;
-  /** Whether the active worksheet is a Markdown/JSON/YAML/text sheet (its source shows instead of the grid). */
-  textSheet?: () => boolean;
-  /** Whether the active worksheet shows a proportional font (View > Proportional Font). */
-  proportionalFont?: () => boolean;
-  theme: () => ThemeChoice;
-  /** The UI density choice (View > Density). */
-  density: () => DensityChoice;
-  /** The active tab's spreadsheet zoom percent (app default when no tab). */
-  zoom: () => number;
-  /** Whether editing-help tooltips are enabled. */
-  editHints: () => boolean;
-  /** Whether the toolbar is shown (View menu). */
-  toolbar: () => boolean;
-  /** Whether sheet tabs are listed down the left side (View menu). */
-  sheetTabsVertical: () => boolean;
-  /** Whether every other grid row is tinted (View > Banded Rows). */
-  bandedRows: () => boolean;
-  /** Whether lines are drawn between data cells (View > Gridlines). */
-  gridlines: () => boolean;
-  /** Whether the selected cell's row is tinted. */
-  highlightRow: () => boolean;
-  /** Whether the selected cell's column is tinted. */
-  highlightCol: () => boolean;
-  /** Whether opening a file auto-fits every column to its content. */
-  autoFitOnOpen: () => boolean;
-  /** Whether the app is shown full screen (View > Full Screen). */
-  fullscreen: () => boolean;
-  /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
-  formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
-  /** Whether the whole current selection sits at `align`. */
-  alignActive: (align: 'left' | 'center' | 'right') => boolean;
-  /** Whether the whole current selection sits at `align` up and down. */
-  verticalAlignActive?: (align: 'top' | 'middle' | 'bottom') => boolean;
-  /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
-  protectedDoc: () => boolean;
-  /** Whether the active worksheet is locked (see `Worksheet.locked`). */
-  sheetLocked: () => boolean;
-  /** Whether the active sheet has a filter range (its header filter buttons are shown). */
-  headerFilter: () => boolean;
-  /**
-   * Whether Google Drive sync exists in this build. False for the offline
-   * build, which omits the whole Drive submenu rather than showing it disabled
-   * — there is nothing the user could do to enable it there.
-   */
-  driveAvailable: () => boolean;
-  /**
-   * Whether the AI assistant exists here: the hosted build, served over
-   * http(s). Elsewhere its menu item is left out, like the Drive submenu.
-   */
-  aiAvailable?: () => boolean;
-}
+export type { MenuChecks, MenuDef, MenuItemDef } from './menu-model';
 
 /**
  * The Google Drive section of the File menu, present only in a build that has
@@ -516,6 +419,7 @@ function dataMenu(): MenuDef {
     items: [
       { labelKey: 'menu.data.runQuery', command: 'data.runSqlQuery' },
       { labelKey: 'menu.data.compareDiff', command: 'data.compareDiff' },
+      { labelKey: 'menu.data.pivot', command: 'data.pivotTable' },
       'separator',
       { labelKey: 'menu.data.validation', command: 'data.validation' },
       { labelKey: 'menu.data.checkValidation', command: 'data.checkValidation' },

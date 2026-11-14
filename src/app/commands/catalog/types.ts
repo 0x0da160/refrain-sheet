@@ -23,6 +23,7 @@ import type { FormatCommands } from '../format';
 import type { Commands } from '../index';
 import type { ObjectCommands } from '../objects';
 import type { PasteFillCommands } from '../paste-fill';
+import type { PivotCommands } from '../pivot';
 import type { RangeOpsCommands } from '../range-ops';
 import type { SortCommands } from '../sort';
 import type { SqlCommands } from '../sql';
@@ -47,6 +48,7 @@ export interface CommandParts {
   readonly format: FormatCommands;
   readonly sql: SqlCommands;
   readonly diff: DiffCommands;
+  readonly pivot: PivotCommands;
 }
 
 /** What a catalog entry sees when it is queried or run. */

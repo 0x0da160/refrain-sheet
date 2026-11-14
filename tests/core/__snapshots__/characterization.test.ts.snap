@@ -81,6 +81,7 @@ exports[`core export surface > keeps every core module exporting the same names 
   "csv-engine": [
     "countLiteralJs",
     "decodeEmbeddedWasm",
+    "deriveRsfKey",
     "getCsvEngine",
     "getRsfCodec",
     "inflateRaw",

@@ -241,7 +241,7 @@ const historyDeltas: RsfWorkbookData = {
  * Compact JSON with history stored as deltas, as this release writes: the
  * same inputs as the pretty-printed fixtures, plus a longer history.
  */
-const cases: FixtureCase[] = [
+const legacyCases: FixtureCase[] = [
   ...prettyCases,
   ...prettyCases.map((c) => ({ ...c, file: c.file.replace('.rsf', '-compact.rsf'), encodes: true })),
   { file: 'history-deltas.rsf', engine: 'wasm', encodes: true, data: historyDeltas },
@@ -602,6 +602,33 @@ const cases: FixtureCase[] = [
       ],
     },
   },
+];
+
+/**
+ * ruzstd 0.9.1 changed the compressed bytes these cases produce. Each keeps its
+ * 0.9.0 fixture, which still decodes, with `encodes` off. A copy with the same
+ * data pins the 0.9.1 output under ruzstd-0-9-1/.
+ */
+const RUZSTD_091_CHANGED = new Set([
+  'features-compact.rsf',
+  'source-sheets-compact.rsf',
+  'history-compact.rsf',
+  'bulk-zstd-compact.rsf',
+  'history-deltas.rsf',
+  'tab-color.rsf',
+  'sheet-folders.rsf',
+  'validations.rsf',
+  'validation-schema.rsf',
+  'text-font.rsf',
+  'images.rsf',
+  'groups.rsf',
+  'charts.rsf',
+]);
+const cases: FixtureCase[] = [
+  ...legacyCases.map((c) => (RUZSTD_091_CHANGED.has(c.file) ? { ...c, encodes: false } : c)),
+  ...legacyCases
+    .filter((c) => RUZSTD_091_CHANGED.has(c.file))
+    .map((c) => ({ ...c, file: `ruzstd-0-9-1/${c.file}` })),
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

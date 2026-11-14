@@ -68,6 +68,11 @@
       "support": "Rolling; LZ4 Frame codec (currently unused but linked; see THIRD-PARTY-NOTICES.md).",
       "plan": null
     },
+    "cargo:argon2@0.5": {
+      "eol": null,
+      "support": "Rolling; Argon2id key derivation for the encrypted .rsf container. Pinned to 0.5.3; the crate audit is a human-review item.",
+      "plan": null
+    },
     "npm:encoding-japanese@2": {
       "eol": null,
       "support": "Runtime dependency; single-maintainer, actively released (2.4.0, 2026-09).",

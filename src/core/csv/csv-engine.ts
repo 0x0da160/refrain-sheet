@@ -5,6 +5,7 @@ import initWasm, {
   countLiteral as wasmCountLiteral,
   parseCsv as wasmParseCsv,
   planReplacements as wasmPlanReplacements,
+  rsfArgon2id as wasmArgon2id,
   rsfCrc32 as wasmCrc32,
   rsfInflate as wasmInflate,
   rsfUnzstd as wasmUnzstd,
@@ -138,6 +139,25 @@ export function inflateRaw(payload: Uint8Array, expectedLen: number): Uint8Array
   }
   const out = wasmInflate(payload, expectedLen);
   return out && out.length === expectedLen ? out : null;
+}
+
+/**
+ * Argon2id key derivation (RFC 9106, version 0x13) for the encrypted `.rsf`
+ * container. The JS engine has no Argon2, so it returns `'needs-wasm'`: the
+ * caller must then refuse to open or save an encrypted file, never fall back
+ * to plain text. Null when WASM rejects the parameters.
+ */
+export function deriveRsfKey(
+  password: Uint8Array,
+  salt: Uint8Array,
+  memoryKiB: number,
+  passes: number,
+  lanes: number,
+): Uint8Array | null | 'needs-wasm' {
+  if (activeEngine.name !== 'wasm') {
+    return 'needs-wasm';
+  }
+  return wasmArgon2id(password, salt, memoryKiB, passes, lanes) ?? null;
 }
 
 const DELIMITER_BY_BYTE: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };

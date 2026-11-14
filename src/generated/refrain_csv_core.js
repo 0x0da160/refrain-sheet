@@ -171,6 +171,31 @@ export function planReplacements(bytes_len, ranges, payload_lens) {
 }
 
 /**
+ * Argon2id (RFC 9106, version 0x13): a 32-byte key-encryption key from a
+ * password and a 16-byte salt. Returns `undefined` when a cost parameter is out
+ * of bounds or the salt length is wrong. AES-GCM runs in WebCrypto instead.
+ * @param {Uint8Array} password
+ * @param {Uint8Array} salt
+ * @param {number} m_kib
+ * @param {number} passes
+ * @param {number} lanes
+ * @returns {Uint8Array | undefined}
+ */
+export function rsfArgon2id(password, salt, m_kib, passes, lanes) {
+    const ptr0 = passArray8ToWasm0(password, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(salt, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfArgon2id(ptr0, len0, ptr1, len1, m_kib, passes, lanes);
+    let v3;
+    if (ret[0] !== 0) {
+        v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v3;
+}
+
+/**
  * CRC-32 (IEEE) checksum of the container's uncompressed body.
  * @param {Uint8Array} bytes
  * @returns {number}

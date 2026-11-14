@@ -38,6 +38,11 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- Opening an encrypted `.rsf` file asks for its password. Nothing in the file is shown until the password is accepted, and a wrong password asks again. A file opened encrypted stays encrypted when it is saved.
+- File > This File > Encrypt with Password… encrypts the open `.rsf` file under a new password of at least 12 characters, typed twice, and saves it encrypted. The password is the only way to open the file again. If it is lost, the file cannot be recovered.
+
 ## [0.9.38] - 2026-11-14
 
 ### Fixed

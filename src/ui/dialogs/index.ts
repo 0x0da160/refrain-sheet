@@ -164,6 +164,16 @@ export class Dialogs {
     return this.fileIo.promptDriveName(suggested);
   }
 
+  /** See `FileIoDialogs.promptRsfPassword` for the full behavior contract. */
+  promptRsfPassword(name: string, retry: boolean): Promise<string | null> {
+    return this.fileIo.promptRsfPassword(name, retry);
+  }
+
+  /** See `FileIoDialogs.promptNewRsfPassword` for the full behavior contract. */
+  promptNewRsfPassword(name: string): Promise<string | null> {
+    return this.fileIo.promptNewRsfPassword(name);
+  }
+
   /** See `FileIoDialogs.chooseSaveOptions` for the full behavior contract. */
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
     return this.fileIo.chooseSaveOptions(tab, downloadNote);

@@ -33,6 +33,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'file.setPrintArea',
   'file.clearPrintArea',
   'file.closeTab',
+  'file.encrypt',
   'drive.open',
   'drive.save',
   'drive.saveAs',

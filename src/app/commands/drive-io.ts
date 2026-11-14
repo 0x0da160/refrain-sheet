@@ -29,6 +29,7 @@ import {
 } from '../drive/client';
 import { driveConfigured } from '../drive/config';
 import { pickDriveFile } from '../drive/picker';
+import { promptAndStartEncryption } from './rsf-io';
 import { recordRecentDriveFile, removeRecentDriveFile } from '../recent-drive-files';
 import { DriveScriptError } from '../drive/script-loader';
 import type { FileIoCommands } from './file-io';
@@ -148,6 +149,23 @@ export class DriveIoCommands {
       return this.saveAs(tab);
     }
     return this.upload(tab, { fileId: tab.drive.fileId, name: tab.drive.name });
+  }
+
+  /**
+   * Turn encryption on for a file that came from Google Drive and overwrite it
+   * encrypted. The new password is asked for first. A cancel, or an upload
+   * that does not happen, leaves the Drive file and the tab as they were.
+   */
+  async encryptAndSave(tab: Tab): Promise<boolean> {
+    if (!this.available() || !tab.drive || tab.encryption) return false;
+    const session = await promptAndStartEncryption(this.ui, tab.name);
+    if (!session) return false;
+    tab.encryption = session;
+    const saved = await this.upload(tab, { fileId: tab.drive.fileId, name: tab.drive.name });
+    if (!saved) {
+      tab.encryption = null;
+    }
+    return saved;
   }
 
   /**

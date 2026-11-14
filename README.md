@@ -214,12 +214,12 @@ request. Nothing outside the markers is ever machine-written.
 
 | Language     |   Files |      Blank |    Comment |        Code |
 | ------------ | ------: | ---------: | ---------: | ----------: |
-| TypeScript   |     570 |      9,165 |     19,257 |     100,291 |
-| Markdown     |      92 |      2,414 |          3 |      13,165 |
-| JSON         |      21 |          0 |          0 |      13,010 |
-| CSS          |      54 |      1,273 |      1,610 |      11,342 |
-| JavaScript   |      31 |        408 |      1,168 |       4,815 |
-| HTML         |      20 |         74 |         79 |       2,438 |
+| TypeScript   |     585 |      9,337 |     19,509 |     101,892 |
+| Markdown     |      92 |      2,420 |          3 |      13,191 |
+| JSON         |      21 |          0 |          0 |      13,072 |
+| CSS          |      55 |      1,280 |      1,615 |      11,393 |
+| JavaScript   |      32 |        427 |      1,256 |       4,982 |
+| HTML         |      20 |         74 |         80 |       2,438 |
 | YAML         |      14 |        204 |        447 |       1,314 |
 | Rust         |       4 |        112 |        180 |         883 |
 | SVG          |      11 |          0 |         52 |          98 |
@@ -227,7 +227,7 @@ request. Nothing outside the markers is ever machine-written.
 | Dockerfile   |       1 |          8 |         26 |          40 |
 | TOML         |       2 |          4 |         26 |          24 |
 | INI          |       1 |          3 |          0 |          13 |
-| **Total**    | **822** | **13,676** | **22,867** | **147,480** |
+| **Total**    | **839** | **13,880** | **23,213** | **149,387** |
 
 <!-- code-stats:end -->
 

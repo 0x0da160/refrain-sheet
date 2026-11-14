@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.37] - 2026-11-14
+
 ### Added
 
 - Data > Pivot Table… summarizes the current sheet by a row field and an optional column field, with a count, sum, average, minimum, or maximum. The summary goes into a new sheet, and the current sheet is not changed. The column field is optional, and blank values are grouped together. On a CSV file, the summary opens as a new spreadsheet tab. The summary holds fixed values, so it does not update when the source changes.

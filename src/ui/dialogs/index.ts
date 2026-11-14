@@ -19,6 +19,7 @@ import type {
   FlashFillPreview,
   FontDialogResult,
   NumberFormatDialogResult,
+  PivotDialogInput,
   RangeMoveConfirmInput,
   RecentFileChoice,
   SortDialogInput,
@@ -54,6 +55,7 @@ import { SheetOpsDialogs } from './sheet-ops';
 import { SqlQueryDialogs } from './sql';
 import { chooseVersionHistoryPanel } from './version-history-panel';
 import { DiffDialogs } from './diff';
+import { PivotDialogs } from './pivot';
 import { atStart, dialogButton, openDialog } from './shared';
 import type { LocalSettings } from '../../app/settings';
 
@@ -66,6 +68,7 @@ export class Dialogs {
   private readonly format = new FormatDialogs();
   private readonly sqlQuery = new SqlQueryDialogs();
   private readonly diff = new DiffDialogs();
+  private readonly pivot = new PivotDialogs();
 
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean> {
     return openDialog(
@@ -526,6 +529,11 @@ export class Dialogs {
   /** See `DiffDialogs.showDiff` for the full behavior contract. */
   showDiff(input: DiffDialogInput): Promise<void> {
     return this.diff.showDiff(input);
+  }
+
+  /** See `PivotDialogs.showPivot` for the full behavior contract. */
+  showPivot(input: PivotDialogInput): Promise<void> {
+    return this.pivot.showPivot(input);
   }
 }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** Data commands (`data.*`): SQL query, two-tab compare, validation, comments. */
+/** Data commands (`data.*`): SQL query, two-tab compare, pivot table, validation, comments. */
 import type { DiffResult } from '../../../core/diff-engine';
 import { isWorkbook } from '../../../core/editor-document';
 import type { SqlQueryResult } from '../../../core/sql-engine';
@@ -25,26 +25,64 @@ function showSqlQuery(ctx: CommandContext, tab: Tab): Promise<void> {
 }
 
 /**
- * The SQL panel's Put Results in New Sheet: the result's header row and
- * rows go into a new worksheet after the active one (one undoable step), or,
- * for a CSV tab, into a new unsaved spreadsheet tab. The source is never
- * changed. Returns the new sheet's name, or null when it could not be added.
+ * Put a table of rows into a new sheet titled `sheetTitle`: a new worksheet
+ * after the active one (one undoable step) for a workbook, or a new unsaved
+ * spreadsheet tab for a CSV tab. The source is never changed. Returns the new
+ * sheet's name, or null when it could not be added.
  */
-function writeSqlResult(ctx: CommandContext, tab: Tab, result: SqlQueryResult): string | null {
-  const rows = [result.columns, ...result.rows.map((row) => row.map(String))];
+function writeResultSheet(
+  ctx: CommandContext,
+  tab: Tab,
+  rows: string[][],
+  sheetTitle: string,
+): string | null {
   const doc = tab.doc;
   if (isWorkbook(doc)) {
-    const name = doc.uniqueSheetName(t('sql.resultSheetName'));
+    const name = doc.uniqueSheetName(sheetTitle);
     return ctx.state.addSheetFromValues(tab, name, rows)?.name ?? null;
   }
   const base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
-  const fileName = `${base}-${t('sql.resultSheetName')}${RSF_EXTENSION}`;
-  const sheetName = t('sql.resultSheetName');
-  const width = Math.max(1, result.columns.length);
-  const book = RsfDocument.fromValues(fileName, ',', rows, width, sheetName, getLocale());
+  const fileName = `${base}-${sheetTitle}${RSF_EXTENSION}`;
+  const width = Math.max(
+    1,
+    rows.reduce((max, row) => Math.max(max, row.length), 0),
+  );
+  const book = RsfDocument.fromValues(fileName, ',', rows, width, sheetTitle, getLocale());
   book.markUnsaved();
   ctx.state.addTab(fileName, book, null);
-  return sheetName;
+  return sheetTitle;
+}
+
+/**
+ * The SQL panel's Put Results in New Sheet: the result's header row and rows
+ * go into a new sheet (see {@link writeResultSheet}).
+ */
+function writeSqlResult(ctx: CommandContext, tab: Tab, result: SqlQueryResult): string | null {
+  const rows = [result.columns, ...result.rows.map((row) => row.map(String))];
+  return writeResultSheet(ctx, tab, rows, t('sql.resultSheetName'));
+}
+
+/**
+ * Data > Pivot Table…: open the pivot table panel on the active table. Its
+ * Create in New Sheet puts the summary into a new sheet (see `src/core/pivot.ts`).
+ */
+function showPivot(ctx: CommandContext, tab: Tab): Promise<void> {
+  const { ui, parts } = ctx;
+  const sourceId = parts.pivot.sourceOf(tab);
+  return ui.showPivot({
+    columns: parts.pivot.listColumns(tab, sourceId),
+    create: (request) => {
+      const outcome = parts.pivot.build(tab, sourceId, request);
+      if (!outcome.ok) {
+        return { ok: false, error: outcome.error };
+      }
+      const name = writeResultSheet(ctx, tab, outcome.sheet.rows, t('pivot.sheetName'));
+      if (name === null) {
+        return { ok: false, error: { code: 'sheetFailed', params: {} } };
+      }
+      return { ok: true, sheetName: name, ignored: outcome.sheet.ignoredValues };
+    },
+  });
 }
 
 /**
@@ -99,6 +137,7 @@ export const DATA_COMMANDS = {
   'data.runSqlQuery': withTab(showSqlQuery),
   // A second open tab is required to pick a baseline against.
   'data.compareDiff': withTab(showDiff, (ctx) => ctx.state.tabs.length >= 2),
+  'data.pivotTable': withTab(showPivot),
   // Validation and comments stay clickable on a CSV tab: running one explains
   // that it needs an RSF spreadsheet document and offers to convert.
   'data.validation': {

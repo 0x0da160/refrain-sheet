@@ -84,6 +84,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
             dialogs.confirm(title, message, ok, cancel),
           ),
     showDiff: (input) => dialogs.showDiff(input),
+    showPivot: (input) => dialogs.showPivot(input),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),

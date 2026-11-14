@@ -1,6 +1,6 @@
 {
   "name": "refrain-sheet",
-  "version": "0.9.38",
+  "version": "0.9.39",
   "description": "A format-preserving CSV editor that runs directly from a local HTML file.",
   "private": true,
   "type": "module",

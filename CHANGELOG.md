@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.39] - 2026-11-14
+
 ### Added
 
 - Opening an encrypted `.rsf` file asks for its password. Nothing in the file is shown until the password is accepted, and a wrong password asks again. A file opened encrypted stays encrypted when it is saved.

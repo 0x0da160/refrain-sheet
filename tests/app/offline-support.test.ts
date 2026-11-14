@@ -55,11 +55,11 @@ function start({
 }
 
 describe('startOfflineSupport', () => {
-  it('registers the worker at ./sw.js', async () => {
+  it('registers the worker at /sw.js, the site root', async () => {
     const { container, starting } = start();
     await starting;
-    expect(SERVICE_WORKER_URL).toBe('./sw.js');
-    expect(container.register).toHaveBeenCalledWith('./sw.js');
+    expect(SERVICE_WORKER_URL).toBe('/sw.js');
+    expect(container.register).toHaveBeenCalledWith('/sw.js');
   });
 
   it('resolves to null when the browser refuses the registration, and announces nothing', async () => {

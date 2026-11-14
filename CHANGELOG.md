@@ -38,6 +38,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- Addresses below the start page, such as /settings/deep, now load the app on the hosted site, both online and offline.
+
 ## [0.9.37] - 2026-11-14
 
 ### Added

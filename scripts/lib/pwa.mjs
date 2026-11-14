@@ -67,7 +67,7 @@ export function contentVersion(files) {
  * own, so the build can embed it verbatim.
  */
 const SERVICE_WORKER_BODY = `
-// Registered by the app as navigator.serviceWorker.register('./sw.js').
+// Registered by the app as navigator.serviceWorker.register('/sw.js').
 // A new build changes this file (through CACHE below), so the browser installs
 // the new worker beside the running one. The running version keeps serving
 // until the person chooses to update in the app.

@@ -113,12 +113,34 @@ describe('buildServiceWorkerSource', () => {
 
 // The generated worker, run in a sandbox. Its global scope, Cache Storage, Request
 // and fetch are fakes, so each test sees exactly what the worker asked for.
-interface Entry {
-  url: string;
-  fetchedWith?: string;
+/**
+ * A response as the worker sees it: fetch's, or one the worker builds with
+ * `new Response(body, init)`. `redirected` is set when fetch followed a redirect to reach it.
+ */
+class FakeResponse {
+  url = '';
+  redirected = false;
   network?: boolean;
+  fetchedWith?: string;
+  readonly body: string;
+  readonly status: number;
+  readonly statusText: string;
+
+  constructor(body: string, init: { status?: number; statusText?: string } = {}) {
+    this.body = body;
+    this.status = init.status ?? 200;
+    this.statusText = init.statusText ?? 'OK';
+  }
+
+  get ok(): boolean {
+    return this.status >= 200 && this.status <= 299;
+  }
+
+  async blob(): Promise<string> {
+    return this.body;
+  }
 }
-type Stores = Map<string, Map<string, Entry>>;
+type Stores = Map<string, Map<string, FakeResponse>>;
 type Handler = (event: Record<string, unknown>) => void;
 
 /** A request as the worker sees it. Relative addresses resolve against the app. */
@@ -137,7 +159,7 @@ class FakeRequest {
 }
 
 /** Cache Storage with the parts the worker uses. Lookups can ignore the query string. */
-function fakeCacheStorage(stores: Stores, unreachable: ReadonlySet<string>) {
+function fakeCacheStorage(stores: Stores) {
   const keyOf = (input: string | FakeRequest, ignoreSearch = false): string => {
     const url = new URL(typeof input === 'string' ? input : input.url, BASE);
     if (ignoreSearch) {
@@ -147,15 +169,11 @@ function fakeCacheStorage(stores: Stores, unreachable: ReadonlySet<string>) {
   };
   return {
     async open(name: string) {
-      const store = stores.get(name) ?? new Map<string, Entry>();
+      const store = stores.get(name) ?? new Map<string, FakeResponse>();
       stores.set(name, store);
       return {
-        async add(request: FakeRequest) {
-          const url = keyOf(request);
-          if (unreachable.has(url)) {
-            throw new Error(`unreachable: ${url}`);
-          }
-          store.set(url, { url, fetchedWith: request.cache });
+        async put(request: FakeRequest, response: FakeResponse) {
+          store.set(keyOf(request), response);
         },
       };
     },
@@ -186,10 +204,27 @@ function fakeCacheStorage(stores: Stores, unreachable: ReadonlySet<string>) {
  * respondWith (`responded`, undefined when the worker let the request go).
  */
 function runWorker(
-  options: { version?: string; precache?: string[]; stores?: Stores; unreachable?: string[] } = {},
+  options: {
+    version?: string;
+    precache?: string[];
+    stores?: Stores;
+    /** Addresses that fail to load at all. */
+    unreachable?: string[];
+    /** Addresses that answer with an error status. */
+    errors?: string[];
+    /** Addresses the host answers with a redirect, mapped to where it sends them. */
+    redirects?: Record<string, string>;
+  } = {},
 ) {
   const stores: Stores = options.stores ?? new Map();
   const unreachable = new Set((options.unreachable ?? []).map((path) => new URL(path, BASE).href));
+  const errors = new Set((options.errors ?? []).map((path) => new URL(path, BASE).href));
+  const redirects = new Map<string, string>(
+    Object.entries(options.redirects ?? {}).map(([from, to]): [string, string] => [
+      new URL(from, BASE).href,
+      new URL(to, BASE).href,
+    ]),
+  );
   const handlers = new Map<string, Handler[]>();
   const scope = {
     location: { origin: ORIGIN },
@@ -201,10 +236,25 @@ function runWorker(
   };
   const sandbox = {
     self: scope,
-    caches: fakeCacheStorage(stores, unreachable),
+    caches: fakeCacheStorage(stores),
     Request: FakeRequest,
+    Response: FakeResponse,
     URL,
-    fetch: async (request: FakeRequest): Promise<Entry> => ({ url: request.url, network: true }),
+    // The network: an unreachable address fails, and a redirect is followed, as fetch does.
+    fetch: async (request: FakeRequest): Promise<FakeResponse> => {
+      if (unreachable.has(request.url)) {
+        throw new Error(`unreachable: ${request.url}`);
+      }
+      const final = redirects.get(request.url) ?? request.url;
+      const response = new FakeResponse(`content of ${final}`, {
+        status: errors.has(request.url) ? 404 : 200,
+      });
+      response.url = final;
+      response.redirected = final !== request.url;
+      response.network = true;
+      response.fetchedWith = request.cache;
+      return response;
+    },
   };
   const source = buildServiceWorkerSource({
     version: options.version ?? VERSION,
@@ -238,11 +288,31 @@ describe('service worker, install and update', () => {
     const { stores, dispatch } = runWorker();
     await dispatch('install', {}).settled;
     const cache = stores.get(CURRENT_CACHE);
-    expect(cache?.get(`${BASE}index.html`)).toEqual({ url: `${BASE}index.html`, fetchedWith: 'reload' });
-    expect(cache?.get(`${BASE}assets/app.js`)).toEqual({
+    expect(cache?.get(`${BASE}index.html`)).toMatchObject({
+      url: `${BASE}index.html`,
+      fetchedWith: 'reload',
+    });
+    expect(cache?.get(`${BASE}assets/app.js`)).toMatchObject({
       url: `${BASE}assets/app.js`,
       fetchedWith: 'reload',
     });
+  });
+
+  it('stores each file without a redirect, even when the host redirects its address', async () => {
+    // The live host answers /index.html with a redirect to /, so the shell arrives through one.
+    const { stores, dispatch } = runWorker({ redirects: { 'index.html': './' } });
+    await dispatch('install', {}).settled;
+    const shell = stores.get(CURRENT_CACHE)?.get(`${BASE}index.html`);
+    expect(shell?.redirected).toBe(false);
+    expect(shell?.body).toBe(`content of ${BASE}`);
+  });
+
+  it('fails the install, so the running version carries on, when a file answers with an error', async () => {
+    const { dispatch } = runWorker({
+      precache: ['index.html', 'assets/gone.js'],
+      errors: ['assets/gone.js'],
+    });
+    await expect(dispatch('install', {}).settled).rejects.toThrow('with status 404');
   });
 
   it('does not take over on install, so the running version keeps serving until the app asks', async () => {
@@ -295,8 +365,8 @@ describe('service worker, fetch', () => {
     const exact = dispatch('fetch', { request: new FakeRequest('./assets/app.js') });
     const withQuery = dispatch('fetch', { request: new FakeRequest('./assets/app.js?v=2') });
     const expected = { url: `${BASE}assets/app.js`, fetchedWith: 'reload' };
-    await expect(exact.responded).resolves.toEqual(expected);
-    await expect(withQuery.responded).resolves.toEqual(expected);
+    await expect(exact.responded).resolves.toMatchObject(expected);
+    await expect(withQuery.responded).resolves.toMatchObject(expected);
   });
 
   it('serves a page address the app does not have from the precached app shell', async () => {
@@ -304,7 +374,28 @@ describe('service worker, fetch', () => {
     const { responded } = dispatch('fetch', {
       request: new FakeRequest('./settings/deep', { mode: 'navigate' }),
     });
-    await expect(responded).resolves.toEqual({ url: `${BASE}index.html`, fetchedWith: 'reload' });
+    await expect(responded).resolves.toMatchObject({ url: `${BASE}index.html`, fetchedWith: 'reload' });
+  });
+
+  it('answers a page with a copy that has no redirect, when the cached shell came through one', async () => {
+    // A cache filled before the copy rule holds the shell as the host's redirect delivered it.
+    const shell = new FakeResponse(`content of ${BASE}`);
+    shell.url = BASE;
+    shell.redirected = true;
+    const stores: Stores = new Map([[CURRENT_CACHE, new Map([[`${BASE}index.html`, shell]])]]);
+    const { dispatch } = runWorker({ stores });
+    const { responded } = dispatch('fetch', { request: new FakeRequest('./', { mode: 'navigate' }) });
+    const served = (await responded) as FakeResponse;
+    expect(served.redirected).toBe(false);
+    expect(served.body).toBe(`content of ${BASE}`);
+  });
+
+  it('answers a file the network sends through a redirect with a copy that has no redirect', async () => {
+    const { dispatch } = runWorker({ redirects: { 'data/moved.json': 'data/current.json' } });
+    const { responded } = dispatch('fetch', { request: new FakeRequest('./data/moved.json') });
+    const served = (await responded) as FakeResponse;
+    expect(served.redirected).toBe(false);
+    expect(served.body).toBe(`content of ${BASE}data/current.json`);
   });
 
   it('goes to the network for a page when no app shell is cached', async () => {
@@ -312,13 +403,13 @@ describe('service worker, fetch', () => {
     const { responded } = dispatch('fetch', {
       request: new FakeRequest('./settings/deep', { mode: 'navigate' }),
     });
-    await expect(responded).resolves.toEqual({ url: `${BASE}settings/deep`, network: true });
+    await expect(responded).resolves.toMatchObject({ url: `${BASE}settings/deep`, network: true });
   });
 
   it('goes to the network for a file that is not cached', async () => {
     const { dispatch } = await installed();
     const { responded } = dispatch('fetch', { request: new FakeRequest('./data/missing.json') });
-    await expect(responded).resolves.toEqual({ url: `${BASE}data/missing.json`, network: true });
+    await expect(responded).resolves.toMatchObject({ url: `${BASE}data/missing.json`, network: true });
   });
 
   it('leaves other origins alone, such as Google Drive and the model host', async () => {

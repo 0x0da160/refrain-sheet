@@ -77,9 +77,7 @@ self.addEventListener('install', (event) => {
   // exactly what this build contains. If any file cannot be fetched, the install
   // fails and the running version carries on.
   event.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      Promise.all(PRECACHE.map((path) => cache.add(new Request(path, { cache: 'reload' })))),
-    ),
+    caches.open(CACHE).then((cache) => Promise.all(PRECACHE.map((path) => precache(cache, path)))),
   );
 });
 
@@ -120,13 +118,39 @@ self.addEventListener('fetch', (event) => {
 function answer(request) {
   return caches.match(request, { cacheName: CACHE, ignoreSearch: true }).then((cached) => {
     if (cached) {
-      return cached;
+      return unredirected(cached);
     }
     if (request.mode === 'navigate') {
       // The app is a single page, so any address opens it, offline included.
-      return caches.match('./index.html', { cacheName: CACHE }).then((shell) => shell || fetch(request));
+      return caches
+        .match('./index.html', { cacheName: CACHE })
+        .then((shell) => (shell ? unredirected(shell) : fetch(request)));
     }
-    return fetch(request);
+    return fetch(request).then(unredirected);
+  });
+}
+
+// Safari refuses a page that the worker answers with a redirected response ("Response
+// served by service worker has redirections"). The live host redirects /index.html to /,
+// so the app shell can arrive through a redirect. The worker therefore answers with a
+// copy of any redirected response: the same body, with no redirect.
+function unredirected(response) {
+  if (!response.redirected) {
+    return Promise.resolve(response);
+  }
+  return response
+    .blob()
+    .then((body) => new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers }));
+}
+
+// Fetches one precached file fresh and stores it without a redirect. A file that fails
+// to load, or answers with an error status, fails the install, as cache.add did.
+function precache(cache, path) {
+  return fetch(new Request(path, { cache: 'reload' })).then((response) => {
+    if (!response.ok) {
+      throw new TypeError('Request failed for ' + path + ' with status ' + response.status);
+    }
+    return unredirected(response).then((copy) => cache.put(new Request(path), copy));
   });
 }
 `;

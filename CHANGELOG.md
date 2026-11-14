@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.38] - 2026-11-14
+
 ### Fixed
 
 - The hosted app opens again in Safari on iPhone and iPad. Since 0.9.37, a visit after the first could fail with the message "Response served by service worker has redirections".

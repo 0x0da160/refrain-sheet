@@ -214,11 +214,11 @@ request. Nothing outside the markers is ever machine-written.
 
 | Language     |   Files |      Blank |    Comment |        Code |
 | ------------ | ------: | ---------: | ---------: | ----------: |
-| TypeScript   |     585 |      9,337 |     19,509 |     101,892 |
-| Markdown     |      92 |      2,420 |          3 |      13,191 |
+| TypeScript   |     585 |      9,344 |     19,523 |     101,969 |
+| Markdown     |      92 |      2,423 |          3 |      13,195 |
 | JSON         |      21 |          0 |          0 |      13,072 |
 | CSS          |      55 |      1,280 |      1,615 |      11,393 |
-| JavaScript   |      32 |        427 |      1,256 |       4,982 |
+| JavaScript   |      32 |        429 |      1,264 |       5,003 |
 | HTML         |      20 |         74 |         80 |       2,438 |
 | YAML         |      14 |        204 |        447 |       1,314 |
 | Rust         |       4 |        112 |        180 |         883 |
@@ -227,7 +227,7 @@ request. Nothing outside the markers is ever machine-written.
 | Dockerfile   |       1 |          8 |         26 |          40 |
 | TOML         |       2 |          4 |         26 |          24 |
 | INI          |       1 |          3 |          0 |          13 |
-| **Total**    | **839** | **13,880** | **23,213** | **149,387** |
+| **Total**    | **839** | **13,892** | **23,235** | **149,489** |
 
 <!-- code-stats:end -->
 

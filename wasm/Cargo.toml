@@ -27,9 +27,10 @@ miniz_oxide = "=0.9.1"
 # 0.9.x needs Rust 1.87+ (rust-toolchain.toml). The frozen .rsf fixtures
 # (tests/core/rsf-fixtures.test.ts) pin the encoder's output byte-for-byte, so a
 # bump that changes the compressed bytes fails there before it can ship.
-# Held at 0.9.0, not 0.9.1: 0.9.1 changes the compressed bytes the frozen
-# fixtures pin, and the embedded payload is built from 0.9.0.
-ruzstd = "=0.9.0"
+# Moved to 0.9.1. It changes the compressed bytes, so the frozen fixtures keep
+# their 0.9.0 output for the decode check, and the 0.9.1 output is pinned by
+# the ruzstd-0-9-1 fixtures (see tests/core/rsf-fixtures.test.ts).
+ruzstd = "=0.9.1"
 # lz4_flex: pure-Rust LZ4 with the Frame format (frame feature, default on).
 lz4_flex = "=0.14.0"
 # Argon2id key derivation for the encrypted `.rsf` container (RFC 9106, version

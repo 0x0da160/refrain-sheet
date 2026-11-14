@@ -145,20 +145,25 @@ function droppedFiles(event: DragEvent): {
 }
 
 /**
+ * Whether any open document has unsaved changes. The pending debounced
+ * Markdown/JSON/YAML/text-sheet edits are flushed first, so an edit made in the
+ * last moment is neither lost nor missed by this check.
+ */
+export function hasUnsavedChanges(state: AppState, s: Surfaces): boolean {
+  s.markdownSheetView.flushCommit();
+  s.jsonSheetView.flushCommit();
+  s.yamlSheetView.flushCommit();
+  s.textSheetView.flushCommit();
+  return state.tabs.some((tab) => tab.doc.isDirty);
+}
+
+/**
  * Leave-page confirmation. Browsers do not allow custom dialogs during
  * unload; the standard confirmation is used when any tab has unsaved changes.
  */
 export function installLeaveConfirmation(state: AppState, s: Surfaces): void {
   window.addEventListener('beforeunload', (event) => {
-    // A pending debounced Markdown/JSON/YAML/text-sheet edit has not yet
-    // marked its document dirty — flush it first so an edit made in the last
-    // moment before closing is never silently lost nor missed by the dirty
-    // check below.
-    s.markdownSheetView.flushCommit();
-    s.jsonSheetView.flushCommit();
-    s.yamlSheetView.flushCommit();
-    s.textSheetView.flushCommit();
-    if (state.tabs.some((tab) => tab.doc.isDirty)) {
+    if (hasUnsavedChanges(state, s)) {
       event.preventDefault();
       event.returnValue = '';
     }

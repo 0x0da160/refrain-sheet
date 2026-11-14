@@ -153,6 +153,31 @@ CSP matches `scripts/lib/csp.mjs` byte-for-byte. `.github/workflows/ci.yml` and
 `.github/workflows/release.yml` build and validate both artifacts on every
 change.
 
+## Exception: offline support for the hosted build (service worker)
+
+The hosted build also works offline after its first visit. A service worker
+(`sw.js`) and a web app manifest make that possible. Both are generated at build
+time by `scripts/lib/pwa.mjs` and written only into `dist-hosted/`. The offline
+`file://` build and the release ZIP carry neither, and they never register a
+worker: a service worker cannot be registered from `file://` at all.
+
+- **CSP, hosted only.** `worker-src` gains `'self'` so the worker script can come
+  from the app's own origin, and `manifest-src 'self'` is added for the manifest.
+  `connect-src` is unchanged, so the worker opens no connection of its own.
+- **Same-origin requests only.** The worker answers this app's own `GET`
+  requests from its precache. Everything else, including Google Drive, the
+  Picker, and Hugging Face, passes straight to the network.
+- **What is precached.** The app shell, its assets, the icons, and the manifest.
+  The AI runtime is excluded: it is large, and it loads only when the person
+  starts the assistant. The worker never caches itself.
+- **Versions.** Each build has a content version, so the worker file changes
+  whenever a precached file changes. A newer version waits until the person
+  chooses to update. Only caches under this app's prefix are ever deleted, so
+  the assistant's model cache is left alone.
+- **Checked by** `npm run check:dist` (the offline artifact has no worker,
+  manifest, or icons, and registers no worker) and `npm run check:dist:hosted`
+  (every precached file exists, and the AI runtime is never precached).
+
 ## Threat model
 
 | Trust boundary                         | Threat                                                                                        | Control                                                                                                                                                                                                                                                |

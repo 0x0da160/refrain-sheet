@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** File and Google Drive commands (`file.*`, `drive.*`). */
-import { isCsv } from '../../../core/editor-document';
+import { isCsv, isWorkbook } from '../../../core/editor-document';
 import { KEEP_SAVE_OPTIONS } from '../../../core/csv/serializer';
 import { fileSystemAccessAvailable, pickFiles } from '../../file-access';
 import { getMaxFileSize } from '../../settings';
@@ -46,6 +46,15 @@ export const FILE_COMMANDS = {
     (_, tab) => isCsv(tab.doc) || tab.textFile !== null,
   ),
   'file.toggleProtect': withTab((ctx, tab) => ctx.state.setReadOnly(tab, !tab.readOnly)),
+  // Turns encryption on with a new password, then saves the file encrypted. A Drive file uploads encrypted.
+  'file.encrypt': withTab(
+    (ctx, tab) =>
+      tab.drive && ctx.parts.drive?.available()
+        ? ctx.parts.drive.encryptAndSave(tab)
+        : ctx.parts.fileIo.encryptAndSave(tab),
+    // A spreadsheet file that is not encrypted yet; an encrypted file stays encrypted.
+    (_, tab) => isWorkbook(tab.doc) && !tab.encryption,
+  ),
   'file.save': withTab((ctx, tab) => ctx.commands.save(tab, KEEP_SAVE_OPTIONS)),
   'file.saveOptions': withTab(
     (ctx, tab) => ctx.parts.fileIo.saveWithOptions(tab),

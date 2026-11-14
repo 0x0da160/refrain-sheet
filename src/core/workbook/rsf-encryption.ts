@@ -61,10 +61,13 @@ const OFFSET = {
 
 /** Upper bounds on the Argon2 cost; a file above them is refused before any work. */
 const ARGON2_LIMITS = { maxMemoryKiB: 262_144, maxPasses: 10, maxLanes: 4 } as const;
-/** The cost used for new passwords (measured on device before release). */
+/**
+ * The cost used for new passwords. It has not yet been timed on every target
+ * device; see knowledge/formats/rsf/encryption.md.
+ */
 export const ARGON2_DEFAULTS: Argon2Params = { memoryKiB: 65_536, passes: 3, lanes: 1 };
 /** Minimum password length in characters, counted after NFC normalization. */
-const PASSWORD_MIN_CHARACTERS = 12;
+export const PASSWORD_MIN_CHARACTERS = 12;
 /** Maximum password length in UTF-8 bytes after NFC normalization. */
 const PASSWORD_MAX_BYTES = 1024;
 
@@ -394,8 +397,38 @@ async function sealContainer(
 }
 
 /**
- * Turn on encryption for a workbook: a new salt, a new file key, and one
- * Argon2id run. Refuses a password that is too short or too long.
+ * A new encryption session for a password: a new salt, a new file key, and one
+ * Argon2id run. Nothing is sealed here, so a caller that saves later seals
+ * under the session with no further password. Refuses a password that is too
+ * short or too long.
+ */
+export async function startRsfEncryption(
+  password: string,
+  deps: RsfEncryptionDeps,
+  params: Argon2Params = ARGON2_DEFAULTS,
+): Promise<RsfEncryptionSession> {
+  const problem = checkNewRsfPassword(password);
+  if (problem) {
+    fail(problem);
+  }
+  const limit = argon2Problem(params);
+  if (limit) {
+    fail(limit);
+  }
+  const salt = deps.random(SALT_BYTES);
+  return {
+    fileKey: deps.random(KEY_BYTES),
+    kek: deriveKek(password, salt, params, deps),
+    salt,
+    argon2: params,
+    sealCount: 0,
+  };
+}
+
+/**
+ * Turn on encryption for a workbook: a new session (see `startRsfEncryption`),
+ * then the body sealed under it. Refuses a password that is too short or too
+ * long, and a body that is too large.
  */
 export async function createRsfEncryptedContainer(
   body: Uint8Array,
@@ -410,18 +443,7 @@ export async function createRsfEncryptedContainer(
   if (body.length > MAX_RSF_BODY_BYTES) {
     fail('too-large');
   }
-  const limit = argon2Problem(params);
-  if (limit) {
-    fail(limit);
-  }
-  const salt = deps.random(SALT_BYTES);
-  const session: RsfEncryptionSession = {
-    fileKey: deps.random(KEY_BYTES),
-    kek: deriveKek(password, salt, params, deps),
-    salt,
-    argon2: params,
-    sealCount: 0,
-  };
+  const session = await startRsfEncryption(password, deps, params);
   return { bytes: await sealContainer(session, body, deps), session };
 }
 

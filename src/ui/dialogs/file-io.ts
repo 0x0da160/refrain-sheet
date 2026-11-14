@@ -8,6 +8,7 @@ import type { DelimiterId } from '../../core/csv/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../../core/interchange/csv-export';
 import type { EncodingId } from '../../core/csv/encoding';
 import { OPEN_AS_KINDS, type OpenAsKind } from '../../core/interchange/open-kind';
+import { checkNewRsfPassword, PASSWORD_MIN_CHARACTERS } from '../../core/workbook/rsf-encryption';
 import { setSuppressHistoryCapWarning } from '../../app/settings';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
@@ -351,6 +352,90 @@ export class FileIoDialogs {
         if (!composing) refresh();
       });
       submitOnEnter(input, submit);
+      refresh();
+      buttons.append(
+        dialogButton(t('dialog.rsfPassword.cancel'), false, false, () => close(null)),
+        okButton,
+      );
+    });
+  }
+
+  /**
+   * Ask for a new password to encrypt `name` under. The password is typed
+   * twice, must be long enough, and the two entries must match (compared after
+   * NFC, the form the password is keyed in). The warning says a lost password
+   * cannot be recovered. Enter confirms once the entries are valid, Escape
+   * cancels, and both are ignored during an IME composition. Null when cancelled.
+   */
+  promptNewRsfPassword(name: string): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.rsfEncrypt.title'), null, (body, buttons, close) => {
+      body.append(
+        el('p', { text: t('dialog.rsfEncrypt.message', { name }) }),
+        el('p', { className: 'dialog-warning', text: t('dialog.rsfEncrypt.warning') }),
+      );
+      const attrs = { type: 'password', autocomplete: 'new-password' };
+      const first = el('input', {
+        className: 'sheet-name-input',
+        attrs: { ...attrs, 'data-autofocus': 'true' },
+      }) as HTMLInputElement;
+      const second = el('input', { className: 'sheet-name-input', attrs }) as HTMLInputElement;
+      const problem = el('p', { className: 'dialog-note' });
+      body.append(
+        formField(
+          t('dialog.rsfPassword.label'),
+          first,
+          t('dialog.rsfEncrypt.note', { count: String(PASSWORD_MIN_CHARACTERS) }),
+        ),
+        formField(t('dialog.rsfEncrypt.confirm'), second),
+        problem,
+      );
+
+      const same = (a: string, b: string): boolean => a.normalize('NFC') === b.normalize('NFC');
+      // What to say about the entries as they stand; empty when there is nothing to say yet.
+      const message = (): string => {
+        const password = first.value;
+        const refused = password.length > 0 ? checkNewRsfPassword(password) : null;
+        if (refused === 'password-too-short') {
+          return t('dialog.rsfEncrypt.tooShort', { count: String(PASSWORD_MIN_CHARACTERS) });
+        }
+        if (refused === 'password-too-long') {
+          return t('dialog.rsfEncrypt.tooLong');
+        }
+        if (second.value.length > 0 && !same(password, second.value)) {
+          return t('dialog.rsfEncrypt.mismatch');
+        }
+        return '';
+      };
+      const usable = (): boolean =>
+        first.value.length > 0 &&
+        checkNewRsfPassword(first.value) === null &&
+        same(first.value, second.value);
+
+      const okButton = dialogButton(t('dialog.rsfEncrypt.ok'), true, false, () => submit());
+      const refresh = (): boolean => {
+        problem.textContent = message();
+        okButton.disabled = !usable();
+        return !okButton.disabled;
+      };
+      const submit = (): void => {
+        if (refresh()) {
+          close(first.value);
+        }
+      };
+      for (const input of [first, second]) {
+        let composing = false;
+        input.addEventListener('compositionstart', () => {
+          composing = true;
+        });
+        input.addEventListener('compositionend', () => {
+          composing = false;
+          refresh();
+        });
+        input.addEventListener('input', () => {
+          if (!composing) refresh();
+        });
+        submitOnEnter(input, submit);
+      }
       refresh();
       buttons.append(
         dialogButton(t('dialog.rsfPassword.cancel'), false, false, () => close(null)),

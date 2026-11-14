@@ -11,6 +11,7 @@ import { openEncryptedRsf, sealPlainRsf } from '../../core/workbook/rsf-encrypte
 import {
   defaultRsfEncryptionDeps,
   RsfEncryptionFailure,
+  startRsfEncryption,
   type RsfEncryptionError,
   type RsfEncryptionSession,
 } from '../../core/workbook/rsf-encryption';
@@ -160,6 +161,33 @@ export async function unlockEncryptedRsf(ui: RsfIoPort, file: OpenedFile): Promi
       ui.notify(t('notify.filterDropped', { name: file.name }), 'warn');
     }
     return { doc: result.doc, encryption: opened.session };
+  }
+}
+
+/**
+ * Ask for a new password to encrypt `name` under, then start its keys: one
+ * Argon2id run behind the busy indicator. Null when the user cancels, or when
+ * the keys cannot be made (the reason is shown). Nothing is written here.
+ */
+export async function promptAndStartEncryption(
+  ui: RsfIoPort,
+  name: string,
+): Promise<RsfEncryptionSession | null> {
+  const password = await ui.promptNewRsfPassword(name);
+  if (password === null) {
+    return null;
+  }
+  try {
+    return await withBusy(ui, t('loading.encrypting', { name }), async () => {
+      await initCsvEngine(); // Argon2id runs in the WASM codec
+      return startRsfEncryption(password, defaultRsfEncryptionDeps());
+    });
+  } catch (err) {
+    if (err instanceof RsfEncryptionFailure) {
+      ui.notify(t('notify.rsfEncryptFailed', { name }), 'error');
+      return null;
+    }
+    throw err;
   }
 }
 

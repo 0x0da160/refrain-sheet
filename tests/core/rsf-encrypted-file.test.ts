@@ -17,6 +17,7 @@ import {
   defaultRsfEncryptionDeps,
   isRsfEncryptedContainer,
   RsfEncryptionFailure,
+  startRsfEncryption,
 } from '../../src/core/workbook/rsf-encryption';
 
 const SMALL: Argon2Params = { memoryKiB: 8, passes: 1, lanes: 1 };
@@ -154,5 +155,24 @@ describe('an encrypted .rsf file', () => {
     await expect(sealPlainRsf(opened.session, new Uint8Array([1, 2, 3]), deps)).rejects.toBeInstanceOf(
       RsfEncryptionFailure,
     );
+  });
+});
+
+describe('a session started for a new password', () => {
+  it('seals the workbook under it, and the file opens with the same password', async () => {
+    const deps = defaultRsfEncryptionDeps();
+    const session = await startRsfEncryption(PASSWORD, deps, SMALL);
+    const plain = plainBook(MARKER);
+    const sealed = await sealPlainRsf(session, plain, deps);
+    expect(isRsfEncryptedContainer(sealed)).toBe(true);
+    expect(contains(sealed, MARKER)).toBe(false);
+    const opened = await openEncryptedRsf(sealed, PASSWORD, deps);
+    expect(opened.ok && jsonOf(opened.plain)).toBe(jsonOf(plain));
+  });
+
+  it('refuses a password that is too short, before any key is made', async () => {
+    await expect(startRsfEncryption('too short', defaultRsfEncryptionDeps(), SMALL)).rejects.toMatchObject({
+      reason: 'password-too-short',
+    });
   });
 });

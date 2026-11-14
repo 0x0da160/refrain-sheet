@@ -643,6 +643,7 @@ function documentItems(checks: MenuChecks): MenuItemDef[] {
       command: 'file.toggleProtect',
       checked: checks.protectedDoc,
     },
+    { labelKey: 'menu.file.encrypt', command: 'file.encrypt' },
     { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
   ];
 }

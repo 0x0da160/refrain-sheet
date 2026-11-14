@@ -24,6 +24,7 @@ function stubUi(): UiPort {
     chooseSaveOptions: async () => null,
     promptDriveName: async () => null,
     promptRsfPassword: async () => null,
+    promptNewRsfPassword: async () => null,
     confirmUnrepresentable: async () => false,
     notifyNcr: async () => undefined,
     confirmUndecodableEdit: async () => true,

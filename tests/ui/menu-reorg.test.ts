@@ -275,6 +275,7 @@ describe('File menu reorganization (#518)', () => {
       'file.reopen',
       'file.reopenAs',
       'file.toggleProtect',
+      'file.encrypt',
       'sheet.convert',
     ]);
   });

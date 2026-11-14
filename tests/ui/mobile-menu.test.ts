@@ -34,6 +34,7 @@ function stubUi(): UiPort {
     chooseSaveOptions: vi.fn(async () => null),
     promptDriveName: async () => null,
     promptRsfPassword: async () => null,
+    promptNewRsfPassword: async () => null,
     confirmUnrepresentable: vi.fn(async () => false),
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),

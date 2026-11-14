@@ -31,3 +31,6 @@ name as needing extra care and human review for any change.
 - [Versioning and compatibility](compatibility.md) — lossy CSV→RSF
   conversion, the document version, how later versions may extend it, and
   why the older binary format is refused.
+- [Encrypted container (RSFE)](encryption.md) — the password-encrypted form
+  of a `.rsf` file: its byte layout, key hierarchy, sealing on save, the
+  checks made before a password is asked for, and the refusal reasons.

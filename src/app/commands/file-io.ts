@@ -36,7 +36,7 @@ import { LARGE_OP_CELLS, pct, warnProtectedAndOfferUnlock, withBusy } from './sh
 import { FileOpening, type RecentDriveOpener } from './file-open';
 import { NewDocuments } from './new-documents';
 import { FileExporting } from './file-export';
-import { encodeRsfTabBytes } from './rsf-io';
+import { encodeRsfTabBytes, promptAndStartEncryption } from './rsf-io';
 
 /** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
 interface GridAutoFitPort {
@@ -292,7 +292,7 @@ export class FileIoCommands {
    * new/Save-As document opens the picker; a build without the File System
    * Access API downloads the finished bytes.
    */
-  private async saveRsf(tab: Tab): Promise<boolean> {
+  private async saveRsf(tab: Tab, encrypt = false): Promise<boolean> {
     if (!isWorkbook(tab.doc)) {
       return false;
     }
@@ -306,6 +306,38 @@ export class FileIoCommands {
       return false;
     }
     const handle = acquired.handle;
+    if (!encrypt) {
+      return this.explainAndWriteRsf(tab, handle);
+    }
+    // The new password is asked for after the destination, so the picker still
+    // opens inside the gesture. The keys reach the tab for the write only: a
+    // refusal, or a write that does not happen, leaves the file plain.
+    const session = await promptAndStartEncryption(this.ui, tab.name);
+    if (!session) {
+      return false;
+    }
+    tab.encryption = session;
+    const written = await this.explainAndWriteRsf(tab, handle);
+    if (!written) {
+      tab.encryption = null;
+    }
+    return written;
+  }
+
+  /**
+   * Turn encryption on for a spreadsheet file and save it encrypted. The
+   * destination is picked first, then the new password is asked for. A cancel
+   * at either step leaves the file and the tab as they were.
+   */
+  async encryptAndSave(tab: Tab): Promise<boolean> {
+    if (tab.encryption) {
+      return false;
+    }
+    return this.saveRsf(tab, true);
+  }
+
+  /** The one-time explanation, then the encode and write to the acquired destination. */
+  private async explainAndWriteRsf(tab: Tab, handle: FileSystemFileHandle | null): Promise<boolean> {
     // One-time explanation that a spreadsheet is written in the .rsf format.
     if (!tab.rsfSaveExplained) {
       const proceed = await this.ui.explainRsfSave(tab.name);

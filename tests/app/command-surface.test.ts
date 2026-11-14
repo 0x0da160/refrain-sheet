@@ -112,6 +112,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'sheet.exportSheetText',
   'data.runSqlQuery',
   'data.compareDiff',
+  'data.pivotTable',
   'data.validation',
   'data.checkValidation',
   'data.comment',

@@ -59,6 +59,7 @@ const noopUi: UiPort = {
   showSqlQuery: async () => undefined,
   showAiAssistant: () => {},
   showDiff: async () => undefined,
+  showPivot: async () => undefined,
   chooseSettings: async () => null,
   chooseTimezone: async () => null,
   chooseDisplayLanguage: async () => null,

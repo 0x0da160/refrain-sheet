@@ -425,6 +425,12 @@ export class Workbook {
     return sheet ? this.displayText(this.evaluateInSheet(sheet, row, col), sheet.getStyle(row, col)) : '';
   }
 
+  /** The computed value as plain text, without its number format: "1200", never "1,200". */
+  getSheetPlainValue(sheetId: string, row: number, col: number): string {
+    const sheet = this.sheetById(sheetId);
+    return sheet ? formatValue(this.evaluateInSheet(sheet, row, col)) : '';
+  }
+
   private displayText(value: FormulaValue, style: CellStyle | null): string {
     if (value.type === 'number' && style?.numberFormat) {
       return formatCellNumber(value.value, style.numberFormat);

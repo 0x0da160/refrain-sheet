@@ -10,6 +10,7 @@ import {
   type SqlTable,
 } from '../../core/sql-engine';
 import type { Tab } from '../state';
+import { readSourceTable } from './source-table';
 
 /** One selectable SQL data source: a worksheet of the active RSF workbook, or the whole CSV tab. */
 export interface SqlSource {
@@ -38,38 +39,11 @@ export class SqlCommands {
    * Read a data source's computed display values into a `SqlTable`: row 0 is
    * always the header row. Reads at most `SQL_MAX_SOURCE_ROWS + 1` data rows
    * — enough for the engine to detect and report truncation — so a huge
-   * sheet is never fully materialized just to run one query.
+   * sheet is never fully materialized just to run one query. See
+   * `readSourceTable` for how a worksheet or CSV tab is read.
    */
   readTable(tab: Tab, sourceId: string): SqlTable {
-    const doc = tab.doc;
-    const cap = SQL_MAX_SOURCE_ROWS + 1;
-    if (isWorkbook(doc)) {
-      const sheet = doc.sheetById(sourceId) ?? doc.activeSheet;
-      // A worksheet's rowCount/columnCount is its fully allocated grid (e.g.
-      // 100x26 for a new sheet), not its content — trim to the used range so
-      // `SELECT * FROM data` doesn't return a wall of blank rows/columns.
-      const { rows: totalRows, cols: columnCount } = sheet.usedExtent();
-      const readRow = (r: number): string[] =>
-        Array.from({ length: columnCount }, (_, c) => doc.getSheetDisplayValue(sheet.id, r, c));
-      const headers = totalRows > 0 ? readRow(0) : [];
-      const rows: string[][] = [];
-      for (let r = 1; r < totalRows && rows.length < cap; r++) {
-        rows.push(readRow(r));
-      }
-      return { headers, rows };
-    }
-    const columnCount = doc.columnCount;
-    const totalRows = doc.rowCount;
-    const readRow = (r: number): string[] => {
-      const fields = doc.fieldCount(r);
-      return Array.from({ length: columnCount }, (_, c) => (c < fields ? doc.getDisplayValue(r, c) : ''));
-    };
-    const headers = totalRows > 0 ? readRow(0) : [];
-    const rows: string[][] = [];
-    for (let r = 1; r < totalRows && rows.length < cap; r++) {
-      rows.push(readRow(r));
-    }
-    return { headers, rows };
+    return readSourceTable(tab, sourceId, SQL_MAX_SOURCE_ROWS + 1, null);
   }
 
   /**

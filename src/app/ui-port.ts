@@ -15,6 +15,7 @@ import type { EncodingId } from '../core/csv/encoding';
 import type { ConditionalFormatRule } from '../core/workbook/conditional-format';
 import type { ValidationRule } from '../core/workbook/data-validation';
 import type { DiffOptions, DiffResult } from '../core/diff-engine';
+import type { PivotRequest } from '../core/pivot';
 import type { SqlQueryResult } from '../core/sql-engine';
 import type { ColumnFilter } from '../core/workbook/filter';
 import type { SortKey } from '../core/workbook/sort';
@@ -88,6 +89,23 @@ export interface DiffDialogInput {
   /** Export the shown diff rows as a CSV file. Returns false if the user cancels the save. */
   exportCsv: (result: DiffResult) => Promise<boolean>;
 }
+
+/** The pivot table panel: the active table's field names, and the action that builds a summary sheet. */
+export interface PivotDialogInput {
+  /** Field names of the active table, left to right; a blank header reads as its column letter. */
+  columns: string[];
+  /** Summarize the active table by `request` and put the summary in a new sheet. */
+  create: (request: PivotRequest) => PivotCreateOutcome;
+}
+
+/**
+ * What creating a pivot table sheet produced: the new sheet's name and how
+ * many values the totals left out, or the reason it could not be built
+ * (`code` names a `pivot.error.*` message).
+ */
+export type PivotCreateOutcome =
+  | { ok: true; sheetName: string; ignored: number }
+  | { ok: false; error: { code: string; params: Record<string, number> } };
 
 /**
  * Why a CSV document needs converting to an RSF spreadsheet document.
@@ -680,6 +698,8 @@ interface PanelsPort {
   showAiAssistant(input: AiAssistantInput): void;
   /** Open the local, read-only two-tab compare panel (see `src/core/diff-engine.ts`). */
   showDiff(input: DiffDialogInput): Promise<void>;
+  /** Open the local pivot table panel: summarize the active table into a new sheet (see `src/core/pivot.ts`). */
+  showPivot(input: PivotDialogInput): Promise<void>;
   /** Edit local settings; returns the chosen values, or null when cancelled. */
   chooseSettings(current: LocalSettings): Promise<LocalSettings | null>;
   /**

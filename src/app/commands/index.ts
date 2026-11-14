@@ -31,6 +31,7 @@ import type { SheetObject } from '../../core/workbook/sheet-objects';
 import { WorksheetCommands } from './worksheets';
 import { SqlCommands, type SqlRunOutcome } from './sql';
 import { DiffCommands } from './diff';
+import { PivotCommands } from './pivot';
 import type { FlashFillPreview } from './fill';
 import { PasteFillCommands } from './paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './range-ops';
@@ -154,6 +155,7 @@ export class Commands {
       format: new FormatCommands(state, ui),
       sql: new SqlCommands(),
       diff: new DiffCommands(),
+      pivot: new PivotCommands(),
     };
   }
 

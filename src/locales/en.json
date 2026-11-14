@@ -1365,7 +1365,7 @@
   "dialog.pivot.aggregation": "Summarize by",
   "dialog.pivot.create": "Create in New Sheet",
   "dialog.pivot.status.created": "Created the pivot table in “{name}”.",
-  "dialog.pivot.status.ignored": "Left out of the totals because they are not numbers: {count}.",
+  "dialog.pivot.status.ignored": "Left out of the sum, average, minimum, and maximum because they are not numbers: {count}.",
   "dialog.diff.title": "Compare / Diff",
   "dialog.diff.intro": "Compares the current tab with another open tab, matching rows by key columns. Neither is changed.",
   "dialog.diff.current": "Current data: {name}",

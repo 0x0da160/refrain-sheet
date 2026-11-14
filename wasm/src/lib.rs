@@ -7,6 +7,7 @@
 //! plans over the original bytes so unmodified regions stay byte-identical.
 
 pub mod compress;
+pub mod crypto;
 pub mod csv;
 pub mod ops;
 
@@ -149,6 +150,16 @@ pub fn rsf_unlz4(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
 #[wasm_bindgen(js_name = rsfCrc32)]
 pub fn rsf_crc32(bytes: &[u8]) -> u32 {
     compress::crc32(bytes)
+}
+
+// ----- Password key derivation for the encrypted container (see crypto.rs) -----
+
+/// Argon2id (RFC 9106, version 0x13): a 32-byte key-encryption key from a
+/// password and a 16-byte salt. Returns `undefined` when a cost parameter is out
+/// of bounds or the salt length is wrong. AES-GCM runs in WebCrypto instead.
+#[wasm_bindgen(js_name = rsfArgon2id)]
+pub fn rsf_argon2id(password: &[u8], salt: &[u8], m_kib: u32, passes: u32, lanes: u32) -> Option<Vec<u8>> {
+    crypto::argon2id(password, salt, m_kib, passes, lanes).map(|key| key.to_vec())
 }
 
 // ----- Selection statistics and literal search (see ops.rs) -----

@@ -48,6 +48,13 @@ export function parseCsv(bytes: Uint8Array, delimiter: number, treat_utf8_bom: b
 export function planReplacements(bytes_len: number, ranges: Uint32Array, payload_lens: Uint32Array): Uint32Array;
 
 /**
+ * Argon2id (RFC 9106, version 0x13): a 32-byte key-encryption key from a
+ * password and a 16-byte salt. Returns `undefined` when a cost parameter is out
+ * of bounds or the salt length is wrong. AES-GCM runs in WebCrypto instead.
+ */
+export function rsfArgon2id(password: Uint8Array, salt: Uint8Array, m_kib: number, passes: number, lanes: number): Uint8Array | undefined;
+
+/**
  * CRC-32 (IEEE) checksum of the container's uncompressed body.
  */
 export function rsfCrc32(bytes: Uint8Array): number;
@@ -111,6 +118,7 @@ export interface InitOutput {
     readonly parseindex_lf: (a: number) => number;
     readonly parseindex_records: (a: number) => [number, number];
     readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly rsfArgon2id: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
     readonly rsfCrc32: (a: number, b: number) => number;
     readonly rsfDeflate: (a: number, b: number) => [number, number];
     readonly rsfInflate: (a: number, b: number, c: number) => [number, number];

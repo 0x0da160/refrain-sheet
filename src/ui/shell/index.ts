@@ -19,7 +19,11 @@ import { mountLayout } from './layout';
 import { applyInitialPreferences, startEngines } from './preferences';
 import { subscribeSurfaces } from './refresh';
 import { createSurfaces } from './surfaces';
+import { installUpdateFlow } from './update-flow';
 import { createUiPort } from './ui-port';
+
+/** True only in the hosted production build (vite.config.ts); see scripts/lib/pwa.mjs. */
+declare const __HOSTED_PWA__: boolean;
 
 export function startApp(): void {
   applyInitialPreferences();
@@ -53,6 +57,11 @@ export function startApp(): void {
   installShortcuts(commands, surfaces);
   installFileDrop(commands, drop);
   installLeaveConfirmation(state, surfaces);
+  // The hosted build's offline support and its "new version is ready" notice.
+  // The offline file:// build compiles this out.
+  if (__HOSTED_PWA__) {
+    document.body.append(installUpdateFlow(state, surfaces).element);
+  }
 
   refreshAll(true);
   drop.message.textContent = t('drop.hint');

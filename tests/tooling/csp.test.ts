@@ -108,6 +108,15 @@ describe('hosted CSP', () => {
     expect(buildCsp('offline')).not.toContain('hf.co');
   });
 
+  it('lets the service worker and manifest load from the app origin only', () => {
+    const hosted = buildCsp('hosted');
+    const workerSrc = /worker-src ([^;]+)/.exec(hosted)![1].split(' ');
+    expect(workerSrc).toEqual(expect.arrayContaining(['blob:', "'self'"]));
+    expect(hosted).toContain("manifest-src 'self'");
+    // The offline build has no worker and no manifest, so it gains neither directive.
+    expect(buildCsp('offline')).not.toContain('manifest-src');
+  });
+
   it('adds frame-src for the Picker iframe, which the offline policy never gains', () => {
     expect(buildCsp('hosted')).toContain('frame-src https://docs.google.com');
     // Offline keeps inheriting default-src 'none' for frames.

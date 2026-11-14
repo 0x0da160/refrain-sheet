@@ -47,11 +47,18 @@ export const BUILD_MODES = ['offline', 'hosted'];
 //   worker-src blob:       the runtime runs the model in a Web Worker it
 //                          builds from its own bundled code
 //
+// And these are what the hosted build's offline support needs: the service
+// worker that lets the app work offline, and the web app manifest that lets it
+// be installed (scripts/lib/pwa.mjs). Both come from the app's own origin:
+//   'self' (worker-src)    sw.js, which answers only this app's own requests
+//                          and opens no connection of its own
+//   'self' (manifest-src)  the web app manifest, served beside the app
+//
 // Keyword grants are NOT in this list — see HOSTED_KEYWORD_GRANTS below.
 //
 // A directive named here that is absent from DIRECTIVES below (frame-src,
-// worker-src) is emitted for the hosted build only, so the offline policy
-// keeps its fallback (default-src 'none' for frames, script-src for workers).
+// worker-src, manifest-src) is emitted for the hosted build only, so the offline
+// policy keeps its fallback (default-src 'none' for frames, workers, manifests).
 /** @type {Record<string, string[]>} */
 export const HOSTED_ALLOWLIST = {
   'script-src': ['https://apis.google.com', 'https://accounts.google.com'],
@@ -65,7 +72,8 @@ export const HOSTED_ALLOWLIST = {
   ],
   'frame-src': ['https://docs.google.com', 'https://content.googleapis.com', 'https://accounts.google.com'],
   'img-src': ['https://*.googleusercontent.com', 'https://ssl.gstatic.com', 'https://www.gstatic.com'],
-  'worker-src': ['blob:'],
+  'worker-src': ['blob:', "'self'"],
+  'manifest-src': ["'self'"],
 };
 
 // Keyword grants for the hosted build, kept deliberately separate from the

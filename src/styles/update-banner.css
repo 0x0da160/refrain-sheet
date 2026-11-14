@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Update notice (hosted build) ---------- */
+
+/* Bottom-right, just above the status bar. Unlike a toast it does not time out:
+   it stays until the person reloads or dismisses it. */
+.update-banner {
+  position: fixed;
+  right: var(--space-3);
+  bottom: calc(var(--statusbar-h) + var(--space-2));
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(420px, calc(100vw - 2 * var(--space-3)));
+  background: var(--inverse-bg);
+  color: var(--inverse-text);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--shadow-lg);
+  line-height: 1.45;
+}
+
+.update-banner[hidden] {
+  display: none;
+}
+
+.update-banner-message {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.update-banner-action {
+  flex: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--inverse-text);
+  color: var(--inverse-bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.update-banner-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.update-banner-close:hover {
+  opacity: 1;
+  /* A tint of the notice's own text colour, so it reads on every variant. */
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}

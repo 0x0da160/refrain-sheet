@@ -32,7 +32,7 @@
 // requires a hosted bundle to CARRY the client id, so a release can never ship
 // a build with Drive sync silently compiled out.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { allowedKeywords, allowedOrigins, assertBuildMode, buildCsp } from '../lib/csp.mjs';
@@ -340,6 +340,70 @@ if (/<script[^>]*type="module"/.test(indexHtml)) {
   fail('index.html still uses a module script (breaks file:// in Chromium)');
 } else {
   ok('index.html uses classic scripts (file:// compatible)');
+}
+
+// 9. The offline support (service worker, manifest, icons) belongs to the hosted
+//    build alone. The offline artifact (the file:// build and the release ZIP)
+//    carries none of it and registers no worker. The hosted artifact carries all
+//    of it: its worker precaches only files that exist, never the AI runtime or
+//    itself, and names no absolute URL, so it never reaches beyond the app's origin.
+if (mode === 'offline') {
+  const shipped = ['sw.js', 'manifest.webmanifest', 'icons'].filter((name) => existsSync(join(dist, name)));
+  if (shipped.length > 0) {
+    fail(`the offline build ships ${shipped.join(', ')} — the service worker and manifest are hosted-only`);
+  } else {
+    ok('offline build ships no service worker, manifest, or icons');
+  }
+  // The bundle is minified, so the registration appears as the worker's URL and its
+  // update message, not as a readable `serviceWorker.register` call.
+  if (/rel="manifest"/.test(indexHtml) || /\.\/sw\.js|SKIP_WAITING/.test(bundle)) {
+    fail('the offline build links a manifest or registers a service worker — both are hosted-only');
+  } else {
+    ok('offline build neither links a manifest nor registers a service worker');
+  }
+} else {
+  const workerPath = join(dist, 'sw.js');
+  const manifestPath = join(dist, 'manifest.webmanifest');
+  if (!existsSync(workerPath) || !existsSync(manifestPath)) {
+    fail(`hosted build in ${targetDir} is missing sw.js or manifest.webmanifest`);
+  } else {
+    if (/\.\/sw\.js/.test(bundle) && /SKIP_WAITING/.test(bundle)) {
+      ok('hosted bundle registers ./sw.js and answers SKIP_WAITING');
+    } else {
+      fail('hosted bundle does not register ./sw.js or does not answer SKIP_WAITING');
+    }
+    const worker = readFileSync(workerPath, 'utf8');
+    const precacheMatch = /const PRECACHE = (\[[^\n]*\]);/.exec(worker);
+    const precache = precacheMatch ? JSON.parse(precacheMatch[1]) : [];
+    const missing = precache.filter((path) => !existsSync(join(dist, path)));
+    const forbidden = precache.filter((path) => path.startsWith('./ai-runtime/') || path === './sw.js');
+    if (precache.length === 0) {
+      fail('sw.js has no PRECACHE list');
+    } else if (missing.length > 0) {
+      fail(`sw.js precaches files missing from ${targetDir}: ${missing.join(', ')}`);
+    } else if (forbidden.length > 0) {
+      fail(`sw.js precaches ${forbidden.join(', ')} — the AI runtime and the worker are never precached`);
+    } else {
+      ok(`sw.js precaches ${precache.length} files, all present (AI runtime and worker excluded)`);
+    }
+    if (/https?:\/\//.test(worker)) {
+      fail('sw.js names an absolute URL — the worker must stay on its own origin');
+    } else {
+      ok('sw.js names no absolute URL');
+    }
+    if (!/<link rel="manifest" href="\.\/manifest\.webmanifest"/.test(indexHtml)) {
+      fail('index.html does not link ./manifest.webmanifest');
+    } else {
+      ok('index.html links the web app manifest');
+    }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const missingIcons = manifest.icons.map((icon) => icon.src).filter((src) => !existsSync(join(dist, src)));
+    if (missingIcons.length > 0) {
+      fail(`manifest icons missing from ${targetDir}: ${missingIcons.join(', ')}`);
+    } else {
+      ok(`manifest icons are all present (${manifest.icons.length})`);
+    }
+  }
 }
 
 if (failures > 0) {

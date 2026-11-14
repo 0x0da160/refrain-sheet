@@ -38,6 +38,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- The hosted app at app.refrain-sheet.com now works offline after your first visit, and you can add it to your home screen or install it from your browser. When a newer version is released, a notice offers to reload into it. If you have unsaved changes, reloading waits until you save. The downloadable offline file is unchanged.
+
 ## [0.9.36] - 2026-11-13
 
 ### Fixed

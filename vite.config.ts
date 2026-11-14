@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: MIT
-import { readFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { build as viteBuild } from 'vite';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
+import {
+  APPLE_TOUCH_ICON_NAME,
+  buildServiceWorkerSource,
+  buildWebManifest,
+  contentVersion,
+  iconFileNames,
+  MANIFEST_FILE,
+  SERVICE_WORKER_FILE,
+  selectPrecacheList,
+} from './scripts/lib/pwa.mjs';
 
 /**
  * The build must work when dist/index.html is opened directly via file://.
@@ -101,12 +113,74 @@ function buildWebLlmRuntime(): Promise<string> {
   return webLlmRuntime;
 }
 
+/** The brand's icon masters. The hosted build copies only the ones its manifest names. */
+const BRAND_ICON_DIR = 'design-system/v2/foundations/icons';
+const BRAND_MANIFEST = `${BRAND_ICON_DIR}/site.webmanifest`;
+
+/** Every file under `dir`, as forward-slashed paths relative to it, sorted. */
+function listFiles(dir: string, sub = ''): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(join(dir, sub)).sort()) {
+    const relative = sub ? `${sub}/${entry}` : entry;
+    if (statSync(join(dir, relative)).isDirectory()) {
+      out.push(...listFiles(dir, relative));
+    } else {
+      out.push(relative);
+    }
+  }
+  return out;
+}
+
+/**
+ * The hosted build's offline support (scripts/lib/pwa.mjs): the web app
+ * manifest, its icons, and the versioned service worker. The worker is written
+ * once the bundle is on disk, so its precache list and version describe the
+ * files exactly as they are served. Enabled only for `vite build --mode hosted`;
+ * the offline build keeps its single-file output and gets none of this.
+ */
+function hostedOfflinePlugin(enabled: boolean): Plugin {
+  return {
+    name: 'hosted-offline-support',
+    transformIndexHtml(html) {
+      if (!enabled) {
+        return html;
+      }
+      if (!html.includes('</head>')) {
+        throw new Error('index.html has no </head> to hold the hosted manifest links');
+      }
+      return html.replace(
+        '</head>',
+        `    <link rel="manifest" href="./${MANIFEST_FILE}" />\n    <link rel="apple-touch-icon" href="./icons/${APPLE_TOUCH_ICON_NAME}" />\n  </head>`,
+      );
+    },
+    writeBundle(options) {
+      if (!enabled) {
+        return;
+      }
+      const out = resolve(options.dir ?? 'dist-hosted');
+      const master = JSON.parse(readFileSync(BRAND_MANIFEST, 'utf8'));
+      mkdirSync(join(out, 'icons'), { recursive: true });
+      for (const name of [...iconFileNames(master), APPLE_TOUCH_ICON_NAME]) {
+        copyFileSync(join(BRAND_ICON_DIR, name), join(out, 'icons', name));
+      }
+      writeFileSync(join(out, MANIFEST_FILE), `${JSON.stringify(buildWebManifest(master), null, 2)}\n`);
+      const precache = selectPrecacheList(listFiles(out));
+      const version = contentVersion(
+        precache.map((path) => ({ path, bytes: readFileSync(join(out, path)) })),
+      );
+      writeFileSync(join(out, SERVICE_WORKER_FILE), buildServiceWorkerSource({ version, precache }));
+    },
+  };
+}
+
 export default defineConfig(({ command, mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
   // `vite build` — both mean the offline policy. Only an explicit
   // `--mode hosted` selects the hosted one.
   const buildMode = assertBuildMode(mode === 'hosted' ? 'hosted' : 'offline');
   const csp = buildCsp(buildMode);
+  // Only the hosted production build gets the service worker and the manifest.
+  const hostedPwa = command === 'build' && buildMode === 'hosted';
 
   // Google Drive credentials reach the bundle only in the hosted build. The
   // offline build is hardcoded to empty strings whatever the environment
@@ -129,6 +203,9 @@ export default defineConfig(({ command, mode }) => {
       // The CSV-only minimal edition (src/app/edition.ts): offline policy,
       // its own output directory. Dev and Vitest keep the full edition.
       __MINIMAL_BUILD__: JSON.stringify(command === 'build' && mode === 'minimal'),
+      // The hosted build's offline support (src/ui/shell/index.ts): the service
+      // worker registration and the update notice. False everywhere else.
+      __HOSTED_PWA__: JSON.stringify(hostedPwa),
       __WLLAMA_VERSION__: JSON.stringify(WLLAMA_VERSION),
       __WEBLLM_VERSION__: JSON.stringify(WEBLLM_VERSION),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
@@ -151,6 +228,7 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: [
       tailwindcss(),
+      hostedOfflinePlugin(hostedPwa),
       {
         name: 'brand-favicon',
         configureServer(server) {

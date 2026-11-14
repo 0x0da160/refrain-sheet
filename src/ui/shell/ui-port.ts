@@ -37,6 +37,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     confirmChangedOnDisk: (name) => dialogs.confirmChangedOnDisk(name),
     chooseSaveOptions: (tab, note) => dialogs.chooseSaveOptions(tab, note),
     promptDriveName: (suggested) => dialogs.promptDriveName(suggested),
+    promptRsfPassword: (name, retry) => dialogs.promptRsfPassword(name, retry),
     confirmUnrepresentable: (encoding, cells) => dialogs.confirmUnrepresentable(encoding, cells),
     notifyNcr: (reports) => dialogs.notifyNcr(reports),
     confirmUndecodableEdit: (cells) => dialogs.confirmUndecodableEdit(cells),

@@ -312,6 +312,53 @@ export class FileIoDialogs {
     });
   }
 
+  /**
+   * Ask for the password of an encrypted `.rsf` file. `retry` adds a line saying
+   * the last password was refused. Enter opens and Escape cancels, both ignored
+   * during an IME composition, and an empty password is refused. The password is
+   * returned exactly as typed, never trimmed.
+   */
+  promptRsfPassword(name: string, retry: boolean): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.rsfPassword.title'), null, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.rsfPassword.message', { name }) }));
+      if (retry) {
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.rsfPassword.retry') }));
+      }
+      const input = el('input', {
+        className: 'sheet-name-input',
+        attrs: { type: 'password', autocomplete: 'current-password', 'data-autofocus': 'true' },
+      }) as HTMLInputElement;
+      body.append(formField(t('dialog.rsfPassword.label'), input, t('dialog.rsfPassword.note')));
+
+      const okButton = dialogButton(t('dialog.rsfPassword.ok'), true, false, () => submit());
+      const refresh = (): boolean => {
+        const ok = input.value.length > 0;
+        okButton.disabled = !ok;
+        return ok;
+      };
+      const submit = (): void => {
+        if (refresh()) close(input.value);
+      };
+      let composing = false;
+      input.addEventListener('compositionstart', () => {
+        composing = true;
+      });
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        refresh();
+      });
+      input.addEventListener('input', () => {
+        if (!composing) refresh();
+      });
+      submitOnEnter(input, submit);
+      refresh();
+      buttons.append(
+        dialogButton(t('dialog.rsfPassword.cancel'), false, false, () => close(null)),
+        okButton,
+      );
+    });
+  }
+
   /** Explain that spreadsheet documents are saved in the .rsf format. */
   explainRsfSave(name: string): Promise<boolean> {
     return openDialog(t('dialog.rsfSave.title'), false, (body, buttons, close) => {

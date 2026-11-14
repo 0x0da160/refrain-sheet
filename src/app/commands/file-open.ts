@@ -19,6 +19,7 @@ import {
   type TextFileKind,
 } from '../../core/interchange/text-file';
 import { sniffContentKind, type OpenAsKind } from '../../core/interchange/open-kind';
+import { isRsfEncryptedContainer, type RsfEncryptionSession } from '../../core/workbook/rsf-encryption';
 import { isValidSheetName } from '../../core/formula';
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import {
@@ -26,7 +27,6 @@ import {
   RsfDocument,
   RSF_EXTENSION,
   RSF_LEGACY_EXTENSION,
-  type RsfParseError,
 } from '../../core/workbook/rsf-document';
 import { validateDocument } from '../../core/csv/validation';
 import { parseXlsxWorkbook, type XlsxImportError } from '../../core/interchange/xlsx-import';
@@ -53,6 +53,7 @@ import {
   withBusyIfLarge,
 } from './shared';
 import { csvRows, sheetNameBase } from './tab-as-sheet';
+import { showRsfInvalid, unlockEncryptedRsf, type LoadedRsf } from './rsf-io';
 
 import type { FileIoCommands } from './file-io';
 import type { RecentFileChoice } from '../ui-port';
@@ -69,6 +70,8 @@ interface LoadedDocument {
   doc: EditorDocument;
   /** For a plain-text file, how its bytes are laid out (see `TextFileFormat`); null otherwise. */
   textFile: TextFileFormat | null;
+  /** The keys of an encrypted `.rsf` file, so its saves stay encrypted; null otherwise. */
+  encryption: RsfEncryptionSession | null;
 }
 
 /**
@@ -369,20 +372,28 @@ export class FileOpening {
   }
 
   private async openRsfFile(file: OpenedFile): Promise<void> {
-    const doc = await this.loadRsf(file);
-    if (!doc) {
+    const loaded = await this.loadRsf(file);
+    if (!loaded) {
       return;
     }
-    const tab = this.core.state.addTab(file.name, doc, file.handle, true);
+    const tab = this.core.state.addTab(file.name, loaded.doc, file.handle, true);
     tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
     tab.fileSize = file.bytes.length;
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
+    tab.encryption = loaded.encryption; // an encrypted file's saves stay encrypted
     // No auto-fit: an RSF workbook's worksheets keep the widths they were
     // saved with, and fitting them to content gave unintended widths.
   }
 
-  /** A workbook from `file`'s `.rsf` bytes, or null when they are not a valid RSF file (the reason is shown). */
-  private async loadRsf(file: OpenedFile): Promise<RsfDocument | null> {
+  /**
+   * A workbook from `file`'s `.rsf` bytes, or null when they are not a valid RSF
+   * file, or an encrypted file is not unlocked (the reason is shown). Its keys
+   * come back too, so a later save seals the file under them.
+   */
+  private async loadRsf(file: OpenedFile): Promise<LoadedRsf | null> {
+    if (isRsfEncryptedContainer(file.bytes)) {
+      return unlockEncryptedRsf(this.core.ui, file);
+    }
     const result = await withBusyIfLarge(
       file.size > LARGE_OPEN_BYTES,
       this.core.ui,
@@ -393,19 +404,7 @@ export class FileOpening {
       },
     );
     if (!result.ok) {
-      const reasonKey: Record<RsfParseError, string> = {
-        'bad-magic': 'dialog.rsfInvalid.badMagic',
-        'legacy-format': 'dialog.rsfInvalid.legacyFormat',
-        'bad-version': 'dialog.rsfInvalid.badVersion',
-        'bad-shape': 'dialog.rsfInvalid.badShape',
-        checksum: 'dialog.rsfInvalid.checksum',
-        'unsupported-compression': 'dialog.rsfInvalid.compression',
-        'too-large': 'dialog.rsfInvalid.tooLarge',
-      };
-      await this.core.ui.showMessage(
-        t('dialog.rsfInvalid.title'),
-        t('dialog.rsfInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
-      );
+      await showRsfInvalid(this.core.ui, file.name, result.error);
       return null;
     }
     if (result.doc.filterDropped) {
@@ -413,7 +412,7 @@ export class FileOpening {
       // ignored (never guessed at) and the sheet itself loaded normally.
       this.core.ui.notify(t('notify.filterDropped', { name: file.name }), 'warn');
     }
-    return result.doc;
+    return { doc: result.doc, encryption: null };
   }
 
   /**
@@ -712,13 +711,14 @@ export class FileOpening {
   private async loadAs(file: OpenedFile, kind: OpenAsKind): Promise<LoadedDocument | null> {
     if (kind === 'csv') {
       const doc = await this.loadCsv(file);
-      return doc ? { doc, textFile: null } : null;
+      return doc ? { doc, textFile: null, encryption: null } : null;
     }
     if (kind === 'rsf') {
-      const doc = await this.loadRsf(file);
-      return doc ? { doc, textFile: null } : null;
+      const loaded = await this.loadRsf(file);
+      return loaded ? { doc: loaded.doc, textFile: null, encryption: loaded.encryption } : null;
     }
-    return this.loadText(file, kind);
+    const text = await this.loadText(file, kind);
+    return { ...text, encryption: null };
   }
 
   /**

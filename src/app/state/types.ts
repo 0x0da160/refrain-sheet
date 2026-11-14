@@ -5,6 +5,7 @@ import type { History } from '../../core/workbook/history';
 import type { FreezePanes } from '../../core/workbook/worksheet';
 import type { FileStamp } from '../file-access';
 import type { TextFileFormat } from '../../core/interchange/text-file';
+import type { RsfEncryptionSession } from '../../core/workbook/rsf-encryption';
 import type { PrintArea } from '../../core/print-layout';
 
 export interface Selection {
@@ -56,6 +57,12 @@ export interface Tab {
   selectionKind: SelectionKind;
   /** The "must be saved as .rsf" explanation was already shown for this tab. */
   rsfSaveExplained: boolean;
+  /**
+   * The keys of an encrypted `.rsf` file, from unlocking it (absent or null for
+   * a plain file). Kept in memory only: a save seals the file under them, so it
+   * stays encrypted. Nothing is written to browser storage.
+   */
+  encryption?: RsfEncryptionSession | null;
   /**
    * The Google Drive file this tab is associated with, set when the document
    * was opened from Drive or saved to it. Lets a later save overwrite the same

@@ -23,6 +23,7 @@ function stubUi(): UiPort {
     confirmChangedOnDisk: async () => 'overwrite',
     chooseSaveOptions: async () => null,
     promptDriveName: async () => null,
+    promptRsfPassword: async () => null,
     confirmUnrepresentable: async () => false,
     notifyNcr: async () => undefined,
     confirmUndecodableEdit: async () => true,

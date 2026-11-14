@@ -8,7 +8,6 @@ import {
   textFileSource,
   type TextFileFormat,
 } from '../../core/interchange/text-file';
-import { initCsvEngine } from '../../core/csv/csv-engine';
 import { forEachIndexSliced } from '../../core/scheduler';
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import { RsfDocument, RSF_EXTENSION } from '../../core/workbook/rsf-document';
@@ -20,7 +19,6 @@ import {
 } from '../../core/csv/serializer';
 import type { AppState, Tab } from '../state';
 import { defaultSheetName } from '../state/defaults';
-import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';
 import {
   readFileStamp,
   requestSaveHandle,
@@ -33,19 +31,12 @@ import {
 } from '../file-access';
 import { recordRecentFile } from '../recent-files';
 import { getLocale, t } from '../i18n';
-import { getSuppressHistoryCapWarning } from '../settings';
 import type { ConvertReason } from '../commands';
-import {
-  LARGE_OP_CELLS,
-  nextPaint,
-  pct,
-  warnProtectedAndOfferUnlock,
-  withBusy,
-  withBusyIfLarge,
-} from './shared';
+import { LARGE_OP_CELLS, pct, warnProtectedAndOfferUnlock, withBusy } from './shared';
 import { FileOpening, type RecentDriveOpener } from './file-open';
 import { NewDocuments } from './new-documents';
 import { FileExporting } from './file-export';
+import { encodeRsfTabBytes } from './rsf-io';
 
 /** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
 interface GridAutoFitPort {
@@ -342,82 +333,11 @@ export class FileIoCommands {
    * (createWritable → write → close); a download never reports an overwrite.
    */
   private async encodeAndWriteRsf(tab: Tab, handle: FileSystemFileHandle | null): Promise<boolean> {
-    const bytes = await this.encodeRsfBytes(tab);
+    const bytes = await encodeRsfTabBytes(this.ui, tab);
     if (bytes === null) {
       return false;
     }
     return this.writeRsfBytes(tab, bytes, handle);
-  }
-
-  /**
-   * Serialize + compress the RSF document behind the busy indicator and return
-   * the finished bytes, or null when the encode was cancelled (the tab changed
-   * while yielding). Split out of {@link encodeAndWriteRsf} so a destination
-   * that is not a file handle — a Drive upload — can reuse the same encode.
-   */
-  private async encodeRsfBytes(tab: Tab): Promise<Uint8Array | null> {
-    const doc = tab.doc;
-    if (!isWorkbook(doc)) {
-      return null;
-    }
-    // Warn before the save actually happens when it will drop the oldest
-    // recorded version-history snapshot (the retained cap has been reached)
-    // — the one-time "don't show again" preference lives in `app/settings.ts`
-    // (browser-local, never written into the file). Declining aborts the
-    // save entirely, exactly like cancelling the destination picker above.
-    if (doc.willDropOldestOnNextSave && !getSuppressHistoryCapWarning()) {
-      const max = doc.effectiveHistoryMax;
-      if (max !== null) {
-        const proceed = await this.ui.confirmHistoryCapExceeded(tab.name, max);
-        if (!proceed) {
-          return null;
-        }
-      }
-    }
-    // Record the tab's live view state (zoom, overridden column widths) so
-    // the container persists it; presentational only, never dirties the doc.
-    // Zoom/wrap inherited from the file or browser level are not copied into
-    // the worksheet, so it keeps following that level.
-    doc.setDisplaySettings(
-      decidedBySheet(resolveZoom(doc).source) ? tab.zoom : doc.displayZoom,
-      tab.colWidths,
-      decidedBySheet(resolveWrap(doc).source) ? tab.wrapCells : undefined,
-    );
-    // The whole workbook is serialized, not just the active worksheet.
-    let totalCells = 0;
-    for (const sheet of doc.sheets) {
-      totalCells += sheet.rowCount * sheet.columnCount;
-    }
-    const large = totalCells > LARGE_OP_CELLS;
-    const bytes = await withBusyIfLarge(
-      large,
-      this.ui,
-      t('loading.savingRsf', { name: tab.name }),
-      async () => {
-        await initCsvEngine(); // compression runs in the WASM codec when available
-        if (!large) {
-          return doc.toBytes();
-        }
-        // One sliced scan across every worksheet's rows, so the percentage
-        // describes the whole save rather than one worksheet of it.
-        const perSheet: Array<Array<[number, number, string]>> = doc.sheets.map(() => []);
-        const completed = await forEachIndexSliced(doc.totalRows, (i) => doc.collectFlatRow(i, perSheet), {
-          onProgress: (done, total) =>
-            this.ui.setBusy(
-              t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) }),
-              pct(done, total),
-            ),
-          shouldStop: () => tab.doc !== doc,
-        });
-        if (!completed || tab.doc !== doc) {
-          return null;
-        }
-        this.ui.setBusy(t('loading.savingCompress', { name: tab.name }));
-        await nextPaint();
-        return doc.toBytesFromSheetCells(perSheet);
-      },
-    );
-    return bytes;
   }
 
   /** Write already-encoded RSF bytes to an acquired handle (or download them). */
@@ -480,7 +400,7 @@ export class FileIoCommands {
       return { bytes: encodeTextFile(safe, tab.textFile), mimeType: 'text/plain' };
     }
     if (isWorkbook(tab.doc)) {
-      const bytes = await this.encodeRsfBytes(tab);
+      const bytes = await encodeRsfTabBytes(this.ui, tab);
       return bytes === null ? null : { bytes, mimeType: 'application/octet-stream' };
     }
     let result = serializeDocument(tab.doc, KEEP_SAVE_OPTIONS, false);

@@ -386,6 +386,12 @@ export interface FileDialogsPort {
    * `suggested`. Resolves with the chosen name, or null when cancelled.
    */
   promptDriveName(suggested: string): Promise<string | null>;
+  /**
+   * Ask for the password of an encrypted `.rsf` file named `name`. `retry` says
+   * the last password was refused. Resolves to the password as typed (not
+   * trimmed), or null when cancelled.
+   */
+  promptRsfPassword(name: string, retry: boolean): Promise<string | null>;
   confirmUnrepresentable(encodingLabel: string, cells: UnrepresentableCell[]): Promise<boolean>;
   notifyNcr(reports: NcrCellReport[]): Promise<void>;
   confirmUndecodableEdit(cells: Array<{ row: number; col: number }>): Promise<boolean>;

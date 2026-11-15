@@ -28,6 +28,8 @@
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--max-old-space-size=8192 vitest run",
     "bench": "vitest bench --run",
+    "bench:million-rows:generate": "node scripts/bench/generate-million-rows.mjs",
+    "bench:million-rows": "node scripts/bench/million-rows-browser.mjs",
     "test:coverage": "NODE_OPTIONS=--max-old-space-size=8192 vitest run --coverage",
     "test:rust": "cargo test --manifest-path wasm/Cargo.toml",
     "lint": "eslint .",

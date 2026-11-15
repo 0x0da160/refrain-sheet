@@ -32,3 +32,6 @@ npm-debug.log*
 *.sbom.json
 *.zip
 *.zip.sha256
+
+# Generated benchmark workbooks (npm run bench:million-rows:generate); large, reproducible, never tracked.
+bench/data/

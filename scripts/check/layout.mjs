@@ -35,7 +35,7 @@ const files = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
   .filter((f) => f && existsSync(join(root, f)));
 
 const TEST_AREAS = new Set(['core', 'app', 'ui', 'tooling', 'site', 'fixtures']);
-const SCRIPT_ROLES = new Set(['build', 'check', 'release', 'lib', 'ui-check']);
+const SCRIPT_ROLES = new Set(['build', 'check', 'release', 'lib', 'ui-check', 'bench']);
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)+$/;
 const NAMED_DIRS = ['src/', 'tests/', 'scripts/', 'site/', 'bench/', 'docs/', 'knowledge/'];
 const EXEMPT = ['src/generated/', 'tests/fixtures/'];

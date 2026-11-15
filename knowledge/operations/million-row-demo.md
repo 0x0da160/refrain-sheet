@@ -333,8 +333,9 @@ against the row limit (see Known limits).
   million-row sheet with a header could not be filtered to its last row. A
   `.rsf` file saved with a filter over a whole million-row sheet opens without
   that filter in versions before this change, because they refuse the range.
-  The JSON document version stays at 1; whether it should change is for review
-  under [compatibility.md](../formats/rsf/compatibility.md). In the Filter panel,
+  The JSON document version stays at 1. Earlier versions drop such a filter with
+  a warning and open the rest of the file; the rule is in
+  [compatibility.md](../formats/rsf/compatibility.md). In the Filter panel,
   turning the header row off for a range of 1,000,001 rows is refused with the
   invalid-filter message, because every row would then be a data row.
 - **A workbook holding a dynamic array, or one where a circular reference has

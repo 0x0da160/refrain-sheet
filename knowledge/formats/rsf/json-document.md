@@ -257,7 +257,8 @@ against the worksheet; a filter that fails validation is **dropped** and
 the user is warned, while the rest of the file loads. A range spans at most
 1,000,000 data rows (`MAX_FILTER_ROWS`). When `headerRow` is `true`, the
 first row of the range is not a data row and does not count, so a header row
-above 1,000,000 data rows is valid.
+plus 1,000,000 data rows is valid. Earlier releases count the header row too,
+so they drop such a filter (see [compatibility.md](compatibility.md)).
 
 ### Validations
 

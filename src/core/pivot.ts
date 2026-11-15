@@ -63,6 +63,7 @@ export interface PivotTable {
   ignoredValues: number;
 }
 
+/** Why a request is refused. `sourceMissing` is found by the command layer, which knows what is open. */
 type PivotErrorCode =
   | 'noColumns'
   | 'noRows'
@@ -70,7 +71,8 @@ type PivotErrorCode =
   | 'sameField'
   | 'tooManyRows'
   | 'tooManyRowGroups'
-  | 'tooManyColumnGroups';
+  | 'tooManyColumnGroups'
+  | 'sourceMissing';
 
 /** A rejected request. `params` carries the limit a message quotes, if any. */
 export interface PivotError {
@@ -79,6 +81,37 @@ export interface PivotError {
 }
 
 export type PivotBuildOutcome = { ok: true; table: PivotTable } | { ok: false; error: PivotError };
+
+/**
+ * What a pivot table sheet was made with, so Data > Pivot Table… can reopen it
+ * and rebuild it. `sourceTabId` names the open tab the summary reads, and
+ * `sourceId` its worksheet (`'csv'` for a CSV tab). `rows` and `cols` are the
+ * size of the summary as last written, so an update clears exactly its cells.
+ * The app keeps links for the open session only; they are not saved in files.
+ */
+export interface PivotLink {
+  sourceTabId: string;
+  sourceId: string;
+  request: PivotRequest;
+  rows: number;
+  cols: number;
+}
+
+/** Whether two links name the same source, the same settings, and the same size. */
+export function pivotLinksEqual(a: PivotLink | null, b: PivotLink | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return (
+    a.sourceTabId === b.sourceTabId &&
+    a.sourceId === b.sourceId &&
+    a.rows === b.rows &&
+    a.cols === b.cols &&
+    a.request.rowField === b.request.rowField &&
+    a.request.columnField === b.request.columnField &&
+    a.request.valueField === b.request.valueField &&
+    a.request.aggregation === b.request.aggregation
+  );
+}
 
 /** Blank text (empty or only spaces) is the `null` group; any other text is a group of its own. */
 function groupKey(text: string): string | null {

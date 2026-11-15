@@ -2,12 +2,16 @@
 /** Data commands (`data.*`): SQL query, two-tab compare, pivot table, validation, comments. */
 import type { DiffResult } from '../../../core/diff-engine';
 import { isWorkbook } from '../../../core/editor-document';
+import type { PivotLink, PivotRequest } from '../../../core/pivot';
 import type { SqlQueryResult } from '../../../core/sql-engine';
 import { RsfDocument, RSF_EXTENSION } from '../../../core/workbook/rsf-document';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../../core/interchange/csv-export';
 import { saveBytesAs } from '../../file-access';
 import { getLocale, t } from '../../i18n';
+import { setPivotLinkOn } from '../../state/pivot-links';
 import type { Tab } from '../../state';
+import type { PivotCreateOutcome } from '../../ui-port';
+import type { PivotSource } from '../pivot';
 import { hasCellSelection, withTab, type CommandContext, type CommandSpec } from './types';
 
 /**
@@ -35,11 +39,16 @@ function writeResultSheet(
   tab: Tab,
   rows: string[][],
   sheetTitle: string,
+  pivot: PivotLink | null = null,
 ): string | null {
   const doc = tab.doc;
   if (isWorkbook(doc)) {
     const name = doc.uniqueSheetName(sheetTitle);
-    return ctx.state.addSheetFromValues(tab, name, rows)?.name ?? null;
+    // A pivot table's link is part of the step that adds its sheet, so undoing the sheet unlinks it.
+    const extra = pivot
+      ? (sheet: { id: string }) => [{ type: 'pivot' as const, sheetId: sheet.id, before: null, after: pivot }]
+      : undefined;
+    return ctx.state.addSheetFromValues(tab, name, rows, extra)?.name ?? null;
   }
   const base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
   const fileName = `${base}-${sheetTitle}${RSF_EXTENSION}`;
@@ -49,7 +58,10 @@ function writeResultSheet(
   );
   const book = RsfDocument.fromValues(fileName, ',', rows, width, sheetTitle, getLocale());
   book.markUnsaved();
-  ctx.state.addTab(fileName, book, null);
+  const added = ctx.state.addTab(fileName, book, null);
+  if (pivot) {
+    setPivotLinkOn(added, book.activeSheetId, pivot);
+  }
   return sheetTitle;
 }
 
@@ -63,26 +75,70 @@ function writeSqlResult(ctx: CommandContext, tab: Tab, result: SqlQueryResult): 
 }
 
 /**
- * Data > Pivot Table…: open the pivot table panel on the active table. Its
- * Create in New Sheet puts the summary into a new sheet (see `src/core/pivot.ts`).
+ * Data > Pivot Table…: open the pivot table panel. On a pivot table sheet it
+ * opens with that sheet's settings, and Update This Sheet rebuilds the sheet
+ * from its source. Anywhere else it summarizes the active table, and Create in
+ * New Sheet puts the summary into a new sheet (see `src/core/pivot.ts`).
  */
 function showPivot(ctx: CommandContext, tab: Tab): Promise<void> {
-  const { ui, parts } = ctx;
-  const sourceId = parts.pivot.sourceOf(tab);
+  const { ui, parts, state } = ctx;
+  const { source, pivot } = parts.pivot.panelOf(state, tab);
   return ui.showPivot({
-    columns: parts.pivot.listColumns(tab, sourceId),
-    create: (request) => {
-      const outcome = parts.pivot.build(tab, sourceId, request);
-      if (!outcome.ok) {
-        return { ok: false, error: outcome.error };
-      }
-      const name = writeResultSheet(ctx, tab, outcome.sheet.rows, t('pivot.sheetName'));
-      if (name === null) {
-        return { ok: false, error: { code: 'sheetFailed', params: {} } };
-      }
-      return { ok: true, sheetName: name, ignored: outcome.sheet.ignoredValues };
-    },
+    columns: parts.pivot.listColumns(source),
+    initial: pivot ? pivot.link.request : null,
+    create: (request) => createPivot(ctx, source, request),
+    update: pivot ? (request) => updatePivot(ctx, tab, pivot.sheetId, request) : null,
   });
+}
+
+/** Create in New Sheet: a new sheet holding a summary of `source`, beside its table. */
+function createPivot(ctx: CommandContext, source: PivotSource, request: PivotRequest): PivotCreateOutcome {
+  const { state, parts } = ctx;
+  const outcome = parts.pivot.build(state, source, request);
+  if (!outcome.ok) {
+    return { ok: false, error: outcome.error };
+  }
+  const link = parts.pivot.linkFor(source, request, outcome.sheet);
+  const name = writeResultSheet(ctx, source.tab, outcome.sheet.rows, t('pivot.sheetName'), link);
+  if (name === null) {
+    return { ok: false, error: { code: 'sheetFailed', params: {} } };
+  }
+  return { ok: true, sheetName: name, ignored: outcome.sheet.ignoredValues };
+}
+
+/**
+ * Update This Sheet: rebuild the pivot table on `sheetId` in place, from the
+ * table its link names, with `request`. Recalculating is updating with the
+ * settings it already has.
+ */
+function updatePivot(
+  ctx: CommandContext,
+  tab: Tab,
+  sheetId: string,
+  request: PivotRequest,
+): PivotCreateOutcome {
+  const { state, parts } = ctx;
+  const previous = tab.pivotLinks?.[sheetId];
+  const source = previous ? parts.pivot.linkedSource(state, previous) : null;
+  if (!previous || !source) {
+    return { ok: false, error: { code: 'sourceMissing', params: {} } };
+  }
+  const outcome = parts.pivot.build(state, source, request);
+  if (!outcome.ok) {
+    return { ok: false, error: outcome.error };
+  }
+  const link = parts.pivot.linkFor(source, request, outcome.sheet);
+  const result = parts.pivot.rewrite(state, tab, sheetId, previous, outcome.sheet, link);
+  if (result === 'refused') {
+    return { ok: false, error: { code: 'updateFailed', params: {} } };
+  }
+  const name = isWorkbook(tab.doc) ? (tab.doc.sheetById(sheetId)?.name ?? '') : '';
+  return {
+    ok: true,
+    sheetName: name,
+    ignored: outcome.sheet.ignoredValues,
+    mode: result === 'unchanged' ? 'unchanged' : 'updated',
+  };
 }
 
 /**

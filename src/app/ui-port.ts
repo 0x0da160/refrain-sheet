@@ -92,19 +92,24 @@ export interface DiffDialogInput {
 
 /** The pivot table panel: the active table's field names, and the action that builds a summary sheet. */
 export interface PivotDialogInput {
-  /** Field names of the active table, left to right; a blank header reads as its column letter. */
+  /** Field names of the table the panel reads, left to right; a blank header reads as its column letter. */
   columns: string[];
-  /** Summarize the active table by `request` and put the summary in a new sheet. */
+  /** The settings of the pivot table sheet the panel opened on, or null for a new summary. */
+  initial: PivotRequest | null;
+  /** Put a summary of the table in a new sheet. */
   create: (request: PivotRequest) => PivotCreateOutcome;
+  /** Rebuild the pivot table sheet the panel opened on, in place; null when it did not open on one. */
+  update: ((request: PivotRequest) => PivotCreateOutcome) | null;
 }
 
 /**
- * What creating a pivot table sheet produced: the new sheet's name and how
- * many values the totals left out, or the reason it could not be built
- * (`code` names a `pivot.error.*` message).
+ * What a pivot table action produced: the sheet's name and how many values the
+ * totals left out, or the reason it could not be built (`code` names a
+ * `pivot.error.*` message). An update sets `mode`: 'updated', or 'unchanged'
+ * when the sheet already showed this summary.
  */
 export type PivotCreateOutcome =
-  | { ok: true; sheetName: string; ignored: number }
+  | { ok: true; sheetName: string; ignored: number; mode?: 'updated' | 'unchanged' }
   | { ok: false; error: { code: string; params: Record<string, number> } };
 
 /**

@@ -7,6 +7,7 @@ import { isCsv, isWorkbook, workbookOf } from '../../../core/editor-document';
 import type { RsfDocument } from '../../../core/workbook/rsf-document';
 import { getLocale, t } from '../../i18n';
 import type { Tab } from '../../state';
+import { clearPivotLinks } from '../../state/pivot-links';
 import { isGridSurface } from '../shared';
 import type { SheetOpId } from '../worksheets';
 import { hasCellSelection, sceneOf, withTab, type CommandContext, type CommandSpec } from './types';
@@ -124,6 +125,8 @@ async function restoreVersion(ctx: CommandContext, tab: Tab, doc: RsfDocument, i
   // (mis)apply against the restored content.
   if (doc.restoreFromSnapshot(index)) {
     tab.history.clear();
+    // The restored content may not be the content the pivot table links describe.
+    clearPivotLinks(tab);
     ctx.state.emit('doc');
     ctx.state.emit('tabs');
     ctx.ui.notify(t('notify.versionRestored'), 'info');

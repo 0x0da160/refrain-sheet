@@ -11,6 +11,7 @@ import { filtersEqual } from '../../core/workbook/filter';
 import { validationListsEqual } from '../../core/workbook/data-validation';
 import { objectListsEqual } from '../../core/workbook/sheet-objects';
 import { printAreasEqual } from '../../core/workbook/print-area';
+import { pivotLinksEqual } from '../../core/pivot';
 import type { CellChange, HistoryEntry, Operation, SheetOperation } from '../../core/workbook/history';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState } from './index';
@@ -18,6 +19,7 @@ import type { StructuralOpsState } from './structural-ops';
 import type { Tab } from './types';
 import type { WorksheetsState } from './worksheets';
 import { deleteColWidths, insertColWidths } from './col-widths';
+import { setPivotLinkOn } from './pivot-links';
 import type { WriteGuards } from './write-guards';
 
 export class EditingState {
@@ -127,6 +129,9 @@ export class EditingState {
       if (op.type === 'printArea') {
         return !printAreasEqual(op.before, op.after);
       }
+      if (op.type === 'pivot') {
+        return !pivotLinksEqual(op.before, op.after);
+      }
       if (op.type === 'sheets' || op.type === 'csvStructure') {
         return true;
       }
@@ -231,7 +236,11 @@ export class EditingState {
   private applyEntry(tab: Tab, entry: HistoryEntry, direction: 'before' | 'after'): void {
     const ops = direction === 'after' ? entry.ops : [...entry.ops].reverse();
     for (const op of ops) {
-      this.applyOp(tab, op, direction);
+      if (op.type === 'pivot') {
+        setPivotLinkOn(tab, op.sheetId, direction === 'after' ? op.after : op.before);
+      } else {
+        this.applyOp(tab, op, direction);
+      }
     }
     // Undo/redo must show the change where it happened rather than silently
     // altering a worksheet the user is not looking at.
@@ -241,7 +250,7 @@ export class EditingState {
     }
   }
 
-  private applyOp(tab: Tab, op: Operation, direction: 'before' | 'after'): void {
+  private applyOp(tab: Tab, op: Exclude<Operation, { type: 'pivot' }>, direction: 'before' | 'after'): void {
     if (op.type === 'cells') {
       const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
       for (const change of changes) {

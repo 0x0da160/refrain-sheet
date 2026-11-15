@@ -152,6 +152,7 @@ exports[`core export surface > keeps every core module exporting the same names 
     "filterDataTop",
     "filtersEqual",
     "matchColumn",
+    "maxFilterSpan",
     "rowMatchesFilter",
     "validateFilter",
   ],

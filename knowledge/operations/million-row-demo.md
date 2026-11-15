@@ -289,12 +289,13 @@ No file format, WASM code or limit changed.
 
 ## Known limits
 
-- **Filter covers 999,999 of the 1,000,000 data rows.** A filter range may
-  span at most 1,000,000 rows _including_ its header row
-  (`MAX_FILTER_ROWS` in `src/core/workbook/filter.ts`), so the last row of
-  this workbook stays outside the filter. The benchmark records that step
-  as failed. The bound is also what the `.rsf` reader accepts, so changing
-  it is a format-compatibility decision, not a tuning one.
+- **A filter counts data rows, not its header row.** A range may cover at
+  most 1,000,000 data rows (`MAX_FILTER_ROWS` in
+  `src/core/workbook/filter.ts`), so a whole million-row sheet with a header
+  row can be filtered. Before this change the header row counted too, and
+  the last row stayed outside the filter. A `.rsf` file saved with a filter
+  over a whole million-row sheet opens without that filter in versions
+  before this change, because they cannot read such a range.
 - **A workbook holding a dynamic array, or one where a circular reference
   has been met, recomputes everything on each change**, as every workbook
   did before. Formulas that only _could_ return an array (`IFERROR`,

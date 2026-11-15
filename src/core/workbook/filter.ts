@@ -30,7 +30,11 @@
 // Persisted filter metadata is validated against these on load; the UI
 // enforces them on creation so a filter within bounds always round-trips.
 
-/** Maximum data rows a filter range may cover (keeps evaluation bounded). */
+/**
+ * Maximum data rows a filter range may cover, not counting its header row
+ * (keeps evaluation bounded). A filter over a whole sheet of this many data
+ * rows with a header row spans one row more than this.
+ */
 export const MAX_FILTER_ROWS = 1_000_000;
 /** Maximum columns that may carry criteria in one filter. */
 const MAX_FILTER_COLUMNS = 64;
@@ -103,6 +107,14 @@ export interface SheetFilter {
 /** First data row of a filter (the row below the header when one is set). */
 export function filterDataTop(filter: SheetFilter): number {
   return filter.headerRow ? filter.top + 1 : filter.top;
+}
+
+/**
+ * The most rows a filter range may span: its data rows, plus the header row
+ * when it has one. The RSF reader and the command layer both use this bound.
+ */
+export function maxFilterSpan(headerRow: boolean): number {
+  return MAX_FILTER_ROWS + (headerRow ? 1 : 0);
 }
 
 /**
@@ -280,7 +292,7 @@ function validFilterRange(filter: SheetFilter, rowCount: number, columnCount: nu
     filter.left <= filter.right &&
     filter.bottom < rowCount &&
     filter.right < columnCount &&
-    filter.bottom - filter.top + 1 <= MAX_FILTER_ROWS
+    filter.bottom - filter.top + 1 <= maxFilterSpan(filter.headerRow === true)
   );
 }
 

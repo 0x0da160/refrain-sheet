@@ -248,6 +248,25 @@ const baseData: RsfData = {
   cells: [[0, 0, 'x']],
 };
 
+describe('filter row bound counts data rows', () => {
+  it('does not count a header row against MAX_FILTER_ROWS', () => {
+    const column = [textCol(0, [], ['x'])];
+    // The sheet is one row taller than the widest range tested here.
+    const check = (bottom: number, headerRow: boolean) =>
+      validateFilter(
+        { top: 0, left: 0, bottom, right: 0, headerRow, columns: column },
+        MAX_FILTER_ROWS + 3,
+        1,
+      );
+    // A header row and MAX_FILTER_ROWS data rows below it: a whole sheet of that size.
+    expect(check(MAX_FILTER_ROWS, true)).not.toBeNull();
+    expect(check(MAX_FILTER_ROWS + 1, true)).toBeNull();
+    // Without a header row, every row of the range is a data row.
+    expect(check(MAX_FILTER_ROWS - 1, false)).not.toBeNull();
+    expect(check(MAX_FILTER_ROWS, false)).toBeNull();
+  });
+});
+
 describe('RSF filter persistence', () => {
   const filter: SheetFilter = {
     top: 0,
@@ -344,6 +363,23 @@ describe('filter command flow', () => {
     expect(doc.filter).toEqual(filter);
     expect(state.isRowHidden(tab, 2)).toBe(true);
   });
+
+  it('a header filter from one cell covers the header and every data row of a full million-row sheet', async () => {
+    // One header row, MAX_FILTER_ROWS data rows, and one row past the limit.
+    const rows = MAX_FILTER_ROWS + 2;
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const doc = RsfDocument.empty('t.rsf', rows, 1);
+    for (let r = 0; r < rows; r++) {
+      doc.setCell(r, 0, r === 0 ? 'id' : `row ${r}`);
+    }
+    doc.markSaved();
+    const tab = state.addTab('t.rsf', doc, null);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 0 });
+    expect(await commands.toggleHeaderFilter(tab)).toBe(true);
+    // The range stops at the header row plus MAX_FILTER_ROWS data rows.
+    expect(doc.filter).toMatchObject({ top: 0, bottom: MAX_FILTER_ROWS, headerRow: true });
+  }, 120_000);
 
   it('the dialog route builds and applies a filter for the active column', async () => {
     const applied: FilterDialogResult = {

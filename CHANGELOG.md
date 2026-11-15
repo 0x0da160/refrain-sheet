@@ -42,6 +42,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - Changing a cell in a large workbook recalculates only the formulas that depend on it. In a workbook with one million rows and two million formulas, the totals update in about 0.1 seconds after you change a condition or a value. Each change used to freeze the app for about 20 seconds in our benchmark. Undo and redo are as quick, and that workbook opens in about 5 seconds instead of about 14. The results are the same as before. A workbook that shows a dynamic array, or in which a circular reference has occurred, still recalculates everything after each change.
 
+### Fixed
+
+- A filter can now cover every data row of a sheet. On a sheet with a header row and one million data rows, a filter used to stop one row short, so the last row was never filtered. A file saved with such a filter opens without that filter in versions before this one.
+
 ## [0.9.40] - 2026-11-15
 
 ### Added

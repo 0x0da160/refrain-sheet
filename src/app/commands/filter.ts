@@ -5,7 +5,7 @@ import {
   filterDataTop,
   rowMatchesFilter,
   validateFilter,
-  MAX_FILTER_ROWS,
+  maxFilterSpan,
   MAX_FILTER_VALUES,
   type SheetFilter,
 } from '../../core/workbook/filter';
@@ -335,7 +335,7 @@ export class FilterCommands {
   /**
    * The range a new filter covers: the selected rectangle when more than one
    * cell is selected, otherwise the contiguous block of data rows around the
-   * active cell (bounded by {@link MAX_FILTER_ROWS}), spanning every sheet
+   * active cell (bounded by {@link maxFilterSpan}), spanning every sheet
    * column. Null (after telling the user) when there is no data there.
    */
   private async defaultRange(tab: Tab, doc: EditorDocument): Promise<CellRange | null> {
@@ -347,6 +347,8 @@ export class FilterCommands {
     let left: number;
     let bottom: number;
     let right: number;
+    // A range made here gets a header row (see toggleHeaderFilter and filterDialog).
+    const span = maxFilterSpan(true);
     const sel = this.state.selectedRange(tab);
     if (sel && (sel.bottom > sel.top || sel.right > sel.left)) {
       ({ top, left, bottom, right } = sel);
@@ -363,10 +365,10 @@ export class FilterCommands {
       };
       top = active.row;
       bottom = active.row;
-      while (top > 0 && bottom - top < MAX_FILTER_ROWS - 1 && rowHasData(top - 1)) {
+      while (top > 0 && bottom - top + 1 < span && rowHasData(top - 1)) {
         top -= 1;
       }
-      while (bottom < doc.rowCount - 1 && bottom - top < MAX_FILTER_ROWS - 1 && rowHasData(bottom + 1)) {
+      while (bottom < doc.rowCount - 1 && bottom - top + 1 < span && rowHasData(bottom + 1)) {
         bottom += 1;
       }
       left = 0;
@@ -378,7 +380,7 @@ export class FilterCommands {
     }
     // Enforce the documented range bound up front so a within-bounds
     // filter always persists and restores identically.
-    bottom = Math.min(bottom, top + MAX_FILTER_ROWS - 1);
+    bottom = Math.min(bottom, top + span - 1);
     return { top, left, bottom, right };
   }
 

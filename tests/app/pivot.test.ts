@@ -158,3 +158,169 @@ describe('Data > Pivot Table…', () => {
     });
   });
 });
+
+describe('Data > Pivot Table… on a pivot table sheet', () => {
+  const byRegion = { rowField: 0, columnField: null, valueField: 2, aggregation: 'sum' as const };
+
+  /** The displayed text of the top-left `rows` by `cols` cells of the active sheet. */
+  function block(doc: RsfDocument, rows: number, cols: number): string[][] {
+    return Array.from({ length: rows }, (_, r) =>
+      Array.from({ length: cols }, (_, c) => readActive(doc, r, c)),
+    );
+  }
+
+  it('reopens on the pivot table sheet with the settings it was made with', async () => {
+    const { state, doc } = salesBook();
+    const created = await openPanel(state);
+    expect(created.initial).toBeNull();
+    expect(created.update).toBeNull();
+    created.create(byRegion);
+    const pivotId = doc.activeSheetId;
+
+    const reopened = await openPanel(state);
+    expect(doc.activeSheetId).toBe(pivotId);
+    expect(reopened.initial).toEqual(byRegion);
+    expect(reopened.columns).toEqual(['region', 'item', 'amount']);
+    expect(reopened.update).not.toBeNull();
+  });
+
+  it('rebuilds the sheet from the current data, and one undo brings back its values and settings', async () => {
+    const { state, doc } = salesBook();
+    const sourceId = doc.activeSheetId;
+    (await openPanel(state)).create(byRegion);
+    // After the summary was made, the second West pen changes from 50 to 500.
+    doc.setCellOn(sourceId, 2, 2, '500');
+
+    const panel = await openPanel(state);
+    const average = { ...byRegion, aggregation: 'average' as const };
+    expect(panel.update!(average)).toEqual({
+      ok: true,
+      sheetName: 'Pivot Table',
+      ignored: 1,
+      mode: 'updated',
+    });
+    const averaged = [
+      ['Average of amount', ''],
+      ['region', 'amount'],
+      ['East', '612.5'],
+      ['West', '500'],
+      ['Total', '575'],
+    ];
+    expect(block(doc, 5, 2)).toEqual(averaged);
+
+    state.undo(state.activeTab!);
+    expect(block(doc, 5, 2)).toEqual([
+      ['Sum of amount', ''],
+      ['region', 'amount'],
+      ['East', '1225'],
+      ['West', '50'],
+      ['Total', '1275'],
+    ]);
+    expect((await openPanel(state)).initial).toEqual(byRegion);
+
+    state.redo(state.activeTab!);
+    expect(block(doc, 5, 2)).toEqual(averaged);
+    expect((await openPanel(state)).initial).toEqual(average);
+
+    // The same settings over the same data change nothing, and the panel says so.
+    expect(panel.update!(average)).toEqual({
+      ok: true,
+      sheetName: 'Pivot Table',
+      ignored: 1,
+      mode: 'unchanged',
+    });
+  });
+
+  it('grows the sheet for a larger summary, and clears what a smaller one no longer needs', async () => {
+    const { state, doc } = salesBook();
+    const sourceId = doc.activeSheetId;
+    (await openPanel(state)).create(byRegion);
+    const pivotId = doc.activeSheetId;
+    // Thirty more items, each once in the East: more columns than a new sheet starts with.
+    for (let i = 1; i <= 30; i++) {
+      doc.setCellOn(sourceId, 4 + i, 0, 'East');
+      doc.setCellOn(sourceId, 4 + i, 1, `item ${i}`);
+      doc.setCellOn(sourceId, 4 + i, 2, '1');
+    }
+
+    const panel = await openPanel(state);
+    const byItem = { rowField: 0, columnField: 1, valueField: 2, aggregation: 'sum' as const };
+    expect(panel.update!(byItem)).toEqual({
+      ok: true,
+      sheetName: 'Pivot Table',
+      ignored: 1,
+      mode: 'updated',
+    });
+    expect(doc.activeSheetId).toBe(pivotId);
+    expect(doc.sheetById(pivotId)!.columnCount).toBe(34);
+    expect(readActive(doc, 1, 0)).toBe('region');
+    expect(readActive(doc, 1, 2)).toBe('item 1');
+    expect(readActive(doc, 1, 33)).toBe('Total');
+    expect(readActive(doc, 2, 33)).toBe('1255');
+    expect(readActive(doc, 4, 33)).toBe('1305');
+
+    expect(panel.update!(byRegion)).toEqual({
+      ok: true,
+      sheetName: 'Pivot Table',
+      ignored: 1,
+      mode: 'updated',
+    });
+    expect(block(doc, 5, 3)).toEqual([
+      ['Sum of amount', '', ''],
+      ['region', 'amount', ''],
+      ['East', '1255', ''],
+      ['West', '50', ''],
+      ['Total', '1305', ''],
+    ]);
+    expect(readActive(doc, 4, 33)).toBe('');
+  });
+
+  it('says so when the source sheet is gone, and leaves the pivot table as it was', async () => {
+    const { state, doc } = salesBook();
+    const sourceId = doc.activeSheetId;
+    (await openPanel(state)).create(byRegion);
+    const panel = await openPanel(state);
+
+    expect(state.deleteSheet(state.activeTab!, sourceId)).toBe(true);
+    expect(panel.update!(byRegion)).toEqual({ ok: false, error: { code: 'sourceMissing', params: {} } });
+    expect(block(doc, 5, 2)).toEqual([
+      ['Sum of amount', ''],
+      ['region', 'amount'],
+      ['East', '1225'],
+      ['West', '50'],
+      ['Total', '1275'],
+    ]);
+    expect((await openPanel(state)).update).toBeNull();
+  });
+
+  it('rebuilds a summary of a CSV tab on its spreadsheet tab, and leaves the CSV tab alone', async () => {
+    const state = new AppState();
+    const csvTab = state.addTab(
+      'people.csv',
+      LosslessDocument.fromBytes(utf8('region,amount\nEast,10\nWest,5\nEast,2.5\n')),
+      null,
+    );
+    (await openPanel(state)).create({ rowField: 0, columnField: null, valueField: 1, aggregation: 'sum' });
+    const book = state.activeTab!.doc as RsfDocument;
+    // After the summary was made, the West amount changes from 5 to 50.
+    state.editCell(csvTab, 2, 1, '50');
+
+    const panel = await openPanel(state);
+    expect(panel.update).not.toBeNull();
+    expect(panel.update!({ rowField: 0, columnField: null, valueField: 1, aggregation: 'sum' })).toEqual({
+      ok: true,
+      sheetName: 'Pivot Table',
+      ignored: 0,
+      mode: 'updated',
+    });
+    expect([0, 1, 2, 3, 4].map((r) => [0, 1].map((c) => readActive(book, r, c)))).toEqual([
+      ['Sum of amount', ''],
+      ['region', 'amount'],
+      ['East', '12.5'],
+      ['West', '50'],
+      ['Total', '62.5'],
+    ]);
+    expect(state.tabs).toHaveLength(2);
+    expect(csvTab.doc.rowCount).toBe(4);
+  });
+});

@@ -4,6 +4,7 @@ import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { LosslessDocument } from '../csv/lossless-document';
 import type { PrintArea } from '../print-layout';
+import { pivotLinksEqual, type PivotLink } from '../pivot';
 import type { SheetOrganization } from './sheet-folders';
 import type { SheetObject } from './sheet-objects';
 import type { Worksheet } from './worksheet';
@@ -173,6 +174,13 @@ export type Operation =
    * edit also restores how the sheet was displayed before it.
    */
   | { type: 'wrap'; before: boolean; after: boolean; sheetId?: string }
+  /**
+   * A pivot table sheet's link to its source and settings (see `PivotLink`).
+   * It is set in the same entry as the summary it describes, so undoing or
+   * redoing an update brings back the settings that match the values shown.
+   * Session state only: it is never saved in the file.
+   */
+  | { type: 'pivot'; sheetId: string; before: PivotLink | null; after: PivotLink | null }
   | { type: 'sheets'; op: SheetOperation };
 
 export interface HistoryEntry {
@@ -207,6 +215,9 @@ function isEmpty(entry: HistoryEntry): boolean {
     if (op.type === 'sheets' || op.type === 'csvStructure') {
       // A worksheet lifecycle change or a CSV structural swap is always a real change.
       return false;
+    }
+    if (op.type === 'pivot') {
+      return pivotLinksEqual(op.before, op.after);
     }
     return op.count === 0;
   });

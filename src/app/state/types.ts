@@ -7,6 +7,7 @@ import type { FileStamp } from '../file-access';
 import type { TextFileFormat } from '../../core/interchange/text-file';
 import type { RsfEncryptionSession } from '../../core/workbook/rsf-encryption';
 import type { PrintArea } from '../../core/print-layout';
+import type { PivotLink } from '../../core/pivot';
 
 export interface Selection {
   row: number;
@@ -70,6 +71,12 @@ export interface Tab {
    * touched Drive — which is every tab in the offline build.
    */
   drive: { fileId: string; name: string } | null;
+  /**
+   * The pivot table sheets on this tab, by sheet id: the source and settings
+   * each was made or last updated with, so Data > Pivot Table… can reopen and
+   * rebuild them. Kept for the open session only; never saved in the file.
+   */
+  pivotLinks?: Record<string, PivotLink>;
   /**
    * Per-column pixel widths for this open document during the session,
    * expressed at 100% zoom. A missing or zero entry means the default width.

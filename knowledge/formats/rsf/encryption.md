@@ -7,7 +7,7 @@ sources:
   - resource: ../../../src/core/workbook/rsf-encrypted-file.ts
   - resource: ../../../tests/core/rsf-encryption.test.ts
   - resource: ../../../tests/core/rsf-encrypted-file.test.ts
-status: proposed
+status: stable
 ---
 
 # Encrypted RSF container (RSFE)

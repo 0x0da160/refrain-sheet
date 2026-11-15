@@ -40,6 +40,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.tabColor = entry.tabColor;
   sheet.folderId = entry.folderId;
   sheet.paper = entry.paper;
+  sheet.pivot = entry.pivot;
   if (entry.rowHeights) {
     sheet.rowHeights = new Map(entry.rowHeights);
   }
@@ -123,6 +124,9 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.paper !== undefined && sheet.kind === 'grid') {
     entry.paper = sheet.paper;
+  }
+  if (sheet.pivot !== undefined && sheet.kind === 'grid') {
+    entry.pivot = sheet.pivot;
   }
   // Only rules that fit the worksheet as it is, so the file always reads back.
   const validations = sheet.validations.filter((v) =>

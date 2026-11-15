@@ -21,6 +21,7 @@ import type { SheetImageEntry } from './sheet-images';
 import { viewToJson, type RsfViewSettings } from './rsf-view';
 import { VersionHistory } from './version-history';
 import { printAreasEqual } from './print-area';
+import { pivotRecordsEqual, type PivotRecord } from '../pivot';
 import type { PrintArea } from '../print-layout';
 import { Workbook } from './workbook';
 import { Worksheet, type WorksheetKind } from './worksheet';
@@ -337,6 +338,14 @@ export class RsfDocument extends Workbook {
     const sheet = this.resolveSheet(sheetId);
     if (this.bumpIf(!printAreasEqual(sheet.printArea, area))) {
       sheet.printArea = area ? { ...area } : null;
+    }
+  }
+
+  /** Set or clear a pivot table sheet's link (persisted, so this marks the file changed). */
+  setPivotOn(sheetId: string, record: PivotRecord | null): void {
+    const sheet = this.resolveSheet(sheetId);
+    if (this.bumpIf(!pivotRecordsEqual(sheet.pivot, record))) {
+      sheet.pivot = record ? { ...record, request: { ...record.request } } : undefined;
     }
   }
 

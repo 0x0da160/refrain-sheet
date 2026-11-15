@@ -40,7 +40,7 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
-- On a pivot table sheet, Data > Pivot Table… reopens with that sheet's fields and summary. Update This Sheet rebuilds the table from the current data, so you can change the summary, change the fields, or recalculate after the source changes. Each update is one undo step. The table still holds fixed values, and the source is not changed. The settings are kept while the file stays open, but they are not saved in the file yet, so after you reopen a saved file, choose the fields again.
+- On a pivot table sheet, Data > Pivot Table… reopens with that sheet's fields and summary. Update This Sheet rebuilds the table from the current data, so you can change the summary, change the fields, or recalculate after the source changes. Each update is one undo step. The table still holds fixed values, and the source is not changed. The settings are saved in the file with the sheet, so the table reopens with them. Update This Sheet refuses to write over a summary that was moved or edited, and says so.
 
 ## [0.9.39] - 2026-11-14
 

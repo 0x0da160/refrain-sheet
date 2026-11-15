@@ -76,6 +76,7 @@ the same content is the same document.
 | `paper`       | integer          | Grid only: makes it a grid-paper sheet (below), the side of one square in px (8–64).     |
 | `rowHeights`  | object           | Grid only: row heights a person set (below), `{ "3": 40 }`. Left out when none.          |
 | `printArea`   | string           | Grid only: the print area (below), `"A1:F40"`. Left out when none.                       |
+| `pivot`       | object           | Grid only: the pivot table this sheet was made by (below). Left out when none.           |
 
 ### Grid paper
 
@@ -111,6 +112,22 @@ or `cols` is cut to the worksheet, and one wholly outside it is dropped.
 Inserting, deleting and moving rows and columns move the area with them.
 A reader that does not know the key ignores it and prints the whole sheet,
 so the key keeps `"version": 1`.
+
+### Pivot table
+
+`pivot` is the link of a pivot table sheet (`src/core/pivot.ts`), kept so
+Data > Pivot Table… reopens it with the settings it was made with. `source`
+is the worksheet it reads, by its `id`. `request` holds `rowField`,
+`columnField` (a 0-based column position, or `null` for none), `valueField`,
+and `aggregation` (`count`, `sum`, `average`, `min` or `max`). `rows` and
+`cols` are the size of the summary as last written, and `digest` is 16
+lowercase hex digits fingerprinting its cells. Any other shape is
+`bad-shape`, and so is the key on a non-grid worksheet. A `source` that is not
+a worksheet of the file is kept as written: the link then reads as missing,
+and an update says so. An update writes only while the summary still matches
+`digest`, so a summary that was moved or edited is left alone. A reader that
+does not know the key ignores it and opens the sheet as an ordinary grid, so
+the key keeps `"version": 1`.
 
 ### Folders
 

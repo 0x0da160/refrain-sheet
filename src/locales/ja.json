@@ -1620,6 +1620,7 @@
   "pivot.error.tooManyColumnGroups": "列の項目の値が {max} 種類を超えています。値の種類が少ない項目を選んでください。",
   "pivot.error.sheetFailed": "ピボットテーブルをシートとして追加できませんでした。ファイルが読み取り専用か、シート数が上限に達している可能性があります。",
   "pivot.error.sourceMissing": "このピボットテーブルの元の表が閉じられたか、削除されています。開いている表から作成し直してください。",
+  "pivot.error.summaryChanged": "ピボットテーブルは作成後に移動または編集されているため、更新しませんでした。元のデータから新しく作成してください。",
   "pivot.error.updateFailed": "ピボットテーブルを更新できませんでした。シートがロックされているか、ファイルが読み取り専用の可能性があります。",
   "dialog.markdownEditor.mode": "編集モード",
   "dialog.markdownEditor.mode.source": "Markdown",

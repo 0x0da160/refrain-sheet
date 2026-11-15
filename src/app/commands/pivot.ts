@@ -13,6 +13,7 @@ import {
   buildPivotTable,
   PIVOT_MAX_SOURCE_ROWS,
   pivotLinksEqual,
+  summaryDigest,
   type PivotError,
   type PivotLink,
   type PivotRequest,
@@ -20,6 +21,7 @@ import {
 } from '../../core/pivot';
 import type { CellChange, Operation } from '../../core/workbook/history';
 import { t } from '../i18n';
+import { pivotLinkOn } from '../state/pivot-links';
 import type { AppState, Tab } from '../state';
 import { readSourceTable } from './source-table';
 
@@ -108,7 +110,7 @@ export class PivotCommands {
     tab: Tab,
   ): { source: PivotSource; pivot: { sheetId: string; link: PivotLink } | null } {
     const sheetId = isWorkbook(tab.doc) ? tab.doc.activeSheetId : null;
-    const link = sheetId === null ? undefined : tab.pivotLinks?.[sheetId];
+    const link = sheetId === null ? null : pivotLinkOn(tab, sheetId);
     const source = link ? this.linkedSource(state, link) : null;
     if (sheetId !== null && link && source) {
       return { source, pivot: { sheetId, link } };
@@ -168,6 +170,7 @@ export class PivotCommands {
       request: { ...request },
       rows: sheet.rows.length,
       cols: sheet.cols,
+      digest: summaryDigest(sheet.rows.length, sheet.cols, (row, col) => sheet.rows[row][col] ?? ''),
     };
   }
 
@@ -178,7 +181,8 @@ export class PivotCommands {
    * written, and the sheet's link becomes `link`. Cells outside both summaries
    * are not touched. Returns 'unchanged' when nothing would differ, and
    * 'refused' when the write is not allowed (a read-only file, a locked sheet,
-   * or a sheet that is gone).
+   * or a sheet that is gone). 'changed' when the previous summary is no longer
+   * the one the link fingerprints (it was moved or edited), so nothing is written.
    */
   rewrite(
     state: AppState,
@@ -187,11 +191,15 @@ export class PivotCommands {
     previous: PivotLink,
     sheet: PivotSheet,
     link: PivotLink,
-  ): 'applied' | 'unchanged' | 'refused' {
+  ): 'applied' | 'unchanged' | 'refused' | 'changed' {
     const doc = tab.doc;
     const target = isWorkbook(doc) && state.tabs.includes(tab) ? doc.sheetById(sheetId) : null;
     if (!target) {
       return 'refused';
+    }
+    // The old summary is cleared below, so it must still be the one the link describes.
+    if (summaryDigest(previous.rows, previous.cols, (r, c) => target.getValue(r, c)) !== previous.digest) {
+      return 'changed';
     }
     const ops: Operation[] = [];
     const extraRows = sheet.rows.length - target.rowCount;

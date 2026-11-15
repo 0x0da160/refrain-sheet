@@ -8,16 +8,11 @@ import { shiftPrintAreaForDelete, shiftPrintAreaForInsert } from './print-area';
 import type { PrintArea } from '../print-layout';
 import type { PivotRecord } from '../pivot';
 import type { SheetFilter } from './filter';
-import { isFormula, parseFormula, type ParseResult } from '../formula';
+import { isFormula } from '../formula';
+import { FormulaRunIndex } from './formula-runs';
 import type { GridLookLayer } from '../grid-look';
 import type { SheetSort } from './sort';
 import { SparseCellMap } from './sparse-cell-map';
-
-/** A parsed formula kept alongside the source it was compiled from. */
-export interface CompiledFormula {
-  src: string;
-  parsed: ParseResult;
-}
 
 /**
  * What a worksheet's content *is*. `grid` is every worksheet before this
@@ -245,7 +240,8 @@ export class Worksheet {
    */
   private comments = new SparseCellMap<string>();
 
-  private readonly formulaCache = new Map<string, CompiledFormula>();
+  /** The formula cells' parsed forms, shared down each column (see `formula-runs.ts`). */
+  readonly formulas = new FormulaRunIndex(this);
   /**
    * Per-row count of formula cells, kept in parallel with `data`. Built lazily
    * and maintained by every mutator so formula enumeration skips formula-free
@@ -381,20 +377,6 @@ export class Worksheet {
     return this.kind === 'grid' && isFormula(this.getValue(row, col));
   }
 
-  /**
-   * The parsed form of a formula cell, compiled on first use and reused until
-   * the cell's input changes. The workbook evaluates the returned AST.
-   */
-  compiled(row: number, col: number, input: string): CompiledFormula {
-    const key = `${row},${col}`;
-    let entry = this.formulaCache.get(key);
-    if (!entry || entry.src !== input) {
-      entry = { src: input, parsed: parseFormula(input) };
-      this.formulaCache.set(key, entry);
-    }
-    return entry;
-  }
-
   // ----- Formula index -----
 
   private countRowFormulas(row: string[]): number {
@@ -410,7 +392,8 @@ export class Worksheet {
     return n;
   }
 
-  private ensureFormulaIndex(): number[] {
+  /** The number of formula cells in each row. */
+  formulaRowCounts(): number[] {
     this.formulaPerRow ??= this.data.map((row) => this.countRowFormulas(row));
     return this.formulaPerRow;
   }
@@ -421,7 +404,7 @@ export class Worksheet {
       return this.formulaCountCache.count;
     }
     let count = 0;
-    for (const n of this.ensureFormulaIndex()) {
+    for (const n of this.formulaRowCounts()) {
       count += n;
     }
     this.formulaCountCache = { revision: this.revision, count };
@@ -430,7 +413,7 @@ export class Worksheet {
 
   /** Iterate all formula cells as [row, col, source]. Skips formula-free rows. */
   listFormulaCells(): Array<{ row: number; col: number; src: string }> {
-    const index = this.ensureFormulaIndex();
+    const index = this.formulaRowCounts();
     const out: Array<{ row: number; col: number; src: string }> = [];
     for (let r = 0; r < this.data.length; r++) {
       if (index[r] === 0) {
@@ -559,13 +542,13 @@ export class Worksheet {
     if (!this.contains(row, col) || this.data[row][col] === input) {
       return false;
     }
-    if (this.formulaPerRow) {
-      const delta = (isFormula(input) ? 1 : 0) - (isFormula(this.data[row][col]) ? 1 : 0);
-      if (delta !== 0) {
-        this.formulaPerRow[row] += delta;
-      }
+    const was = isFormula(this.data[row][col]);
+    const now = isFormula(input);
+    if (this.formulaPerRow && was !== now) {
+      this.formulaPerRow[row] += now ? 1 : -1;
     }
     this.data[row][col] = input;
+    this.formulas.cellChanged(row, col, input, was, now);
     this.revision += 1;
     return true;
   }
@@ -580,6 +563,7 @@ export class Worksheet {
       return out;
     });
     this.data.splice(at, 0, ...prepared);
+    this.formulas.reset();
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
     this.rowHeights = insertRowHeights(this.rowHeights, at, prepared.length, heights);
     this.shiftAnnotationRows((row) => (row >= at ? row + prepared.length : row));
@@ -597,6 +581,7 @@ export class Worksheet {
   /** Remove rows and return their data (for undo; their cell styles are not preserved). */
   deleteRows(index: number, count: number): string[][] {
     const removed = this.data.splice(index, count);
+    this.formulas.reset();
     this.formulaPerRow?.splice(index, count);
     if (this.data.length === 0) {
       this.data.push(new Array<string>(this.cols).fill(''));
@@ -616,6 +601,7 @@ export class Worksheet {
   insertCols(index: number, colsData: string[][]): void {
     const count = colsData.length;
     const at = Math.max(0, Math.min(this.cols, index));
+    this.formulas.reset();
     for (let r = 0; r < this.data.length; r++) {
       const inserts = colsData.map((col) => col[r] ?? '');
       this.data[r].splice(at, 0, ...inserts);
@@ -636,6 +622,7 @@ export class Worksheet {
   /** Remove columns and return their data as column-major arrays (for undo; their cell styles are not preserved). */
   deleteCols(index: number, count: number): string[][] {
     const removed: string[][] = Array.from({ length: count }, () => []);
+    this.formulas.reset();
     for (let r = 0; r < this.data.length; r++) {
       const cut = this.data[r].splice(index, count);
       if (this.formulaPerRow) {
@@ -776,6 +763,7 @@ export class Worksheet {
     const source = this.data[row];
     if (source) {
       target.data[row] = source.slice();
+      target.formulas.reset();
     }
     this.styles.copyRowInto(row, target.styles);
     this.comments.copyRowInto(row, target.comments);

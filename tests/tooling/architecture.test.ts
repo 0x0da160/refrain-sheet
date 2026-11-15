@@ -113,10 +113,10 @@ describe('src/ architecture', () => {
       if (!m) return null;
       const path = m[1];
       if (path === 'formula/value.ts') return 0;
-      if (/^formula\/(criteria|date|text|text-format)\.ts$/.test(path)) return 1;
+      if (/^formula\/(columnar|criteria|date|text|text-format)\.ts$/.test(path)) return 1;
       if (path.startsWith('formula/functions/')) return 2;
       if (/^formula\/(refs|tokenizer|ref-toggle)\.ts$/.test(path)) return 3;
-      if (/^formula\/(parser|evaluator|rewrite|ref-scan|index)\.ts$/.test(path)) return 4;
+      if (/^formula\/(parser|evaluator|rewrite|ref-scan|template|index)\.ts$/.test(path)) return 4;
       if (path === 'formula/spill.ts') return 5;
       if (path.startsWith('workbook/')) return 6;
       throw new Error(`unranked formula-engine module: ${path}`);

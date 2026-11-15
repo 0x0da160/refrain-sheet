@@ -77,8 +77,9 @@ Two document kinds share one duck-typed editing surface (`EditorDocument`):
   [invariants.md](invariants.md).
 - **`RsfDocument`** (`kind: 'rsf'`) — a **workbook** of one or more
   `Worksheet`s (`src/core/workbook/worksheet.ts`). Cell inputs are the document;
-  formulas evaluate lazily with memoization and full memo invalidation per
-  mutation. Saved as a `.rsf` file — a JSON document compressed with
+  formulas evaluate lazily with memoization; a cell change invalidates the
+  results that can read that cell, any other mutation all of them (see
+  [invariants.md](invariants.md)). Saved as a `.rsf` file — a JSON document compressed with
   Zstandard (`src/core/workbook/rsf-codec.ts`; spec in
   [formats/rsf/index.md](../formats/rsf/index.md)); the binary format of
   releases up to 0.8.x (and `.rcsv`) is refused with an explanation.

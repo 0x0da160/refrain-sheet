@@ -245,6 +245,11 @@ exports[`core export surface > keeps every core module exporting the same names 
   "formula-value": [
     "EMPTY_VALUE",
     "ERROR_CODES",
+    "KIND_BOOLEAN",
+    "KIND_EMPTY",
+    "KIND_ERROR",
+    "KIND_NUMBER",
+    "KIND_STRING",
     "MAX_ARRAY_CELLS",
     "MAX_ARRAY_COLS",
     "MAX_ARRAY_ROWS",

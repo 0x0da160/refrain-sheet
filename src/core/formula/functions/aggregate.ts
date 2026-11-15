@@ -2,11 +2,13 @@
 /**
  * Aggregation, counting, and conditional aggregation (`SUMIFS` and friends).
  */
+import { type ColumnScan, columnOf, scanColumns } from '../columnar';
 import { type Criterion, matchesCriterion, parseCriterion } from '../criteria';
 import {
   booleanValue,
   coerceToBoolean,
   coerceToNumber,
+  type ColumnData,
   errorValue,
   flattenGrid,
   type FormulaValue,
@@ -39,8 +41,32 @@ const { defs, def } = functionGroup();
  * for `COUNTIFS`); a mismatch is `#VALUE!` rather than a silently misaligned
  * scan.
  */
-type PairList =
-  { ok: true; pairs: Array<{ grid: ValueGrid; criterion: Criterion }> } | { ok: false; error: FormulaValue };
+type PairList = { ok: true; pairs: CriteriaPair[] } | { ok: false; error: FormulaValue };
+
+/** A range to scan: its grid, and its typed column when it has one (see `../columnar.ts`). */
+interface ScanRange {
+  grid: ValueGrid;
+  column: ColumnData | null;
+}
+
+type CriteriaPair = ScanRange & { criterion: Criterion };
+
+/**
+ * Read a range argument for a scan, now: its typed column when it is one long
+ * worksheet column, otherwise its cells — at the same point, and so in the
+ * same order across arguments, as a plain `grid()` call reads them.
+ */
+function scanRangeOf(arg: FnArg): { ok: true; range: ScanRange } | { ok: false; error: FormulaValue } {
+  const g = arg.lazyGrid ? arg.lazyGrid() : gridOf(arg);
+  if (!g.ok) {
+    return g;
+  }
+  const column = columnOf(g.grid);
+  if (!column) {
+    void g.grid.cells;
+  }
+  return { ok: true, range: { grid: g.grid, column } };
+}
 
 function readCriteriaPairs(args: readonly FnArg[], from: number, shape: ValueGrid | null): PairList {
   const count = args.length - from;
@@ -50,15 +76,15 @@ function readCriteriaPairs(args: readonly FnArg[], from: number, shape: ValueGri
   if (count / 2 > MAX_CRITERIA_PAIRS) {
     return { ok: false, error: NUM_ERR };
   }
-  const pairs: Array<{ grid: ValueGrid; criterion: Criterion }> = [];
+  const pairs: CriteriaPair[] = [];
   let reference = shape;
   for (let i = from; i < args.length; i += 2) {
-    const g = gridOf(args[i]);
+    const g = scanRangeOf(args[i]);
     if (!g.ok) {
       return { ok: false, error: g.error };
     }
-    reference ??= g.grid;
-    if (!sameShape(g.grid, reference)) {
+    reference ??= g.range.grid;
+    if (!sameShape(g.range.grid, reference)) {
       return { ok: false, error: VALUE_ERR };
     }
     const criterionValue = args[i + 1].value();
@@ -69,7 +95,7 @@ function readCriteriaPairs(args: readonly FnArg[], from: number, shape: ValueGri
     if (!parsed.ok) {
       return { ok: false, error: VALUE_ERR };
     }
-    pairs.push({ grid: g.grid, criterion: parsed.criterion });
+    pairs.push({ ...g.range, criterion: parsed.criterion });
   }
   return { ok: true, pairs };
 }
@@ -80,7 +106,7 @@ function readCriteriaPairs(args: readonly FnArg[], from: number, shape: ValueGri
  * so it propagates instead of being silently skipped.
  */
 function scanCriteria(
-  pairs: Array<{ grid: ValueGrid; criterion: Criterion }>,
+  pairs: readonly CriteriaPair[],
   hit: (row: number, col: number) => FormulaValue | null,
 ): FormulaValue | null {
   const shape = pairs[0].grid;
@@ -108,11 +134,61 @@ function scanCriteria(
   return null;
 }
 
+/**
+ * Count the positions satisfying every criterion and tally `values` there:
+ * over typed columns when every range has one, cell by cell otherwise. The
+ * two compute the same thing (see `../columnar.ts`).
+ */
+function tallyMatches(pairs: readonly CriteriaPair[], values: ScanRange | null): ColumnScan {
+  const columns: Array<{ column: ColumnData; criterion: Criterion }> = [];
+  for (const pair of pairs) {
+    if (pair.column) {
+      columns.push({ column: pair.column, criterion: pair.criterion });
+    }
+  }
+  if (columns.length === pairs.length && (!values || values.column)) {
+    return scanColumns(columns, values ? values.column : null);
+  }
+  let hits = 0;
+  let total = 0;
+  let numbers = 0;
+  const error = scanCriteria(pairs, (r, c) => {
+    hits += 1;
+    if (!values) {
+      return null;
+    }
+    const v = values.grid.cells[r][c];
+    if (v.type === 'error') {
+      return v;
+    }
+    if (v.type === 'number') {
+      total += v.value;
+      numbers += 1;
+    } else if (v.type === 'boolean') {
+      total += v.value ? 1 : 0;
+      numbers += 1;
+    }
+    // Text and blanks contribute nothing, as in conventional spreadsheets.
+    return null;
+  });
+  return error ? { error } : { error: null, hits, total, numbers };
+}
+
+/** `COUNTIF` / `COUNTIFS`: how many positions satisfy every criterion. */
+function countMatches(args: readonly FnArg[]): FnResult {
+  const pairs = readCriteriaPairs(args, 0, null);
+  if (!pairs.ok) {
+    return pairs.error;
+  }
+  const found = tallyMatches(pairs.pairs, null);
+  return found.error ?? numberValue(found.hits);
+}
+
 /** `SUMIF` / `AVERAGEIF`: one criteria range, one criterion, one value range. */
 function singleCriteriaAggregate(args: readonly FnArg[], mode: 'sum' | 'average'): FnResult {
-  const criteriaGrid = gridOf(args[0]);
-  if (!criteriaGrid.ok) {
-    return criteriaGrid.error;
+  const criteria = scanRangeOf(args[0]);
+  if (!criteria.ok) {
+    return criteria.error;
   }
   const criterionValue = args[1].value();
   if (criterionValue.type === 'error') {
@@ -122,50 +198,30 @@ function singleCriteriaAggregate(args: readonly FnArg[], mode: 'sum' | 'average'
   if (!parsed.ok) {
     return VALUE_ERR;
   }
-  let valueGrid = criteriaGrid.grid;
+  let values = criteria.range;
   if (args.length >= 3 && !args[2].isOmitted()) {
-    const g = gridOf(args[2]);
+    const g = scanRangeOf(args[2]);
     if (!g.ok) {
       return g.error;
     }
-    if (!sameShape(g.grid, criteriaGrid.grid)) {
+    if (!sameShape(g.range.grid, criteria.range.grid)) {
       return VALUE_ERR;
     }
-    valueGrid = g.grid;
+    values = g.range;
   }
-  return reduceMatches([{ grid: criteriaGrid.grid, criterion: parsed.criterion }], valueGrid, mode);
+  return reduceMatches([{ ...criteria.range, criterion: parsed.criterion }], values, mode);
 }
 
-/** Sum or average the values of `valueGrid` at every matching position. */
-function reduceMatches(
-  pairs: Array<{ grid: ValueGrid; criterion: Criterion }>,
-  valueGrid: ValueGrid,
-  mode: 'sum' | 'average',
-): FnResult {
-  let total = 0;
-  let count = 0;
-  const err = scanCriteria(pairs, (r, c) => {
-    const v = valueGrid.cells[r][c];
-    if (v.type === 'error') {
-      return v;
-    }
-    if (v.type === 'number') {
-      total += v.value;
-      count += 1;
-    } else if (v.type === 'boolean') {
-      total += v.value ? 1 : 0;
-      count += 1;
-    }
-    // Text and blanks contribute nothing, as in conventional spreadsheets.
-    return null;
-  });
-  if (err) {
-    return err;
+/** Sum or average the values of `values` at every matching position. */
+function reduceMatches(pairs: readonly CriteriaPair[], values: ScanRange, mode: 'sum' | 'average'): FnResult {
+  const found = tallyMatches(pairs, values);
+  if (found.error) {
+    return found.error;
   }
   if (mode === 'sum') {
-    return numberValue(total);
+    return numberValue(found.total);
   }
-  return count === 0 ? DIV0_ERR : numberValue(total / count);
+  return found.numbers === 0 ? DIV0_ERR : numberValue(found.total / found.numbers);
 }
 
 // ----- Pre-existing aggregation (behaviour preserved exactly) -----
@@ -328,18 +384,7 @@ def({
   signature: 'COUNTIF(range, criterion)',
   example: '=COUNTIF(A1:A10, ">10")',
   category: 'conditional',
-  call: (args) => {
-    const pairs = readCriteriaPairs(args, 0, null);
-    if (!pairs.ok) {
-      return pairs.error;
-    }
-    let n = 0;
-    const err = scanCriteria(pairs.pairs, () => {
-      n += 1;
-      return null;
-    });
-    return err ?? numberValue(n);
-  },
+  call: countMatches,
 });
 
 def({
@@ -349,18 +394,7 @@ def({
   signature: 'COUNTIFS(range1, criterion1, …)',
   example: '=COUNTIFS(A1:A10, ">10", B1:B10, "yes")',
   category: 'conditional',
-  call: (args) => {
-    const pairs = readCriteriaPairs(args, 0, null);
-    if (!pairs.ok) {
-      return pairs.error;
-    }
-    let n = 0;
-    const err = scanCriteria(pairs.pairs, () => {
-      n += 1;
-      return null;
-    });
-    return err ?? numberValue(n);
-  },
+  call: countMatches,
 });
 
 def({
@@ -393,15 +427,15 @@ for (const name of ['SUMIFS', 'AVERAGEIFS'] as const) {
     example: `=${name}(C1:C10, A1:A10, ">10", B1:B10, "yes")`,
     category: 'conditional',
     call: (args) => {
-      const valueGrid = gridOf(args[0]);
-      if (!valueGrid.ok) {
-        return valueGrid.error;
+      const values = scanRangeOf(args[0]);
+      if (!values.ok) {
+        return values.error;
       }
-      const pairs = readCriteriaPairs(args, 1, valueGrid.grid);
+      const pairs = readCriteriaPairs(args, 1, values.range.grid);
       if (!pairs.ok) {
         return pairs.error;
       }
-      return reduceMatches(pairs.pairs, valueGrid.grid, mode);
+      return reduceMatches(pairs.pairs, values.range, mode);
     },
   });
 }

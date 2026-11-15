@@ -398,3 +398,16 @@ in the light, dark, and hybrid looks, open every image, and report what it
 shows. The images stay outside the repository. It also records how to launch
 the app (a built single file opened over `file://`). Listed it in
 `references/index.md`.
+
+## 2026-11-15
+
+**Recalculation follows the change; million-row demo and browser benchmark.**
+Added `operations/million-row-demo.md` (the deterministic sales-analysis
+workbook, its generator, the real-operation browser benchmark and the
+before/after numbers) and linked it from `operations/index.md`. Rewrote
+"Workbook-wide recalculation" in `architecture/invariants.md`: a cell change
+now drops only the results that can read that cell, with the cases that
+still recompute everything listed there. `architecture/dependency-rules.md`,
+`architecture/system-overview.md`, `architecture/module-boundaries.md` and
+`operations/performance-principles.md` name the new modules and
+`scripts/bench/`.

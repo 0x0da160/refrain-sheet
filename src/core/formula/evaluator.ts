@@ -17,6 +17,7 @@ import type { AstNode } from './parser';
 import {
   coerceToNumber,
   coerceToText,
+  type ColumnData,
   EMPTY_VALUE,
   errorValue,
   firstError,
@@ -74,6 +75,15 @@ export interface EvalContext {
    * {@link DEFAULT_DISPLAY_LANGUAGE}.
    */
   displayLanguage?: DisplayLanguageId;
+  /**
+   * Rows `top..bottom` of one worksheet column as typed arrays (see
+   * `ColumnData`), on `sheet` or — when it is undefined — on the current
+   * worksheet; null when it cannot be supplied. Optional: without it every
+   * range is read cell by cell through {@link getCell}, which computes the
+   * same results. The workbook supplies it so a scan over a very long range
+   * does not build one value object per cell.
+   */
+  readColumn?(sheet: string | undefined, col: number, top: number, bottom: number): ColumnData | null;
 }
 
 /**
@@ -97,9 +107,14 @@ function contextClock(ctx: EvalContext): FnContext {
  * When the formula produces an **array**, this returns its top-left value —
  * what the spill anchor itself displays. Use {@link evaluateAstArray} to get
  * the whole array for spilling.
+ *
+ * `rowShift` evaluates the formula as written `rowShift` rows further down:
+ * every row reference without a `$` moves by that many rows. It is how one
+ * parsed formula serves a whole column of filled-down copies (see
+ * `./template.ts`); 0 evaluates the formula exactly as parsed.
  */
-export function evaluateAst(ast: AstNode, ctx: EvalContext): FormulaValue {
-  const result = evalNode(ast, ctx);
+export function evaluateAst(ast: AstNode, ctx: EvalContext, rowShift = 0): FormulaValue {
+  const result = evalNode(ast, ctx, rowShift);
   if (result.kind === 'range') {
     return errorValue('#VALUE!');
   }
@@ -122,8 +137,9 @@ export function evaluateAst(ast: AstNode, ctx: EvalContext): FormulaValue {
 export function evaluateAstArray(
   ast: AstNode,
   ctx: EvalContext,
+  rowShift = 0,
 ): { value: FormulaValue; grid: ValueGrid | null } {
-  const result = evalNode(ast, ctx);
+  const result = evalNode(ast, ctx, rowShift);
   if (result.kind === 'range') {
     return { value: errorValue('#VALUE!'), grid: null };
   }
@@ -192,7 +208,7 @@ function cellReaderFor(
   return (row, col) => getSheetCell(sheet, row, col);
 }
 
-function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
+function evalNode(ast: AstNode, ctx: EvalContext, shift: number): EvalResult {
   switch (ast.kind) {
     case 'number':
       return scalar(numberValue(ast.value));
@@ -210,14 +226,16 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
       if (ast.sheet !== undefined && boundsFor(ast.sheet, ctx) === null) {
         return scalar(errorValue('#REF!'));
       }
-      return scalar(cellReaderFor(ast.sheet, ctx)(ast.row, ast.col));
+      return scalar(cellReaderFor(ast.sheet, ctx)(ast.absRow ? ast.row : ast.row + shift, ast.col));
     }
     case 'range': {
       if (ast.sheet !== undefined && boundsFor(ast.sheet, ctx) === null) {
         return scalar(errorValue('#REF!'));
       }
-      const top = Math.min(ast.from.row, ast.to.row);
-      const bottom = Math.max(ast.from.row, ast.to.row);
+      const fromRow = ast.from.absRow ? ast.from.row : ast.from.row + shift;
+      const toRow = ast.to.absRow ? ast.to.row : ast.to.row + shift;
+      const top = Math.min(fromRow, toRow);
+      const bottom = Math.max(fromRow, toRow);
       const left = Math.min(ast.from.col, ast.to.col);
       const right = Math.max(ast.from.col, ast.to.col);
       return range(top, bottom, left, right, ast.sheet);
@@ -238,12 +256,14 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
       if (!bounds) {
         return scalar(errorValue('#REF!'));
       }
-      const top = Math.min(ast.fromRow, ast.toRow);
-      const bottom = Math.min(Math.max(ast.fromRow, ast.toRow), bounds.rows - 1);
+      const fromRow = ast.absFrom ? ast.fromRow : ast.fromRow + shift;
+      const toRow = ast.absTo ? ast.toRow : ast.toRow + shift;
+      const top = Math.min(fromRow, toRow);
+      const bottom = Math.min(Math.max(fromRow, toRow), bounds.rows - 1);
       return range(top, bottom, 0, bounds.cols - 1, ast.sheet);
     }
     case 'unary': {
-      const operand = asScalar(evalNode(ast.operand, ctx));
+      const operand = asScalar(evalNode(ast.operand, ctx, shift));
       if (operand === null) {
         return scalar(errorValue('#VALUE!'));
       }
@@ -258,9 +278,9 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
       return scalar(numberValue(ast.op === '-' ? -n : n));
     }
     case 'binary':
-      return evalBinary(ast.op, ast.left, ast.right, ctx);
+      return evalBinary(ast.op, ast.left, ast.right, ctx, shift);
     case 'call':
-      return evalCall(ast.name, ast.args, ctx);
+      return evalCall(ast.name, ast.args, ctx, shift);
   }
 }
 
@@ -350,9 +370,15 @@ function materialize(
   return grid.ok ? { ok: true, value: grid.grid } : { ok: false, error: grid.error };
 }
 
-function evalBinary(op: string, leftAst: AstNode, rightAst: AstNode, ctx: EvalContext): EvalResult {
-  const leftResult = evalNode(leftAst, ctx);
-  const rightResult = evalNode(rightAst, ctx);
+function evalBinary(
+  op: string,
+  leftAst: AstNode,
+  rightAst: AstNode,
+  ctx: EvalContext,
+  shift: number,
+): EvalResult {
+  const leftResult = evalNode(leftAst, ctx, shift);
+  const rightResult = evalNode(rightAst, ctx, shift);
   if (COMPARISON_OPS.includes(op) && (leftResult.kind !== 'scalar' || rightResult.kind !== 'scalar')) {
     const a = materialize(leftResult, ctx);
     if (!a.ok) {
@@ -471,11 +497,75 @@ function compareResult(op: string, cmp: number, bool: (v: boolean) => FormulaVal
  * so the cache is invisible to (and never has to be wired up by) callers
  * that build a bare context — it simply never gets populated for them.
  *
- * The workbook is responsible for handing out one context per worksheet per
- * revision and dropping it on every mutation, which is what makes this
- * cache revision-scoped; see `rsf-document.ts`'s `evalContexts` field.
+ * The workbook is responsible for handing out one context per worksheet and
+ * for keeping this cache true: it drops the context on any mutation it does
+ * not follow cell by cell, and after a plain cell change it drops the ranges
+ * that change can have touched ({@link dropCachedRanges}); see
+ * `RecalcEngine`'s `evalContexts` field.
  */
-const rangeGridCaches = new WeakMap<EvalContext, Map<string, GridResult>>();
+const rangeGridCaches = new WeakMap<EvalContext, Map<string, CachedRange>>();
+
+/** One cached range: where it is, and its grid. */
+interface CachedRange {
+  sheet: string | undefined;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  result: GridResult;
+}
+
+/**
+ * Forget the cached range grids of `ctx` that `stale` says no longer hold
+ * what their cells evaluate to (`sheet` is the worksheet name as written, or
+ * undefined for the context's own worksheet). The workbook calls this for a
+ * context it keeps across a change that touched only some cells.
+ */
+export function dropCachedRanges(
+  ctx: EvalContext,
+  stale: (sheet: string | undefined, top: number, bottom: number, left: number, right: number) => boolean,
+): void {
+  const cache = rangeGridCaches.get(ctx);
+  if (!cache) {
+    return;
+  }
+  for (const [key, range] of cache) {
+    if (stale(range.sheet, range.top, range.bottom, range.left, range.right)) {
+      cache.delete(key);
+    }
+  }
+}
+
+/** A single-column range at least this long is also offered as a typed column. */
+const MIN_COLUMN_ROWS = 1024;
+
+/**
+ * A worksheet range as a grid whose cells are read on first use.
+ *
+ * Reading is what it always was — every cell through the context's cell
+ * reader, in row-major order — only deferred, so a function that scans the
+ * range through {@link column} never pays for a value object per cell.
+ * `FnArg.grid()` touches `cells` at once, which keeps every other function
+ * reading its ranges exactly when it did before.
+ */
+class RangeGrid implements ValueGrid {
+  private built: FormulaValue[][] | null = null;
+
+  constructor(
+    readonly rows: number,
+    readonly cols: number,
+    private readonly read: () => FormulaValue[][],
+    private readonly typed: (() => ColumnData | null) | null,
+  ) {}
+
+  get cells(): FormulaValue[][] {
+    return (this.built ??= this.read());
+  }
+
+  column(): ColumnData | null {
+    return this.typed ? this.typed() : null;
+  }
+}
 
 /**
  * Materialize a range result as a grid, bounded by {@link MAX_RANGE_CELLS}.
@@ -498,37 +588,54 @@ function rangeToGrid(result: Extract<EvalResult, { kind: 'range' }>, ctx: EvalCo
   let cache = rangeGridCaches.get(ctx);
   const cached = cache?.get(cacheKey);
   if (cached) {
-    return cached;
+    return cached.result;
   }
+  if (!cache) {
+    cache = new Map();
+    rangeGridCaches.set(ctx, cache);
+  }
+  const ranges = cache;
   const readCell = cellReaderFor(sheet, ctx);
-  const cells: FormulaValue[][] = [];
-  // A cell still on the in-progress stack (a self-reference read through this
-  // range, typically caught by IFERROR) reads back as a transient #CYCLE!
-  // placeholder that is never what the cell settles to. Such a grid must not
-  // be cached under the range's key, or a later, independent read of the same
-  // range would see the placeholder instead of the cell's real, memoized
-  // value — see the "self-referential range" regression test.
-  let sawTransientCycle = false;
-  for (let r = top; r <= bottom; r++) {
-    const row: FormulaValue[] = [];
-    for (let c = left; c <= right; c++) {
-      const value = readCell(r, c);
-      if (value.type === 'error' && value.code === '#CYCLE!') {
-        sawTransientCycle = true;
+  const read = (): FormulaValue[][] => {
+    const cells: FormulaValue[][] = [];
+    // A cell still on the in-progress stack (a self-reference read through this
+    // range, typically caught by IFERROR) reads back as a transient #CYCLE!
+    // placeholder that is never what the cell settles to. Such a grid must not
+    // stay cached under the range's key, or a later, independent read of the
+    // same range would see the placeholder instead of the cell's real, memoized
+    // value — see the "self-referential range" regression test.
+    let sawTransientCycle = false;
+    for (let r = top; r <= bottom; r++) {
+      const row: FormulaValue[] = [];
+      for (let c = left; c <= right; c++) {
+        const value = readCell(r, c);
+        if (value.type === 'error' && value.code === '#CYCLE!') {
+          sawTransientCycle = true;
+        }
+        row.push(value);
       }
-      row.push(value);
+      cells.push(row);
     }
-    cells.push(row);
-  }
-  const built: GridResult = { ok: true, grid: makeGrid(cells) };
-  if (!sawTransientCycle) {
-    if (!cache) {
-      cache = new Map();
-      rangeGridCaches.set(ctx, cache);
+    if (sawTransientCycle && ranges.get(cacheKey) === entry) {
+      ranges.delete(cacheKey);
     }
-    cache.set(cacheKey, built);
-  }
-  return built;
+    return cells;
+  };
+  const readColumn = ctx.readColumn;
+  const typed =
+    readColumn && left === right && bottom - top + 1 >= MIN_COLUMN_ROWS
+      ? () => readColumn.call(ctx, sheet, left, top, bottom)
+      : null;
+  const entry: CachedRange = {
+    sheet,
+    top,
+    bottom,
+    left,
+    right,
+    result: { ok: true, grid: new RangeGrid(bottom - top + 1, right - left + 1, read, typed) },
+  };
+  ranges.set(cacheKey, entry);
+  return entry.result;
 }
 
 /**
@@ -540,31 +647,40 @@ function rangeToGrid(result: Extract<EvalResult, { kind: 'range' }>, ctx: EvalCo
  * a function reading the same argument as both a value and a grid evaluates
  * it once.
  */
-function makeArg(node: AstNode, ctx: EvalContext): FnArg {
+function makeArg(node: AstNode, ctx: EvalContext, shift: number): FnArg {
   let evaluated: EvalResult | null = null;
-  const resolve = (): EvalResult => (evaluated ??= evalNode(node, ctx));
+  const resolve = (): EvalResult => (evaluated ??= evalNode(node, ctx, shift));
   let gridCache: GridResult | null = null;
   const isRangeNode = node.kind === 'range' || node.kind === 'colrange' || node.kind === 'rowrange';
+  const lazyGrid = (): GridResult => {
+    if (gridCache) {
+      return gridCache;
+    }
+    const result = resolve();
+    if (result.kind === 'range') {
+      gridCache = rangeToGrid(result, ctx);
+    } else if (result.kind === 'grid') {
+      gridCache = { ok: true, grid: result.grid };
+    } else if (result.value.type === 'error') {
+      gridCache = { ok: false, error: result.value };
+    } else {
+      gridCache = { ok: true, grid: scalarGrid(result.value) };
+    }
+    return gridCache;
+  };
   return {
     value(): FormulaValue {
       return asScalar(resolve()) ?? errorValue('#VALUE!');
     },
     grid(): GridResult {
-      if (gridCache) {
-        return gridCache;
+      const result = lazyGrid();
+      if (result.ok) {
+        // Read a range's cells now, as this call always has (see RangeGrid).
+        void result.grid.cells;
       }
-      const result = resolve();
-      if (result.kind === 'range') {
-        gridCache = rangeToGrid(result, ctx);
-      } else if (result.kind === 'grid') {
-        gridCache = { ok: true, grid: result.grid };
-      } else if (result.value.type === 'error') {
-        gridCache = { ok: false, error: result.value };
-      } else {
-        gridCache = { ok: true, grid: scalarGrid(result.value) };
-      }
-      return gridCache;
+      return result;
     },
+    lazyGrid,
     isRange(): boolean {
       return isRangeNode;
     },
@@ -582,7 +698,7 @@ function makeArg(node: AstNode, ctx: EvalContext): FnArg {
  * A grid result becomes a `grid` evaluation result, which the workbook turns
  * into a spill. Everything else is a scalar.
  */
-function evalCall(name: string, args: AstNode[], ctx: EvalContext): EvalResult {
+function evalCall(name: string, args: AstNode[], ctx: EvalContext, shift: number): EvalResult {
   const fn = lookupFunction(name);
   if (!fn) {
     return scalar(errorValue('#NAME?'));
@@ -590,7 +706,7 @@ function evalCall(name: string, args: AstNode[], ctx: EvalContext): EvalResult {
   if (args.length < fn.minArgs || args.length > fn.maxArgs) {
     return scalar(errorValue('#ERROR!'));
   }
-  const accessors = args.map((node) => makeArg(node, ctx));
+  const accessors = args.map((node) => makeArg(node, ctx, shift));
   let result: FnResult;
   try {
     result = fn.call(accessors, contextClock(ctx));

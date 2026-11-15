@@ -9,8 +9,11 @@
  * and persisted settings while every derived (never persisted) value lives
  * here. The rules it implements are documented on `RsfDocument` and in
  * knowledge/architecture/invariants.md ("Workbook-wide recalculation"):
- * any mutation anywhere invalidates everything, and results are recomputed
- * lazily on next access — there is no dependency graph and no timer.
+ * results are recomputed lazily on next access and there is no timer. A
+ * change to one cell's input drops the results that can read that cell
+ * ({@link invalidate} with the cell, see `recalc-dependents.ts`); any other
+ * mutation, and any workbook the narrow rule does not cover, drops
+ * everything.
  */
 import {
   errorValue,
@@ -20,16 +23,18 @@ import {
   literalToValue,
   type EvalContext,
 } from '../formula';
+import { dropCachedRanges } from '../formula/evaluator';
 import {
   buildSpillMap,
-  canSpill,
   cellKey,
   EMPTY_SPILL_MAP,
   isEmptySpillMap,
   type SpillAnchor,
   type SpillMap,
 } from '../formula/spill';
-import type { FormulaValue, ValueGrid } from '../formula/value';
+import type { ColumnData, FormulaValue, ValueGrid } from '../formula/value';
+import { CellMemo } from './cell-memo';
+import { ColumnStore } from './column-store';
 import {
   colorScaleColor,
   colorScaleRange,
@@ -40,6 +45,8 @@ import {
   type ConditionalFormatStyle,
 } from './conditional-format';
 import type { DisplayLanguageId } from './display-language';
+import type { FormulaRun } from './formula-runs';
+import { type CellRect, formulaCellsReading } from './recalc-dependents';
 import { timeZoneOffsetMs } from './timezone';
 import type { Worksheet } from './worksheet';
 
@@ -57,21 +64,60 @@ export interface RecalcHost {
   readonly revisionCounter: number;
 }
 
+/** One cell whose input changed: the only kind of mutation the engine can follow narrowly. */
+export interface CellChange {
+  sheet: Worksheet;
+  row: number;
+  col: number;
+}
+
 /** Cached per-rule statistics — see {@link RecalcEngine.conditionalFormatStats}. */
 type ConditionalFormatRuleStats =
   { kind: 'duplicate'; keys: Set<string> } | { kind: 'colorScale'; min: number; max: number };
 
+/** Stands in the memo for a cell that is being evaluated; reading it is a circular reference. */
+const EVALUATING: FormulaValue = { type: 'error', code: '#CYCLE!' };
+
+/**
+ * Cell changes followed one by one before the engine gives up and drops
+ * everything: a paste or fill of this many cells is cheaper to recompute than
+ * to trace.
+ */
+const MAX_TRACKED_CHANGES = 2000;
+
+/** Run checks one narrow invalidation may spend (see `formulaCellsReading`). */
+const DEPENDENT_SEARCH_BUDGET = 2_000_000;
+
 export class RecalcEngine {
   /**
-   * Workbook-wide evaluation memo, keyed by worksheet id + cell. Cleared by
-   * every mutation (see {@link invalidate}) because a cross-sheet reference
-   * means a change in one worksheet can invalidate a formula in another.
+   * Workbook-wide evaluation memo, per worksheet. Dropped whole by any
+   * mutation that is not a plain cell change (see {@link invalidate}),
+   * because a cross-sheet reference means a change in one worksheet can
+   * invalidate a formula in another.
    */
-  private memo = new Map<string, FormulaValue>();
-  /** Cells currently being evaluated; a re-entry is a circular reference. */
-  private readonly inProgress = new Set<string>();
-  /** Per-worksheet evaluation contexts, rebuilt after any mutation. */
-  private evalContexts = new Map<string, EvalContext>();
+  private memo = new Map<Worksheet, CellMemo<FormulaValue>>();
+  /** Array formulas being evaluated for the spill maps; a re-entry is a circular reference. */
+  private readonly spilling = new Set<string>();
+  /** Per-worksheet evaluation contexts, rebuilt after any full invalidation. */
+  private evalContexts = new Map<Worksheet, EvalContext>();
+  /** Typed copies of the columns long ranges scan (see `column-store.ts`), per worksheet and column. */
+  private columns = new Map<Worksheet, Array<ColumnStore | undefined>>();
+  /**
+   * Cell changes since the last evaluation, not yet applied to the memo.
+   * Applying them is deferred to the next read ({@link settle}), so a burst
+   * of edits is traced once.
+   */
+  private changes: CellChange[] = [];
+  /** When the latest of {@link changes} was made: the instant the clock advances to. */
+  private changedAt = 0;
+  /**
+   * True once an evaluation met a circular reference since the memo was last
+   * dropped whole. What a cell on a cycle shows depends on which cell was
+   * asked first, so results kept across a change could differ from a fresh
+   * recalculation; with this set, the next change drops everything, exactly
+   * as every change used to.
+   */
+  private sawCycle = false;
 
   /**
    * Per-worksheet dynamic-array spill maps, rebuilt lazily after any mutation.
@@ -108,24 +154,33 @@ export class RecalcEngine {
    * fixed so that all of them agree within one recalculation.
    *
    * It advances at exactly three moments: when the workbook is created or
-   * loaded, on any mutation (which invalidates the memo anyway), and when
-   * {@link recalculate} is called explicitly. There is deliberately **no
-   * background timer**: an idle workbook never recalculates on its own, so a
-   * left-open tab cannot burn CPU or make a document appear to change by
-   * itself.
+   * loaded, on any mutation (which invalidates every volatile formula and
+   * whatever reads it), and when {@link recalculate} is called explicitly.
+   * There is deliberately **no background timer**: an idle workbook never
+   * recalculates on its own, so a left-open tab cannot burn CPU or make a
+   * document appear to change by itself.
    */
   private clockMs = Date.now();
 
   constructor(private readonly host: RecalcHost) {}
 
   /**
-   * Drop every derived value after a mutation. The spill maps are dropped,
-   * not rebuilt: the next evaluation rebuilds them lazily, so a burst of
-   * edits costs one spill rebuild rather than one per edit. A mutation is a
+   * Drop the derived values a mutation may have changed. A mutation is a
    * recalculation event, so volatile functions advance here too.
+   *
+   * With `change` — one cell's input was replaced, nothing else — only what
+   * can read that cell is dropped, on the next evaluation ({@link settle}).
+   * Without it everything is dropped. Either way the spill maps and results
+   * are rebuilt lazily, so a burst of edits costs one rebuild rather than one
+   * per edit.
    */
-  invalidate(): void {
-    this.recalculate();
+  invalidate(change?: CellChange): void {
+    if (change && this.changes.length < MAX_TRACKED_CHANGES) {
+      this.changes.push(change);
+      this.changedAt = Date.now();
+    } else {
+      this.recalculate();
+    }
   }
 
   /**
@@ -134,20 +189,162 @@ export class RecalcEngine {
    * `TODAY()` in an untouched workbook changes.
    */
   recalculate(): void {
-    this.clockMs = Date.now();
+    this.dropAll(Date.now());
+  }
+
+  /** Drop every derived value and set the clock to `now`. */
+  private dropAll(now: number): void {
+    this.clockMs = now;
     this.memo = new Map();
     this.evalContexts = new Map();
+    this.columns = new Map();
+    this.changes = [];
+    this.sawCycle = false;
     this.spillMaps = null;
+  }
+
+  /**
+   * Apply the cell changes recorded since the last evaluation: drop exactly
+   * the results that can read a changed cell, or everything when the
+   * workbook is one the narrow rule does not cover.
+   *
+   * The narrow rule covers a workbook whose every formula result is a pure
+   * function of the cells it names: no dynamic array placed or blocked (a
+   * spill's reach depends on which cells are empty) — before the change and,
+   * checked on the formulas the change reaches, after it ({@link spillsIn});
+   * no circular reference seen (see {@link sawCycle}); and no formula outside
+   * the run index. Volatile formulas are handled inside it: each one counts
+   * as changed on every mutation, which is what "the clock advances on any
+   * mutation" means.
+   */
+  private settle(): void {
+    const changes = this.changes;
+    this.changes = [];
+    if (!this.spillMaps) {
+      // Nothing has been evaluated since everything was last dropped.
+      this.dropAll(this.changedAt);
+      return;
+    }
+    let narrow = !this.sawCycle;
+    const changed: CellRect[] = changes.map(({ sheet, row, col }) => ({
+      sheet,
+      top: row,
+      bottom: row,
+      left: col,
+      right: col,
+    }));
+    for (const sheet of this.host.sheets) {
+      narrow &&=
+        !sheet.formulas.hasStrays && isEmptySpillMap(this.spillMaps.get(sheet.id) ?? EMPTY_SPILL_MAP);
+      for (const column of narrow ? sheet.formulas.runs() : []) {
+        for (const run of column) {
+          if (run.template.volatile) {
+            changed.push({ sheet, top: run.start, bottom: run.end, left: run.col, right: run.col });
+          }
+        }
+      }
+    }
+    const reached = narrow
+      ? formulaCellsReading(
+          changed,
+          this.host.sheets,
+          (name) => this.host.sheetByName(name),
+          DEPENDENT_SEARCH_BUDGET,
+        )
+      : null;
+    if (!reached) {
+      this.dropAll(this.changedAt);
+      return;
+    }
+    const stale = changed.concat(reached);
+    this.clockMs = this.changedAt;
+    for (const [sheet, ctx] of this.evalContexts) {
+      ctx.nowMs = this.nowFor();
+      dropCachedRanges(ctx, (name, top, bottom, left, right) => {
+        const target = name === undefined ? sheet : this.host.sheetByName(name);
+        return stale.some(
+          (rect) =>
+            rect.sheet === target &&
+            rect.top <= bottom &&
+            rect.bottom >= top &&
+            rect.left <= right &&
+            rect.right >= left,
+        );
+      });
+    }
+    for (const rect of stale) {
+      const memo = this.memo.get(rect.sheet);
+      const stores = this.columns.get(rect.sheet);
+      for (let col = rect.left; col <= rect.right; col++) {
+        memo?.clearRows(col, rect.top, rect.bottom);
+        stores?.[col]?.invalidate(rect.top, rect.bottom);
+      }
+    }
+    if (this.spillsIn(stale)) {
+      this.dropAll(this.changedAt);
+    }
+  }
+
+  /**
+   * True when a formula in `stale` now returns an array, so the (empty) spill
+   * maps no longer describe the workbook — or when finding that out met a
+   * circular reference, after which nothing kept can be trusted either.
+   *
+   * Only formulas that could return an array at all are evaluated (`IFERROR`
+   * and `INDEX` can, so this is what lets a workbook that uses them without
+   * ever spilling be followed narrowly), and only the ones the change
+   * reached: every other formula reads no changed cell, so it still returns
+   * what it returned when the maps were built.
+   */
+  private spillsIn(stale: readonly CellRect[]): boolean {
+    for (const { sheet, top, bottom, left, right } of stale) {
+      for (let col = left; col <= right; col++) {
+        for (const run of sheet.formulas.runsBetween(col, top, bottom)) {
+          const parsed = run.template.parsed;
+          if (!run.template.canSpill || !parsed.ok) {
+            continue;
+          }
+          const last = Math.min(run.end, bottom);
+          for (let row = Math.max(run.start, top); row <= last; row++) {
+            const key = `${sheet.id}|${row},${col}`;
+            this.spilling.add(key);
+            try {
+              const { grid } = evaluateAstArray(parsed.ast, this.contextFor(sheet), row - run.baseRow);
+              if (grid || this.sawCycle) {
+                return true;
+              }
+            } finally {
+              this.spilling.delete(key);
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /** The volatile functions' clock, in the workbook's timezone (see {@link contextFor}). */
+  private nowFor(): number {
+    return this.clockMs + timeZoneOffsetMs(this.clockMs, this.host.timezone);
   }
 
   // ----- Evaluation -----
 
   /**
-   * Evaluate a cell on a worksheet. Formula results are memoized until the
-   * next mutation; circular references — including ones that travel through
-   * another worksheet — resolve to #CYCLE! instead of recursing forever.
+   * Evaluate a cell on a worksheet. Formula results are memoized until a
+   * mutation that can change them; circular references — including ones that
+   * travel through another worksheet — resolve to #CYCLE! instead of
+   * recursing forever.
    */
   evaluate(sheet: Worksheet, row: number, col: number): FormulaValue {
+    if (this.changes.length > 0) {
+      this.settle();
+    }
+    return this.read(sheet, row, col);
+  }
+
+  /** {@link evaluate} once the recorded changes are applied (every nested read comes here). */
+  private read(sheet: Worksheet, row: number, col: number): FormulaValue {
     if (!sheet.contains(row, col)) {
       // References outside the worksheet behave like empty cells.
       return { type: 'empty' };
@@ -172,28 +369,46 @@ export class RecalcEngine {
         return anchor.grid.cells[0][0];
       }
     }
-    const key = `${sheet.id}|${row},${col}`;
-    const cached = this.memo.get(key);
-    if (cached) {
+    const memo = this.memoFor(sheet);
+    const cached = memo.get(row, col);
+    if (cached !== undefined) {
+      if (cached === EVALUATING) {
+        this.sawCycle = true;
+        return errorValue('#CYCLE!');
+      }
       return cached;
     }
-    if (this.inProgress.has(key)) {
+    if (this.spilling.size > 0 && this.spilling.has(`${sheet.id}|${row},${col}`)) {
+      this.sawCycle = true;
       return errorValue('#CYCLE!');
     }
-    const compiled = sheet.compiled(row, col, input);
+    // A filled-down formula shares the parsed form of the run it belongs to,
+    // evaluated for this cell's row (see formula-runs.ts).
+    const run = sheet.formulas.runAt(row, col);
+    const parsed = run ? run.template.parsed : sheet.formulas.stray(row, col, input);
     let result: FormulaValue;
-    if (!compiled.parsed.ok) {
-      result = errorValue(compiled.parsed.code);
+    if (!parsed.ok) {
+      result = errorValue(parsed.code);
     } else {
-      this.inProgress.add(key);
+      memo.set(row, col, EVALUATING);
       try {
-        result = evaluateAst(compiled.parsed.ast, this.contextFor(sheet));
-      } finally {
-        this.inProgress.delete(key);
+        result = evaluateAst(parsed.ast, this.contextFor(sheet), run ? row - run.baseRow : 0);
+      } catch (err) {
+        memo.set(row, col, undefined);
+        throw err;
       }
     }
-    this.memo.set(key, result);
+    memo.set(row, col, result);
     return result;
+  }
+
+  private memoFor(sheet: Worksheet): CellMemo<FormulaValue> {
+    let memo = this.memo.get(sheet);
+    if (!memo) {
+      memo = new CellMemo();
+      this.memo.set(sheet, memo);
+    }
+    return memo;
   }
 
   /** The dynamic-array value an empty cell carries, if a spill covers it. */
@@ -213,21 +428,21 @@ export class RecalcEngine {
   /**
    * The evaluation context for one worksheet: unqualified references resolve
    * against it, and worksheet-qualified references resolve by name through the
-   * workbook — sharing this workbook's memo and in-progress set, which is what
-   * makes cross-worksheet cycles detectable.
+   * workbook — sharing this workbook's memo, which is what makes
+   * cross-worksheet cycles detectable.
    */
   private contextFor(sheet: Worksheet): EvalContext {
-    const existing = this.evalContexts.get(sheet.id);
+    const existing = this.evalContexts.get(sheet);
     if (existing) {
       return existing;
     }
     const ctx: EvalContext = {
-      getCell: (r, c) => this.evaluate(sheet, r, c),
+      getCell: (r, c) => this.read(sheet, r, c),
       rowCount: sheet.rowCount,
       columnCount: sheet.columnCount,
       getSheetCell: (name, r, c) => {
         const target = this.host.sheetByName(name);
-        return target ? this.evaluate(target, r, c) : errorValue('#REF!');
+        return target ? this.read(target, r, c) : errorValue('#REF!');
       },
       getSheetBounds: (name) => {
         const target = this.host.sheetByName(name);
@@ -236,11 +451,29 @@ export class RecalcEngine {
       // Shifted by the workbook's own timezone offset (0 for UTC) before it
       // ever reaches formula/date.ts, which does pure UTC math on whatever
       // instant it is handed — see that module's "Timezone policy".
-      nowMs: this.clockMs + timeZoneOffsetMs(this.clockMs, this.host.timezone),
+      nowMs: this.nowFor(),
       displayLanguage: this.host.displayLanguage,
+      readColumn: (name, col, top, bottom) => {
+        const target = name === undefined ? sheet : this.host.sheetByName(name);
+        return target ? this.columnOf(target, col, top, bottom) : null;
+      },
     };
-    this.evalContexts.set(sheet.id, ctx);
+    this.evalContexts.set(sheet, ctx);
     return ctx;
+  }
+
+  /** Rows `top..bottom` of one worksheet column as typed arrays (see `column-store.ts`). */
+  private columnOf(sheet: Worksheet, col: number, top: number, bottom: number): ColumnData | null {
+    if (col >= sheet.columnCount || this.buildingSpill) {
+      return null;
+    }
+    let stores = this.columns.get(sheet);
+    if (!stores) {
+      stores = [];
+      this.columns.set(sheet, stores);
+    }
+    const store = (stores[col] ??= new ColumnStore(sheet.rowCount));
+    return store.view(top, bottom, (row) => this.read(sheet, row, col));
   }
 
   // ----- Dynamic arrays (spill) -----
@@ -261,6 +494,14 @@ export class RecalcEngine {
       this.buildSpillMaps();
     }
     return this.spillMaps?.get(sheet.id) ?? EMPTY_SPILL_MAP;
+  }
+
+  /** {@link spillFor} for a caller outside evaluation: recorded changes are applied first. */
+  private settledSpillFor(sheet: Worksheet): SpillMap {
+    if (this.changes.length > 0) {
+      this.settle();
+    }
+    return this.spillFor(sheet);
   }
 
   /**
@@ -295,37 +536,50 @@ export class RecalcEngine {
     }
     this.memo = new Map();
     this.evalContexts = new Map();
+    this.columns = new Map();
     this.spillMaps = maps;
   }
 
   /**
    * The array results of one worksheet's formulas, in row-major order.
    *
-   * {@link canSpill} rejects any formula that cannot possibly return an array
-   * before it is evaluated, so a worksheet of ordinary formulas costs one
-   * cheap AST walk each and no evaluation at all.
+   * `canSpill` rejects any formula that cannot possibly return an array
+   * before it is evaluated. It is asked once per run of filled-down formulas
+   * (see formula-runs.ts), so a worksheet of ordinary formulas costs one
+   * cheap AST walk per distinct formula and no evaluation at all.
    */
   private evaluateArrayFormulas(
     sheet: Worksheet,
   ): Array<{ row: number; col: number; grid: ValueGrid | null }> {
+    const cells: Array<{ row: number; run: FormulaRun }> = [];
+    for (const runs of sheet.formulas.runs()) {
+      for (const run of runs) {
+        if (run.template.canSpill && run.template.parsed.ok) {
+          for (let row = run.start; row <= run.end; row++) {
+            cells.push({ row, run });
+          }
+        }
+      }
+    }
+    cells.sort((a, b) => a.row - b.row || a.run.col - b.run.col);
     const out: Array<{ row: number; col: number; grid: ValueGrid | null }> = [];
-    for (const { row, col, src } of sheet.listFormulaCells()) {
-      const compiled = sheet.compiled(row, col, src);
-      if (!compiled.parsed.ok || !canSpill(compiled.parsed.ast)) {
+    for (const { row, run } of cells) {
+      const parsed = run.template.parsed;
+      if (!parsed.ok) {
         continue;
       }
-      // The same in-progress guard ordinary evaluation uses, so a self-
+      // An in-progress guard like ordinary evaluation's, so a self-
       // referential array formula resolves to #CYCLE! instead of recursing.
-      const key = `${sheet.id}|${row},${col}`;
-      if (this.inProgress.has(key)) {
+      const key = `${sheet.id}|${row},${run.col}`;
+      if (this.spilling.has(key)) {
         continue;
       }
-      this.inProgress.add(key);
+      this.spilling.add(key);
       try {
-        const { grid } = evaluateAstArray(compiled.parsed.ast, this.contextFor(sheet));
-        out.push({ row, col, grid });
+        const { grid } = evaluateAstArray(parsed.ast, this.contextFor(sheet), row - run.baseRow);
+        out.push({ row, col: run.col, grid });
       } finally {
-        this.inProgress.delete(key);
+        this.spilling.delete(key);
       }
     }
     return out;
@@ -333,7 +587,7 @@ export class RecalcEngine {
 
   /** The spill anchor covering a cell, whether the cell is the anchor or derived. */
   spillAnchorAt(sheet: Worksheet, row: number, col: number): SpillAnchor | null {
-    const spill = this.spillFor(sheet);
+    const spill = this.settledSpillFor(sheet);
     const key = cellKey(row, col);
     const direct = spill.anchors.get(key);
     if (direct) {
@@ -345,12 +599,12 @@ export class RecalcEngine {
 
   /** True when a cell holds a *derived* dynamic-array value — part of a spill but not its anchor. */
   isSpillDerivedCell(sheet: Worksheet, row: number, col: number): boolean {
-    return this.spillFor(sheet).derived.has(cellKey(row, col));
+    return this.settledSpillFor(sheet).derived.has(cellKey(row, col));
   }
 
   /** True when the worksheet has any dynamic array at all (placed or blocked). */
   hasSpills(sheet: Worksheet): boolean {
-    return !isEmptySpillMap(this.spillFor(sheet));
+    return !isEmptySpillMap(this.settledSpillFor(sheet));
   }
 
   // ----- Conditional formatting -----

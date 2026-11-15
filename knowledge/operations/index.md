@@ -21,3 +21,7 @@ Refrain Sheet.
   reproduce the benchmark suite, and the measured numbers for a specific
   revision. Time-sensitive: re-run `npm run bench` before relying on the
   numbers for a new decision.
+- [Million-row demo workbook and browser benchmark](million-row-demo.md) —
+  the deterministic sales-analysis workbook (one million detail rows), how
+  to generate it, the real-operation browser benchmark, and the
+  before/after numbers of the 2026-11 recalculation work. Time-sensitive.

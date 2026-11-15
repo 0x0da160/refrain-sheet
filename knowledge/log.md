@@ -411,3 +411,10 @@ still recompute everything listed there. `architecture/dependency-rules.md`,
 `architecture/system-overview.md`, `architecture/module-boundaries.md` and
 `operations/performance-principles.md` name the new modules and
 `scripts/bench/`.
+
+**Filter header rows count apart; million-row results.** A filter's header row
+no longer counts against `MAX_FILTER_ROWS`, so a whole million-row sheet with a
+header can be filtered (`src/core/workbook/filter.ts`, `src/app/commands/filter.ts`).
+This changes which `.rsf` files the reader accepts, so it is a separate commit for
+review. `operations/million-row-demo.md` now has a same-batch comparison with
+v0.9.40, and every step passes at one million rows in all three runs.

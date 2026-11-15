@@ -126,44 +126,73 @@ to measure (to compare two revisions, build each into its own folder), and
 
 Machine: 4 vCPU (Intel Xeon, 2.10 GHz), 16 GB of memory, Linux 6.18;
 Chromium 153.0.8010.12 (headless); Node 22.23.4. "Before" is v0.9.40
-(commit 77f79a4), "after" is the same tree with the recalculation change.
-Both builds ran the same script on the same generated files, one after the
-other, in alternation. The one-million-row workbook ran twice per build and
-both values are shown; the smaller ones ran five times and show the median
-and the range. ✗ marks a step that failed in every run (see "Known
-limits"). The last column is the longest single main-thread task seen in
-any run; 0 means no task reached 50 ms.
+(commit 77f79a4). At one million rows, "after" is the final tree (commit
+567aef9). The two builds ran the same script on the same generated file, one
+after the other, three rounds each, in one batch. The 100,000- and
+10,000-row tables are from the recalculation commit (b65925a), five rounds
+each. The final commit changes only the filter row limit, which those sizes
+never reach, but those two tables were not measured again on the final tree.
+Each table shows the median of its runs and, in brackets, the lowest and the
+highest. ✗ marks a step that failed in at least one run. The last column is
+the longest single main-thread task seen in any run; 0 means no task reached
+50 ms.
 
-### 1,000,000 data rows (before: 2 runs, after: 2 runs)
+### 1,000,000 data rows (before: 3 runs, after: 3 runs)
 
-| Step                                             | Scope     |     Before (ms) |      After (ms) | Longest main-thread task, before → after (ms) |
-| ------------------------------------------------ | --------- | --------------: | --------------: | --------------------------------------------: |
-| open: first rows on screen                       | all rows  | 13,811 / 14,014 |   4,988 / 4,939 |                                13,753 → 4,936 |
-| open: accepts a key press                        | on screen |         22 / 16 |         18 / 15 |                                         0 → 0 |
-| move: to the last row                            | on screen |         62 / 68 |         64 / 54 |                                       59 → 58 |
-| move: to the middle row                          | on screen |        114 / 81 |         58 / 59 |                                      105 → 54 |
-| move: back to the first row                      | on screen |         68 / 98 |         71 / 65 |                                        58 → 0 |
-| search: one slip number (1 match)                | all rows  |     1,004 / 718 |     1,206 / 890 |                                   881 → 1,083 |
-| search: a department name (89872 matches)        | all rows  |   1,102 / 1,188 |   1,112 / 1,085 |                                   1,064 → 989 |
-| filter: open the panel (lists the column values) | all rows  |   1,836 / 1,835 |   1,861 / 1,747 |                                         0 → 0 |
-| filter: apply department = 福岡営業部            | all rows  | 2,560 / 2,739 ✗ | 2,845 / 2,443 ✗ |                                     427 → 524 |
-| filter: clear                                    | all rows  |         51 / 56 |         71 / 45 |                                       56 → 72 |
-| summary: first display of all results            | all rows  | 33,337 / 31,630 |   3,838 / 2,749 |                                33,336 → 3,837 |
-| summary: department = 大阪営業部                 | all rows  | 30,814 / 28,280 |         79 / 72 |                                   30,810 → 75 |
-| summary: start date = 2025-04-01                 | all rows  | 24,317 / 25,155 |         49 / 68 |                                   25,151 → 64 |
-| summary: end date = 2025-09-30                   | all rows  | 24,448 / 22,554 |         57 / 42 |                                   24,444 → 53 |
-| summary: category = 家電                         | all rows  | 22,131 / 20,198 |         45 / 45 |                                    22,127 → 0 |
-| edit: quantity of one row, its own sales updates | on screen |   1,835 / 2,142 |       101 / 102 |                                    2,134 → 96 |
-| edit: summary shows the new totals               | all rows  | 19,954 / 19,268 |        80 / 123 |                                   10,809 → 95 |
-| undo: the row is back                            | on screen |   1,563 / 2,035 |         32 / 29 |                                     2,029 → 0 |
-| undo: summary shows the earlier totals           | all rows  | 23,171 / 21,185 |       112 / 114 |                                   12,917 → 91 |
-| redo: the row is edited again                    | on screen |   1,604 / 2,249 |         17 / 20 |                                     2,243 → 0 |
-| redo: summary shows the new totals               | all rows  | 19,832 / 22,058 |        76 / 141 |                                  11,612 → 114 |
-| save: file handed to the browser                 | all rows  | 16,738 / 15,230 | 14,002 / 13,288 |                               13,015 → 11,966 |
-| reopen: saved file, summary results on screen    | all rows  | 34,178 / 34,315 |   9,852 / 9,426 |                                34,257 → 9,781 |
-| reopen: the edited row is as saved               | on screen |       170 / 222 |       198 / 174 |                                       78 → 78 |
+| Step                                             | Scope     |            Before (ms) |             After (ms) | Longest main-thread task, before → after (ms) |
+| ------------------------------------------------ | --------- | ---------------------: | ---------------------: | --------------------------------------------: |
+| open: first rows on screen                       | all rows  | 13,063 (11,037–13,509) |    5,659 (5,031–5,973) |                                13,459 → 5,923 |
+| open: accepts a key press                        | on screen |             17 (16–20) |             15 (13–22) |                                         0 → 0 |
+| move: to the last row                            | on screen |             79 (60–90) |            63 (52–100) |                                       83 → 90 |
+| move: to the middle row                          | on screen |             74 (64–75) |            70 (65–105) |                                       69 → 96 |
+| move: back to the first row                      | on screen |           131 (69–132) |             85 (74–93) |                                       92 → 56 |
+| search: one slip number (1 match)                | all rows  |          797 (680–937) |          694 (660–810) |                                     813 → 687 |
+| search: a department name (89872 matches)        | all rows  |        996 (987–1,326) |    1,104 (1,079–1,104) |                                   1,201 → 981 |
+| filter: open the panel (lists the column values) | all rows  |    2,138 (1,869–2,363) |    1,743 (1,710–1,922) |                                       116 → 0 |
+| filter: apply department = 福岡営業部            | all rows  |  2,550 (2,505–2,664) ✗ |    2,561 (2,465–2,981) |                                     489 → 532 |
+| filter: clear                                    | all rows  |             54 (49–73) |             55 (54–74) |                                       74 → 73 |
+| summary: first display of all results            | all rows  | 28,265 (28,180–29,787) |    2,961 (2,939–3,043) |                                29,787 → 3,042 |
+| summary: department = 大阪営業部                 | all rows  | 27,038 (24,232–27,403) |             73 (72–83) |                                   27,400 → 79 |
+| summary: start date = 2025-04-01                 | all rows  | 23,614 (23,304–26,444) |             49 (45–50) |                                    26,439 → 0 |
+| summary: end date = 2025-09-30                   | all rows  | 20,397 (20,317–23,649) |             42 (40–55) |                                   23,643 → 50 |
+| summary: category = 家電                         | all rows  | 21,181 (21,001–21,962) |             40 (40–42) |                                    21,958 → 0 |
+| edit: quantity of one row, its own sales updates | on screen |    1,864 (1,811–1,928) |             78 (74–78) |                                    1,922 → 72 |
+| edit: summary shows the new totals               | all rows  | 19,380 (19,186–21,075) |            93 (90–139) |                                  10,885 → 108 |
+| undo: the row is back                            | on screen |    1,751 (1,667–1,759) |             35 (26–37) |                                     1,754 → 0 |
+| undo: summary shows the earlier totals           | all rows  | 19,283 (18,604–20,194) |           110 (79–116) |                                   11,011 → 88 |
+| redo: the row is edited again                    | on screen |    1,962 (1,813–1,988) |             22 (16–24) |                                     1,981 → 0 |
+| redo: summary shows the new totals               | all rows  | 19,351 (18,948–21,762) |           114 (79–118) |                                   11,005 → 93 |
+| save: file handed to the browser                 | all rows  | 17,507 (15,987–17,742) | 13,592 (13,213–15,502) |                               15,464 → 13,216 |
+| reopen: saved file, summary results on screen    | all rows  | 31,616 (31,377–34,094) |   9,535 (8,618–10,727) |                               34,034 → 10,661 |
+| reopen: the edited row is as saved               | on screen |          199 (187–265) |          219 (204–267) |                                     111 → 103 |
 
-Startup (page ready, no file): before 291 / 692 ms, after 290 / 286 ms. Peak renderer memory over the run: before 5,159 MiB, after 3,835 MiB. JavaScript heap after save: before 3,168 / 3,566 MiB, after 2,353 / 2,353 MiB.
+Startup (page ready, no file): before 297 (277–311) ms, after 258 (252–347) ms. Peak renderer memory over the run: before 4,767 MiB, after 3,924 MiB. JavaScript heap after save: before 3,177 (3,177–3,566) MiB, after 2,056 (2,056–2,056) MiB.
+
+### Save and open across batches (1,000,000 rows)
+
+The same build's save and open times moved from one batch to the next, so a
+result is read only against the other builds of its own batch. Two runs are
+shown as they were; three runs as the median and the range.
+
+| Batch | Build   | Runs | Save (ms)              | Open (ms)              | Summary, first display (ms) | Failed steps |
+| ----- | ------- | ---: | ---------------------- | ---------------------- | --------------------------- | ------------ |
+| 1     | v0.9.40 |    2 | 16,738 / 15,230        | 13,811 / 14,014        | 33,337 / 31,630             | filter       |
+| 1     | b65925a |    2 | 14,002 / 13,288        | 4,988 / 4,939          | 3,838 / 2,749               | filter       |
+| 2     | 567aef9 |    2 | 23,745 / 16,917        | 5,733 / 5,447          | 2,886 / 3,138               | none         |
+| 3     | b65925a |    2 | 18,727 / 15,753        | 5,487 / 5,529          | 3,544 / 2,802               | filter       |
+| 3     | 567aef9 |    2 | 18,541 / 17,947        | 5,860 / 5,604          | 3,343 / 3,003               | none         |
+| 4     | v0.9.40 |    3 | 17,507 (15,987–17,742) | 13,063 (11,037–13,509) | 28,265 (28,180–29,787)      | filter       |
+| 4     | 567aef9 |    3 | 13,592 (13,213–15,502) | 5,659 (5,031–5,973)    | 2,961 (2,939–3,043)         | none         |
+
+Batch 1's second v0.9.40 run was repeated hours after its pair, following an
+interruption, so batch 1 is listed for completeness and is not a like-for-like
+pair. In batch 3 the two builds saved at the same speed within the spread of
+their runs. In batch 4, which has the v0.9.40 and final builds in the same
+order three times, the final build saved in 13.2 to 15.5 seconds and v0.9.40 in
+16.0 to 17.7 seconds. The final build itself saved in 16.9 to 23.7 seconds in
+batch 2 and 17.9 to 18.5 seconds in batch 3, so most of the spread between
+batches is the state of the machine, not the code. Saving remains the largest
+cost in every batch.
 
 ### 100,000 data rows (before: 5 runs, after: 5 runs)
 
@@ -227,45 +256,52 @@ Startup (page ready, no file): before 275 (270–319) ms, after 284 (281–414) 
 
 Startup (page ready, no file): before 289 (255–304) ms, after 314 (270–347) ms. Peak renderer memory over the run: before 425 MiB, after 351 MiB. JavaScript heap after save: before 54 (46–56) MiB, after 34 (22–37) MiB.
 
+{"distBytes": {"baseline": 2901374, "after": 2914984}}
+
 Build size (the files under the build folder): 2,901,374 bytes before,
-2,914,932 bytes after.
+2,914,984 bytes after (commit 567aef9; 2,914,932 for b65925a).
 
 What the tables say:
 
 - **Recalculation was the obstacle and is gone.** At one million rows a
-  condition change, an edit, an undo or a redo reaches the summary in 42 to
-  141 ms instead of 19 to 31 seconds, with no main-thread task over
-  114 ms. The edited row itself updates in about 0.1 s instead of about
-  2 s.
-- **Opening is faster as a side effect** (about 5 s instead of about 14 s
-  at one million rows), because the formulas are no longer parsed one by
-  one; reopening and showing the summary takes under 10 s instead of 34 s.
-- **Search, filter and save are unchanged work.** At one million rows the
-  search and filter times are within the run-to-run spread; saving is about
-  2 s faster and peaks at 3.8 GB instead of 5.1 GB, because less memory is
-  in use when it starts.
-- **Smaller workbooks did not get slower where the change applies**, and
-  three steps it does not touch came out slower in the middle size: at
-  100,000 rows the median of the two searches is 35 ms higher, opening the
-  filter panel 18 ms higher, and saving 126 ms higher (about 10 %). The
-  code of those steps is the same in both builds, a profile of the save
-  shows the extra time spread over the same functions and the garbage
-  collector, and saving straight after opening takes the same time in both
-  builds (6 saves in each of 3 runs: 991 to 1,216 ms before, 1,003 to
-  1,245 ms after). The likely cause is the state the step starts from (the
-  "after" build holds a smaller heap: 255 MiB against 439 MiB once the
-  save is done), but that is not proven.
-- **Saved files are the same.** The JSON document each build saved at the
-  end of the run was compared byte for byte at all three sizes: only the
-  two timestamps differ.
+  condition change reaches the summary in 40 to 73 ms (median), and an edit,
+  an undo or a redo reaches it in 93 to 114 ms. Before, the same steps took 19
+  to 27 seconds. The edited row itself updates in 78 ms instead of 1.9 seconds.
+- **Opening and reopening are faster as a side effect.** Opening takes 5.7
+  seconds instead of 13.1, because the formulas are no longer parsed one by
+  one. Reopening the saved file and showing its summary takes 9.5 seconds
+  instead of 31.6.
+- **The filter now covers the whole sheet.** Before this change, a filter at
+  one million rows stopped one row short, because the header row counted
+  against the limit. The final build passes that step in every run, with a
+  median of 2.6 seconds.
+- **Search and filter work did not change.** The department search has a
+  median of 1,104 ms against 996 ms; the two ranges overlap. The slip-number
+  search and the filter panel also overlap their ranges.
+- **Saving is faster in the same batch, and it is still the largest cost.**
+  The median save is 13.6 seconds against 17.5 seconds, and the renderer peaks at 3,924 MiB instead of 4,767 MiB. One task still holds the main thread for 11 to
+  13 seconds in every run.
+- **Memory during the work is lower.** During the four condition changes the
+  renderer peaks at a median of 2,104 MiB instead of 3,568 MiB.
+- **Smaller workbooks did not get faster where the change does not apply, and
+  three steps came out slower at 100,000 rows.** In the recalculation commit,
+  the two searches' medians are 35 ms higher, the filter panel 18 ms higher and
+  the save 126 ms higher (about 10 %). The code of those steps is the same in
+  both builds, and saving straight after opening takes the same time in both
+  (6 saves in each of 3 runs: 991 to 1,216 ms before, 1,003 to 1,245 ms after).
+  The likely cause is the state the step starts from, but that is not proven.
+- **Saved files are the same.** The JSON document each build saved matches,
+  once the timestamps are masked, at all three sizes: v0.9.40 and the
+  recalculation commit at 10,000 and 100,000 rows, and at one million rows
+  v0.9.40 and the final build, and the recalculation commit and the final build.
 
 ## What the measurements led to
 
-Before the change, opening, moving, searching and filtering a million rows
-already worked. Recalculation did not: showing the summary took about half
-a minute, and every change after that — a condition, one quantity, an
-undo — froze the application for about 20 seconds, because any mutation
-dropped every result, re-walked two million formulas and rescanned a
+Before the change, opening, moving, searching and opening the filter panel
+already worked at a million rows. Recalculation did not: showing the summary
+took about half a minute, and every change after that — a condition, one
+quantity, an undo — froze the application for about 20 seconds, because any
+mutation dropped every result, re-walked two million formulas and rescanned a
 million rows per summary formula through one value object per cell.
 
 That one obstacle was removed inside the TypeScript engine (the reasons
@@ -285,27 +321,33 @@ for not adding a second evaluator are in
   (`src/core/workbook/recalc-dependents.ts`); see "Workbook-wide
   recalculation" in [invariants.md](../architecture/invariants.md).
 
-No file format, WASM code or limit changed.
+The file layout, the WASM code and every other limit did not change. One
+rule changed in a separate commit: a filter's header row no longer counts
+against the row limit (see Known limits).
 
 ## Known limits
 
-- **A filter counts data rows, not its header row.** A range may cover at
-  most 1,000,000 data rows (`MAX_FILTER_ROWS` in
-  `src/core/workbook/filter.ts`), so a whole million-row sheet with a header
-  row can be filtered. Before this change the header row counted too, and
-  the last row stayed outside the filter. A `.rsf` file saved with a filter
-  over a whole million-row sheet opens without that filter in versions
-  before this change, because they cannot read such a range.
-- **A workbook holding a dynamic array, or one where a circular reference
-  has been met, recomputes everything on each change**, as every workbook
-  did before. Formulas that only _could_ return an array (`IFERROR`,
-  `INDEX`, `XLOOKUP`) do not have this effect unless one actually does.
-- **The first display of the summary still blocks once** (about 3 to 4 s
-  at a million rows): two million detail formulas are evaluated the first
-  time something reads their columns.
-- **Open and save are the next obstacles.** Both hold the whole JSON
-  document as text and as objects at once: opening takes about 5 s, and
-  saving takes 13 to 14 s, blocks the page for about 12 s of that, and
-  peaks near 3.8 GB of memory.
-- Structural edits (inserting or deleting rows or columns) and any change
-  to worksheets or settings still drop every result.
+- **A filter may cover one million data rows plus its header row.**
+  `MAX_FILTER_ROWS` (1,000,000, in `src/core/workbook/filter.ts`) counts data
+  rows only. Before this change the header row counted too, so a whole
+  million-row sheet with a header could not be filtered to its last row. A
+  `.rsf` file saved with a filter over a whole million-row sheet opens without
+  that filter in versions before this change, because they refuse the range.
+  The JSON document version stays at 1; whether it should change is for review
+  under [compatibility.md](../formats/rsf/compatibility.md). In the Filter panel,
+  turning the header row off for a range of 1,000,001 rows is refused with the
+  invalid-filter message, because every row would then be a data row.
+- **A workbook holding a dynamic array, or one where a circular reference has
+  been met, recomputes everything on each change**, as every workbook did
+  before. Formulas that only _could_ return an array (`IFERROR`, `INDEX`,
+  `XLOOKUP`) do not have this effect unless one actually does.
+- **The first display of the summary still blocks once** (about 3 seconds at
+  one million rows): two million detail formulas are evaluated the first time
+  something reads their columns.
+- **Open and save are the next obstacles.** Both hold the whole JSON document
+  (about 147 MB) as text and as objects at once. Opening takes about 5.7
+  seconds. Saving took 13.6 seconds in the batch that compared it with
+  v0.9.40, and 13 to 24 seconds across batches; it holds the main thread for
+  11 to 13 seconds in one task and peaks near 3,924 MiB.
+- Structural edits (inserting or deleting rows or columns) and any change to
+  worksheets or settings still drop every result.

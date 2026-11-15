@@ -8,7 +8,7 @@ import { RsfDocument, RSF_EXTENSION } from '../../../core/workbook/rsf-document'
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../../core/interchange/csv-export';
 import { saveBytesAs } from '../../file-access';
 import { getLocale, t } from '../../i18n';
-import { setPivotLinkOn } from '../../state/pivot-links';
+import { pivotLinkOn, setPivotLinkOn } from '../../state/pivot-links';
 import type { Tab } from '../../state';
 import type { PivotCreateOutcome } from '../../ui-port';
 import type { PivotSource } from '../pivot';
@@ -118,7 +118,7 @@ function updatePivot(
   request: PivotRequest,
 ): PivotCreateOutcome {
   const { state, parts } = ctx;
-  const previous = tab.pivotLinks?.[sheetId];
+  const previous = pivotLinkOn(tab, sheetId);
   const source = previous ? parts.pivot.linkedSource(state, previous) : null;
   if (!previous || !source) {
     return { ok: false, error: { code: 'sourceMissing', params: {} } };
@@ -131,6 +131,9 @@ function updatePivot(
   const result = parts.pivot.rewrite(state, tab, sheetId, previous, outcome.sheet, link);
   if (result === 'refused') {
     return { ok: false, error: { code: 'updateFailed', params: {} } };
+  }
+  if (result === 'changed') {
+    return { ok: false, error: { code: 'summaryChanged', params: {} } };
   }
   const name = isWorkbook(tab.doc) ? (tab.doc.sheetById(sheetId)?.name ?? '') : '';
   return {

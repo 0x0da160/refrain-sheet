@@ -125,7 +125,8 @@ async function restoreVersion(ctx: CommandContext, tab: Tab, doc: RsfDocument, i
   // (mis)apply against the restored content.
   if (doc.restoreFromSnapshot(index)) {
     tab.history.clear();
-    // The restored content may not be the content the pivot table links describe.
+    // Links to CSV tabs are forgotten. A link saved with a worksheet describes the
+    // restored content, and an update checks that before it writes.
     clearPivotLinks(tab);
     ctx.state.emit('doc');
     ctx.state.emit('tabs');

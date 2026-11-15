@@ -72,9 +72,10 @@ export interface Tab {
    */
   drive: { fileId: string; name: string } | null;
   /**
-   * The pivot table sheets on this tab, by sheet id: the source and settings
-   * each was made or last updated with, so Data > Pivot Table… can reopen and
-   * rebuild them. Kept for the open session only; never saved in the file.
+   * The pivot table sheets on this tab whose source is a CSV tab, by sheet id:
+   * the source and settings each was made or last updated with, so Data > Pivot
+   * Table… can reopen and rebuild them. Kept for the open session only. A link
+   * to a worksheet of the file is saved with that worksheet (see `pivotLinkOn`).
    */
   pivotLinks?: Record<string, PivotLink>;
   /**

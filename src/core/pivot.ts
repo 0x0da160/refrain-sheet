@@ -63,7 +63,7 @@ export interface PivotTable {
   ignoredValues: number;
 }
 
-/** Why a request is refused. `sourceMissing` is found by the command layer, which knows what is open. */
+/** Why a request is refused. The command layer finds `sourceMissing` (it knows what is open) and `summaryChanged` (it reads the sheet). */
 type PivotErrorCode =
   | 'noColumns'
   | 'noRows'
@@ -72,7 +72,8 @@ type PivotErrorCode =
   | 'tooManyRows'
   | 'tooManyRowGroups'
   | 'tooManyColumnGroups'
-  | 'sourceMissing';
+  | 'sourceMissing'
+  | 'summaryChanged';
 
 /** A rejected request. `params` carries the limit a message quotes, if any. */
 export interface PivotError {
@@ -86,8 +87,10 @@ export type PivotBuildOutcome = { ok: true; table: PivotTable } | { ok: false; e
  * What a pivot table sheet was made with, so Data > Pivot Table… can reopen it
  * and rebuild it. `sourceTabId` names the open tab the summary reads, and
  * `sourceId` its worksheet (`'csv'` for a CSV tab). `rows` and `cols` are the
- * size of the summary as last written, so an update clears exactly its cells.
- * The app keeps links for the open session only; they are not saved in files.
+ * size of the summary as last written, so an update clears exactly its cells,
+ * and `digest` fingerprints its cells, so an update refuses a summary that was
+ * moved or edited. A link to a worksheet of the file is saved with that
+ * worksheet (see {@link PivotRecord}); a CSV link is kept for the open session.
  */
 export interface PivotLink {
   sourceTabId: string;
@@ -95,22 +98,66 @@ export interface PivotLink {
   request: PivotRequest;
   rows: number;
   cols: number;
+  digest: string;
 }
 
-/** Whether two links name the same source, the same settings, and the same size. */
-export function pivotLinksEqual(a: PivotLink | null, b: PivotLink | null): boolean {
+/** A link as a file keeps it: the same fields, without the open tab it reads. */
+export type PivotRecord = Omit<PivotLink, 'sourceTabId'>;
+
+/** Whether two records name the same source, the same settings, the same size, and the same cells. */
+export function pivotRecordsEqual(
+  a: PivotRecord | null | undefined,
+  b: PivotRecord | null | undefined,
+): boolean {
   if (a === b) return true;
-  if (a === null || b === null) return false;
+  if (!a || !b) return !a && !b;
   return (
-    a.sourceTabId === b.sourceTabId &&
     a.sourceId === b.sourceId &&
     a.rows === b.rows &&
     a.cols === b.cols &&
+    a.digest === b.digest &&
     a.request.rowField === b.request.rowField &&
     a.request.columnField === b.request.columnField &&
     a.request.valueField === b.request.valueField &&
     a.request.aggregation === b.request.aggregation
   );
+}
+
+/** Whether two links name the same open tab and the same record. */
+export function pivotLinksEqual(a: PivotLink | null, b: PivotLink | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return a.sourceTabId === b.sourceTabId && pivotRecordsEqual(a, b);
+}
+
+/**
+ * A fingerprint of a summary's cells, read row by row through `cell(row, col)`:
+ * two 32-bit hashes of each cell's text, with separators, so the same text in a
+ * different cell gives a different digest. It is 16 lowercase hex digits.
+ */
+export function summaryDigest(
+  rows: number,
+  cols: number,
+  cell: (row: number, col: number) => string,
+): string {
+  let a = 0x811c9dc5;
+  let b = 0x2545f491;
+  const mix = (unit: number): void => {
+    a = Math.imul(a ^ unit, 0x01000193);
+    b = Math.imul(b ^ unit, 0x5bd1e995);
+    b ^= b >>> 15;
+  };
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const text = cell(r, c);
+      for (let i = 0; i < text.length; i++) {
+        mix(text.charCodeAt(i));
+      }
+      mix(0x1f); // unit separator: ends this cell
+    }
+    mix(0x1e); // record separator: ends this row
+  }
+  return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0');
 }
 
 /** Blank text (empty or only spaces) is the `null` group; any other text is a group of its own. */

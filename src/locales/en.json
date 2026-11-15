@@ -1620,6 +1620,7 @@
   "pivot.error.tooManyColumnGroups": "The column field has more than {max} different values. Choose a field with fewer values.",
   "pivot.error.sheetFailed": "The pivot table could not be put in a new sheet. The file may be read-only or already hold the most sheets allowed.",
   "pivot.error.sourceMissing": "The table this pivot table reads has been closed or removed. Create a pivot table from a table that is open.",
+  "pivot.error.summaryChanged": "The pivot table has been moved or edited since it was made, so it was not updated. Create a new pivot table from its source instead.",
   "pivot.error.updateFailed": "The pivot table could not be updated. The sheet may be locked, or the file may be read-only.",
   "dialog.markdownEditor.mode": "Editing mode",
   "dialog.markdownEditor.mode.source": "Markdown",

@@ -6,6 +6,7 @@ import { shiftValidationsForDelete, shiftValidationsForInsert, type CellValidati
 import { shiftObjectsForDelete, shiftObjectsForInsert, type SheetObject } from './sheet-objects';
 import { shiftPrintAreaForDelete, shiftPrintAreaForInsert } from './print-area';
 import type { PrintArea } from '../print-layout';
+import type { PivotRecord } from '../pivot';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from '../formula';
 import type { GridLookLayer } from '../grid-look';
@@ -211,6 +212,11 @@ export class Worksheet {
    * Persisted as the worksheet's `paper`.
    */
   paper: number | undefined = undefined;
+  /**
+   * Set on a pivot table sheet (see `src/core/pivot.ts`): the fields, size and
+   * cell fingerprint it was built with. Persisted as the worksheet's `pivot`.
+   */
+  pivot: PivotRecord | undefined = undefined;
 
   /** Session-only view state, restored when this worksheet becomes active. */
   readonly view: WorksheetView = {
@@ -729,6 +735,7 @@ export class Worksheet {
     copy.tabColor = this.tabColor;
     copy.folderId = this.folderId;
     copy.paper = this.paper;
+    copy.pivot = this.pivot;
     copy.validations = this.validations.slice();
     copy.printArea = this.printArea;
     copy.objects = this.objects.slice();
@@ -757,6 +764,7 @@ export class Worksheet {
     copy.tabColor = this.tabColor;
     copy.folderId = this.folderId;
     copy.paper = this.paper;
+    copy.pivot = this.pivot;
     copy.validations = this.validations.slice();
     copy.printArea = this.printArea;
     copy.objects = this.objects.slice();

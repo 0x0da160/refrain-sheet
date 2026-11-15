@@ -34,6 +34,7 @@ import { isPaperSquare } from './grid-paper';
 import { clampRowHeight } from './row-heights';
 import { clipPrintArea, parsePrintArea, printAreaToText } from './print-area';
 import type { PrintArea } from '../print-layout';
+import { PIVOT_AGGREGATIONS, type PivotRecord } from '../pivot';
 
 /** The file-level keys kept here: the sheet folders and the pictures. */
 export interface RsfFileExtras extends RsfFolderList, RsfImageList {}
@@ -82,6 +83,8 @@ export interface RsfSheetExtras extends RsfSheetPlacement {
   rowHeights?: Array<[number, number]>;
   /** The block File > Print… prints for "Print area". */
   printArea?: PrintArea;
+  /** A pivot table sheet's link: the worksheet it reads, and how it was built (see `pivotFromJson`). */
+  pivot?: PivotRecord;
 }
 
 type Fail = (reason?: 'too-large') => never;
@@ -104,6 +107,9 @@ export function sheetExtrasToJson(sheet: RsfSheetExtras): { [key: string]: Json 
   }
   if (sheet.printArea) {
     out.printArea = printAreaToText(sheet.printArea);
+  }
+  if (sheet.pivot) {
+    out.pivot = pivotToJson(sheet.pivot);
   }
   return out;
 }
@@ -162,6 +168,12 @@ export function sheetExtrasFromJson(
     if (clipped) {
       out.printArea = clipped;
     }
+  }
+  if (value.pivot !== undefined) {
+    if ((sheet.kind ?? 'grid') !== 'grid') {
+      return fail();
+    }
+    out.pivot = pivotFromJson(value.pivot, fail);
   }
   return out;
 }
@@ -287,6 +299,83 @@ function validationFromJson(raw: unknown, rows: number, cols: number, fail: Fail
     cols,
   );
   return validation ?? fail();
+}
+
+/** A pivot table sheet's link, for its `pivot` key (read back by {@link pivotFromJson}). */
+function pivotToJson(record: PivotRecord): { [key: string]: Json } {
+  return {
+    source: record.sourceId,
+    request: {
+      rowField: record.request.rowField,
+      columnField: record.request.columnField,
+      valueField: record.request.valueField,
+      aggregation: record.request.aggregation,
+    },
+    rows: record.rows,
+    cols: record.cols,
+    digest: record.digest,
+  };
+}
+
+/** The most fields a pivot can name, and the most rows and columns its summary can span: the worksheet limits. */
+const MAX_PIVOT_FIELD = 16_384;
+const MAX_PIVOT_ROWS = 2_000_000;
+const MAX_PIVOT_COLS = 16_384;
+
+function isJsonObject(value: unknown): value is { [key: string]: unknown } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** An integer from 0 up to, not including, `max`: a 0-based field position. */
+function isFieldPosition(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < MAX_PIVOT_FIELD;
+}
+
+/** An integer from 1 up to `max`: the size of a summary. */
+function isSummarySize(value: unknown, max: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max;
+}
+
+/**
+ * Reads a pivot table sheet's `pivot`: the worksheet it reads (`source`), the
+ * fields and aggregation it was made with, the summary's size, and the
+ * fingerprint of its cells. Any other shape is `bad-shape`. A `source` that is
+ * not a worksheet of the file is kept as written: the link then reads as missing
+ * and an update says so, rather than the file failing to open.
+ */
+function pivotFromJson(value: unknown, fail: Fail): PivotRecord {
+  if (!isJsonObject(value)) {
+    return fail();
+  }
+  const { source, request, rows, cols, digest } = value;
+  if (typeof source !== 'string' || source.length < 1 || source.length > 255) {
+    return fail();
+  }
+  if (!isJsonObject(request)) {
+    return fail();
+  }
+  const { rowField, columnField, valueField, aggregation } = request;
+  if (!isFieldPosition(rowField) || !isFieldPosition(valueField)) {
+    return fail();
+  }
+  const column = columnField === null ? null : isFieldPosition(columnField) ? columnField : fail();
+  if (column === rowField) {
+    return fail();
+  }
+  const aggregationName = PIVOT_AGGREGATIONS.find((name) => name === aggregation) ?? fail();
+  if (!isSummarySize(rows, MAX_PIVOT_ROWS) || !isSummarySize(cols, MAX_PIVOT_COLS)) {
+    return fail();
+  }
+  if (typeof digest !== 'string' || !/^[0-9a-f]{16}$/.test(digest)) {
+    return fail();
+  }
+  return {
+    sourceId: source,
+    request: { rowField, columnField: column, valueField, aggregation: aggregationName },
+    rows,
+    cols,
+    digest,
+  };
 }
 
 /** A1 reference exactly as the writer spells it (upper case, no `$`). */

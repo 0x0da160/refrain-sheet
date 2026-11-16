@@ -44,6 +44,9 @@ really is internal, rather than inventing an entry to satisfy it.
 - On a phone, the top toolbar wraps onto a second row instead of scrolling sideways.
 - On a phone, the Markdown editor's toolbar fits the screen. The Markdown and formatted mode switch and the display theme picker share the first row, and the formatting tools sit on a row below. The picker's label is hidden on a phone to make room, but screen readers still announce it.
 - On a phone, the drop hint on the home screen is no longer shown, because drag and drop is not used there. The desktop keeps it.
+- On a phone, the formatted Markdown editor no longer scrolls sideways. A long line of code wraps inside its block, and a long link or word wraps where it must. A worksheet with wrap turned off (Alt+Z) still scrolls sideways, as before.
+- On a phone, double-tapping in the formatted Markdown editor no longer zooms the page. Its text also stays at least 16px at any zoom level, so tapping into a block does not zoom the page either.
+- On a phone, while the on-screen keyboard is open in the formatted Markdown editor, only the block being typed in is shown, with its block type, Bold, Italic and Code controls just above the keyboard. The menus, tabs and other blocks come back when the keyboard closes, and that block is scrolled back into view.
 
 ## [0.9.41] - 2026-11-16
 

@@ -38,6 +38,24 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- On a phone, a selected range shows one figure in the status bar: its sum, or its count when nothing is numeric. The other statistics come back when Details is open, so the bar stays on one line.
+- On a phone, the side panels (Find, Filter, Comments and the others) open as a full-height sheet. The panel you open fills the space and the others collapse to their title bars. A grip bar marks the top of the sheet, and the position and maximize buttons are hidden there.
+- On a phone, a new chart is placed under the selected data, where its left edge is on screen. Its size stays 480 × 300 px on every device.
+- On a phone, the menus open in three columns instead of four, so the nine top-level menus fill three full rows.
+- On a phone, the two-column fields in dialogs such as Settings stack into one column, so labels are not cut short.
+- The AI assistant panel shows the model's name. Its build identifier moves under Details, and a phone shows a note to connect to Wi-Fi before downloading.
+- On a touch screen, the toolbar buttons have a larger tap area, and menus and context menus leave out keyboard shortcut hints.
+
+### Fixed
+
+- On a phone, the full-screen button no longer appears in the status bar. The full-screen command stays in the View menu.
+- On a phone, the JSON worksheet's Format button keeps its label on one line instead of breaking it letter by letter, and its preview starts closed so the source has the screen.
+- In the formatted Markdown editor, the block-type menu shows "Block type" instead of an empty box while the caret is outside a block.
+- On a phone, the welcome tagline breaks between words, never inside a word.
+- On the landing page, the footer links and the language buttons are 44 px tall on a touch screen, and the cookie banner sits closer to the screen edges on a phone.
+
 ## [0.9.44] - 2026-11-16
 
 ### Fixed

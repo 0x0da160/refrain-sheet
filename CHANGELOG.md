@@ -49,6 +49,10 @@ really is internal, rather than inventing an entry to satisfy it.
 - On a phone, the formatted Markdown editor no longer scrolls sideways. A long line of code wraps inside its block, and a long link or word wraps where it must. A worksheet with wrap turned off (Alt+Z) still scrolls sideways, as before.
 - On a phone, double-tapping in the formatted Markdown editor no longer zooms the page. Its text also stays at least 16px at any zoom level, so tapping into a block does not zoom the page either.
 - On a phone, while the on-screen keyboard is open in the formatted Markdown editor, only the block being typed in is shown, with its block type, Bold, Italic and Code controls just above the keyboard. The menus, tabs and other blocks come back when the keyboard closes, and that block is scrolled back into view.
+- On a phone, a double-tap on a spreadsheet or CSV cell opens the cell editor and the on-screen keyboard even when the second tap comes a little later. The window used to close before a normal second tap had finished, so many double-taps did nothing.
+- In the formatted Markdown editor, a `<br>` tag shows as a line break, including inside a table cell. The tag stays as you typed it in the Markdown text.
+- In the formatted Markdown editor, the Bold, Italic and Code buttons show as pressed while the selected text already has that formatting. Pressing one takes the formatting off just the selected text, even when the selection covers only part of a bold, italic or code run.
+- On a phone, holding a block in the formatted Markdown editor for about 0.4 seconds lifts it, and dragging moves the block where you let go. Before, a long press started selecting text. A quick tap still places the caret, and a scroll still scrolls.
 
 ## [0.9.41] - 2026-11-16
 

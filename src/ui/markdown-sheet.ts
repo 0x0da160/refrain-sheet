@@ -22,12 +22,8 @@ import { SourceEditor } from './source-editor';
 import { syncScroll } from './editor-preview-perf';
 import { renderMarkdownBlocks } from './markdown-render';
 import { createIcon } from './icon';
-import {
-  blockKind,
-  MARKDOWN_BLOCK_KINDS,
-  MarkdownVisualEditor,
-  type MarkdownBlockKind,
-} from './markdown-visual';
+import { MarkdownVisualEditor } from './markdown-visual';
+import { blockKind, MARKDOWN_BLOCK_KINDS, type MarkdownBlockKind } from './markdown-visual-blocks';
 
 /** Source shows the Markdown text; visual shows it formatted and edits it in place. */
 type MarkdownMode = 'source' | 'visual';
@@ -83,6 +79,8 @@ export class MarkdownSheetView {
   private readonly visual = new MarkdownVisualEditor();
   private readonly modeButtons: Record<MarkdownMode, HTMLButtonElement>;
   private readonly formatTools: HTMLElement;
+  /** The Bold, Italic and Code buttons, by the mark each applies. */
+  private readonly formatButtons = new Map<'strong' | 'em' | 'code', HTMLButtonElement>();
   private readonly blockKindSelect: HTMLSelectElement;
   private readonly themeSelect: HTMLSelectElement;
   /** Formatted (見たまま) at first; the user's own choice of mode then holds until the page reloads. */
@@ -138,6 +136,12 @@ export class MarkdownSheetView {
       this.formatButton(Italic, t('dialog.markdownEditor.italic'), 'em'),
       this.formatButton(Code, t('dialog.markdownEditor.code'), 'code'),
     ]);
+    // A format button shows as pressed while the selection is entirely in its mark.
+    this.visual.onInlineState = (state) => {
+      for (const [mark, button] of this.formatButtons) {
+        button.setAttribute('aria-pressed', String(state[mark]));
+      }
+    };
     this.themeSelect = this.buildThemeSelect();
     const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [
       modeGroup,
@@ -283,9 +287,10 @@ export class MarkdownSheetView {
   private formatButton(icon: typeof Bold, label: string, kind: 'strong' | 'em' | 'code'): HTMLButtonElement {
     const button = el('button', {
       className: 'markdown-format-button',
-      attrs: { type: 'button', 'aria-label': label, title: label },
+      attrs: { type: 'button', 'aria-label': label, title: label, 'aria-pressed': 'false' },
     }) as HTMLButtonElement;
     button.append(createIcon(icon, 'markdown-format-icon', 16));
+    this.formatButtons.set(kind, button);
     // Pressing the button must not take the selection out of the text.
     button.addEventListener('mousedown', (event) => event.preventDefault());
     button.addEventListener('click', () => this.visual.toggleInline(kind));

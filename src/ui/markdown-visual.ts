@@ -16,16 +16,16 @@
  * delete it (also Alt+Shift+Up/Down to move the block holding the caret).
  * A move swaps whole source blocks (`moveMarkdownBlock`) and reloads.
  *
+ * The parts around the editor are in their own modules: reading a block back
+ * from the page and the block kinds (`markdown-visual-blocks.ts`), the bold,
+ * italic and code marks on a selection (`markdown-visual-marks.ts`), and the
+ * finger held on a block to move it (`markdown-visual-move.ts`).
+ *
  * Content is only ever rendered through `el()`/`textContent`
  * (`markdown-render.ts`), and paste and drop insert plain text, so nothing
  * pasted into the page can add markup or run anything.
  */
-import {
-  parseMarkdownRanges,
-  isSafeMarkdownUrl,
-  type MarkdownBlock,
-  type MarkdownInline,
-} from '../core/markdown';
+import { parseMarkdownRanges, type MarkdownBlock } from '../core/markdown';
 import { blockToMarkdown } from '../core/markdown-serialize';
 import { t } from '../app/i18n';
 import { el } from './dom';
@@ -35,22 +35,22 @@ import { renderMarkdownBlock } from './markdown-render';
 import { moveMarkdownBlock } from '../core/markdown-blocks';
 import { buildBlockTools, type BlockAction } from './markdown-block-tools';
 import { typedBlock, typedCodeFence } from '../core/markdown-typed-blocks';
-
-/** The block kinds the block-type menu can turn a block into. */
-export type MarkdownBlockKind = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullets' | 'numbers' | 'quote' | 'code';
-
-export const MARKDOWN_BLOCK_KINDS: readonly MarkdownBlockKind[] = [
-  'paragraph',
-  'h1',
-  'h2',
-  'h3',
-  'bullets',
-  'numbers',
-  'quote',
-  'code',
-];
-
-const HEADING_LEVEL: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = { H1: 1, H2: 2, H3: 3, H4: 4, H5: 5, H6: 6 };
+import {
+  convertBlock,
+  HEADING_LEVEL,
+  markdownOf,
+  readBlock,
+  splitAtCaret,
+  type MarkdownBlockKind,
+} from './markdown-visual-blocks';
+import {
+  markAround,
+  markedThroughout,
+  textOffset,
+  toggleMarkOver,
+  type InlineMark,
+} from './markdown-visual-marks';
+import { HoldToMove } from './markdown-visual-move';
 
 /**
  * How long after a composition ends its confirming Enter can still arrive and
@@ -60,224 +60,6 @@ const HEADING_LEVEL: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = { H1: 1, H2: 2, H3:
  * person's next Enter comes much later than this.
  */
 const CONFIRMING_ENTER_MS = 100;
-
-const INLINE_TAGS: Record<'strong' | 'em' | 'code', string[]> = {
-  strong: ['STRONG', 'B'],
-  em: ['EM', 'I'],
-  code: ['CODE'],
-};
-
-// ----- Reading the page back into Markdown blocks -----
-
-function pushText(out: MarkdownInline[], text: string): void {
-  if (text === '') {
-    return;
-  }
-  const last = out[out.length - 1];
-  if (last?.type === 'text') {
-    last.text += text;
-  } else {
-    out.push({ type: 'text', text });
-  }
-}
-
-/** Inline content of `node`'s children; nested blocks the browser inserted (a `div` on Enter) become line breaks. */
-function readInline(node: Node, out: MarkdownInline[] = []): MarkdownInline[] {
-  node.childNodes.forEach((child) => {
-    if (child.nodeType === Node.TEXT_NODE) {
-      pushText(out, child.textContent ?? '');
-      return;
-    }
-    if (!(child instanceof HTMLElement)) {
-      return;
-    }
-    const tag = child.tagName;
-    if (tag === 'BR') {
-      out.push({ type: 'break' });
-    } else if (INLINE_TAGS.strong.includes(tag)) {
-      out.push({ type: 'strong', children: readInline(child) });
-    } else if (INLINE_TAGS.em.includes(tag)) {
-      out.push({ type: 'em', children: readInline(child) });
-    } else if (tag === 'CODE') {
-      out.push({ type: 'code', text: child.textContent ?? '' });
-    } else if (tag === 'A') {
-      const href = child.getAttribute('href') ?? '';
-      if (isSafeMarkdownUrl(href)) {
-        out.push({ type: 'link', href, children: readInline(child) });
-      } else {
-        readInline(child, out);
-      }
-    } else if (tag === 'DIV' || tag === 'P' || tag === 'LI') {
-      if (out.length > 0 && out[out.length - 1].type !== 'break') {
-        out.push({ type: 'break' });
-      }
-      readInline(child, out);
-    } else {
-      readInline(child, out);
-    }
-  });
-  return out;
-}
-
-/** Inline content split at line breaks. */
-function splitLines(nodes: MarkdownInline[]): MarkdownInline[][] {
-  const lines: MarkdownInline[][] = [[]];
-  for (const node of nodes) {
-    if (node.type === 'break') {
-      lines.push([]);
-    } else {
-      lines[lines.length - 1].push(node);
-    }
-  }
-  return lines;
-}
-
-function joinLines(lines: MarkdownInline[][]): MarkdownInline[] {
-  return lines.flatMap((line, i) => (i === 0 ? line : [{ type: 'break' as const }, ...line]));
-}
-
-function alignOf(cell: Element): 'left' | 'center' | 'right' | null {
-  for (const align of ['left', 'center', 'right'] as const) {
-    if (cell.classList.contains(`md-align-${align}`)) {
-      return align;
-    }
-  }
-  return null;
-}
-
-/** The Markdown block an element on the page now shows. */
-function readBlock(element: HTMLElement): MarkdownBlock {
-  const tag = element.tagName;
-  if (tag in HEADING_LEVEL) {
-    return { type: 'heading', level: HEADING_LEVEL[tag], children: readInline(element) };
-  }
-  switch (tag) {
-    case 'UL':
-    case 'OL': {
-      const items = Array.from(element.children).map((item) => readInline(item));
-      return { type: 'list', ordered: tag === 'OL', items: items.length > 0 ? items : [[]] };
-    }
-    case 'BLOCKQUOTE': {
-      const children = Array.from(element.children)
-        .filter((child): child is HTMLElement => child instanceof HTMLElement)
-        .map(readBlock);
-      return { type: 'blockquote', children };
-    }
-    case 'PRE':
-      return { type: 'codeBlock', text: element.textContent ?? '', lang: element.dataset.lang || null };
-    case 'TABLE': {
-      const header = Array.from(element.querySelectorAll('thead th'));
-      return {
-        type: 'table',
-        align: header.map(alignOf),
-        header: header.map((cell) => readInline(cell)),
-        rows: Array.from(element.querySelectorAll('tbody tr')).map((row) =>
-          Array.from(row.children).map((cell) => readInline(cell)),
-        ),
-      };
-    }
-    case 'HR':
-      return { type: 'hr' };
-    default:
-      return { type: 'paragraph', children: readInline(element) };
-  }
-}
-
-/** The lines of text a block holds, for turning it into another kind. */
-function blockLines(block: MarkdownBlock): MarkdownInline[][] {
-  switch (block.type) {
-    case 'heading':
-      return [block.children];
-    case 'paragraph':
-      return splitLines(block.children);
-    case 'list':
-      return block.items;
-    case 'blockquote':
-      return block.children.flatMap(blockLines);
-    case 'codeBlock':
-      return block.text.split('\n').map((line) => [{ type: 'text', text: line }]);
-    case 'table':
-    case 'hr':
-      return [[]];
-  }
-}
-
-function plain(line: MarkdownInline[]): string {
-  return line
-    .map((node) => ('text' in node ? node.text : 'children' in node ? plain(node.children) : ''))
-    .join('');
-}
-
-/** `block` turned into `kind`, keeping its text. */
-function convertBlock(block: MarkdownBlock, kind: MarkdownBlockKind): MarkdownBlock {
-  const lines = blockLines(block);
-  switch (kind) {
-    case 'paragraph':
-      return { type: 'paragraph', children: joinLines(lines) };
-    case 'h1':
-    case 'h2':
-    case 'h3':
-      return {
-        type: 'heading',
-        level: Number(kind[1]) as 1 | 2 | 3,
-        children: lines.flatMap((line, i) =>
-          i === 0 ? line : [{ type: 'text' as const, text: ' ' }, ...line],
-        ),
-      };
-    case 'bullets':
-    case 'numbers':
-      return { type: 'list', ordered: kind === 'numbers', items: lines };
-    case 'quote':
-      return { type: 'blockquote', children: [{ type: 'paragraph', children: joinLines(lines) }] };
-    case 'code':
-      return { type: 'codeBlock', text: lines.map(plain).join('\n'), lang: null };
-  }
-}
-
-/** Which block-type menu entry a block is, or null for one the menu cannot show (table, rule, deep heading). */
-export function blockKind(block: MarkdownBlock): MarkdownBlockKind | null {
-  switch (block.type) {
-    case 'paragraph':
-      return 'paragraph';
-    case 'heading':
-      return block.level <= 3 ? (`h${block.level}` as MarkdownBlockKind) : null;
-    case 'list':
-      return block.ordered ? 'numbers' : 'bullets';
-    case 'blockquote':
-      return 'quote';
-    case 'codeBlock':
-      return 'code';
-    default:
-      return null;
-  }
-}
-
-/** A block's Markdown, or nothing for an empty paragraph. */
-function markdownOf(block: MarkdownBlock): string {
-  const empty =
-    block.type === 'paragraph' &&
-    plain(block.children).trim() === '' &&
-    !block.children.some((node) => node.type === 'break');
-  return empty ? '' : blockToMarkdown(block);
-}
-
-// ----- Caret helpers -----
-
-/** The inline content before and after the caret in `element`. */
-function splitAtCaret(element: HTMLElement, caret: Range): [MarkdownInline[], MarkdownInline[]] {
-  const before = document.createRange();
-  before.selectNodeContents(element);
-  before.setEnd(caret.startContainer, caret.startOffset);
-  const after = document.createRange();
-  after.selectNodeContents(element);
-  after.setStart(caret.endContainer, caret.endOffset);
-  const holder = (range: Range): HTMLElement => {
-    const div = document.createElement('div');
-    div.append(range.cloneContents());
-    return div;
-  };
-  return [readInline(holder(before)), readInline(holder(after))];
-}
 
 // ----- The editor -----
 
@@ -297,6 +79,9 @@ export class MarkdownVisualEditor {
   onChange: ((source: string) => void) | null = null;
   /** Called when the block holding the caret changes (for the block-type menu). */
   onFocusBlock: ((block: MarkdownBlock | null) => void) | null = null;
+  /** Called with the marks the selection is entirely in, as it changes inside the editor (for the format buttons' pressed state). */
+  onInlineState: ((state: Record<InlineMark, boolean>) => void) | null = null;
+  private readonly onSelectionChange = (): void => this.updateInlineState();
 
   private lines: string[] = [''];
   private blocks: VisualBlock[] = [];
@@ -304,6 +89,13 @@ export class MarkdownVisualEditor {
   private readOnly = false;
   /** The block being dragged by its grip, or null. */
   private dragFrom: number | null = null;
+  /** The hold-to-move gesture on touch: a finger resting on a block moves it (`markdown-visual-move.ts`). */
+  private readonly holdToMove = new HoldToMove({
+    rows: () => this.blocks.map((b) => b.row),
+    canMove: (index) => !this.readOnly && this.sourceIndex(index) >= 0,
+    moveNear: (dragged, index, before, focus) => this.moveNear(dragged, index, before, focus),
+    endDrag: () => this.endDrag(),
+  });
   /** When the last composition ended (`performance.now()`); see `CONFIRMING_ENTER_MS`. */
   private compositionEndedAt = Number.NEGATIVE_INFINITY;
 
@@ -327,6 +119,15 @@ export class MarkdownVisualEditor {
     this.element.addEventListener('focusin', (event) => {
       this.focused = this.indexOf(event.target);
       this.onFocusBlock?.(this.focused >= 0 ? readBlock(this.blocks[this.focused].element) : null);
+      document.addEventListener('selectionchange', this.onSelectionChange);
+      this.updateInlineState();
+    });
+    this.element.addEventListener('focusout', (event) => {
+      const next = event.relatedTarget;
+      if (!(next instanceof Node) || !this.element.contains(next)) {
+        document.removeEventListener('selectionchange', this.onSelectionChange);
+        this.onInlineState?.({ strong: false, em: false, code: false });
+      }
     });
     // With the keyboard up, a phone shows only the block being typed in (see
     // markdown-sheet.css). When the keyboard closes, bring that block back into
@@ -382,31 +183,57 @@ export class MarkdownVisualEditor {
     this.show(index, next, 0);
   }
 
-  /** Make the selected text bold, italic or code, or undo it when the caret is already inside one. */
-  toggleInline(kind: 'strong' | 'em' | 'code'): void {
+  /**
+   * Make the selected text bold, italic or code, or take that mark off it when
+   * all of the selected text already has it. Only the selected characters
+   * change: marked text beside the selection keeps its mark. A caret inside
+   * marked text takes the mark off all of that element.
+   */
+  toggleInline(mark: InlineMark): void {
     const range = selectionRange();
     const index = range ? this.indexOf(range.commonAncestorContainer) : -1;
     if (this.readOnly || !range || index < 0) {
       return;
     }
-    const blockElement = this.blocks[index].element;
-    let node: Node | null = range.commonAncestorContainer;
-    while (node && node !== blockElement) {
-      if (node instanceof HTMLElement && INLINE_TAGS[kind].includes(node.tagName)) {
-        node.replaceWith(...Array.from(node.childNodes));
-        this.blockEdited(index);
-        return;
-      }
-      node = node.parentNode;
-    }
+    const root = this.blocks[index].element;
     if (range.collapsed) {
+      const holder = markAround(range.startContainer, mark, root);
+      if (holder) {
+        holder.replaceWith(...Array.from(holder.childNodes));
+        this.blockEdited(index);
+      }
+      this.updateInlineState();
       return;
     }
-    const wrapper = document.createElement(kind);
-    wrapper.append(range.extractContents());
-    range.insertNode(wrapper);
-    range.selectNodeContents(wrapper);
+    const start = textOffset(root, range.startContainer, range.startOffset);
+    const end = textOffset(root, range.endContainer, range.endOffset);
+    if (start >= end) {
+      return;
+    }
+    toggleMarkOver(root, start, end, mark);
     this.blockEdited(index);
+    this.updateInlineState();
+  }
+
+  /** Report which marks the selection is entirely in (see `onInlineState`). */
+  updateInlineState(): void {
+    if (!this.onInlineState) {
+      return;
+    }
+    const state: Record<InlineMark, boolean> = { strong: false, em: false, code: false };
+    const range = selectionRange();
+    const index = range ? this.indexOf(range.commonAncestorContainer) : -1;
+    if (range && index >= 0) {
+      const root = this.blocks[index].element;
+      const start = textOffset(root, range.startContainer, range.startOffset);
+      const end = textOffset(root, range.endContainer, range.endOffset);
+      for (const mark of ['strong', 'em', 'code'] as const) {
+        state[mark] = range.collapsed
+          ? markAround(range.startContainer, mark, root) !== null
+          : markedThroughout(root, start, end, mark);
+      }
+    }
+    this.onInlineState(state);
   }
 
   /** A block with its row, tools and drop handling. */
@@ -424,6 +251,8 @@ export class MarkdownVisualEditor {
     row.addEventListener('dragover', (event) => this.dragOver(row, event));
     row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
     row.addEventListener('drop', (event) => this.dropOn(at(), row, event));
+    // A finger held on a block moves it; a tap is left to the browser.
+    this.holdToMove.attach(row);
     return { block, start, end, element, row };
   }
 
@@ -464,21 +293,23 @@ export class MarkdownVisualEditor {
     }
   }
 
-  /** Move source block `from` to position `to`, reload, and put the caret in it. */
-  private moveTo(from: number, to: number): void {
+  /** Move source block `from` to position `to`, reload, and (unless `focus` is off) put the caret in it. */
+  private moveTo(from: number, to: number, focus = true): void {
     const ranges = parseMarkdownRanges(this.source);
     if (to < 0 || to >= ranges.length || to === from) {
       return;
     }
     this.lines = moveMarkdownBlock(this.lines, ranges, from, to);
     this.onChange?.(this.source);
-    this.reload(to);
+    this.reload(to, focus);
   }
 
-  /** Show the source afresh and focus block `index`. */
-  private reload(index: number): void {
+  /** Show the source afresh and focus block `index` (unless `focus` is off). */
+  private reload(index: number, focus = true): void {
     this.load(this.source);
-    this.focusBlock(Math.min(index, this.blocks.length - 1));
+    if (focus) {
+      this.focusBlock(Math.min(index, this.blocks.length - 1));
+    }
   }
 
   /** Put the keyboard at the start of the document, where a text sheet's editor takes it. */
@@ -545,11 +376,19 @@ export class MarkdownVisualEditor {
     event.preventDefault();
     const before = row.classList.contains('drop-before');
     this.endDrag();
+    this.moveNear(dragged, index, before);
+  }
+
+  /** Move block `dragged` (its index in `blocks`) to just before or after block `index`. */
+  private moveNear(dragged: number, index: number, before: boolean, focus = true): void {
     const from = this.sourceIndex(dragged);
+    if (from < 0) {
+      return;
+    }
     // Blocks with source lines before the drop edge: where the block lands.
     const edge = before ? index : index + 1;
     const slot = this.blocks.slice(0, edge).filter((b) => b.start !== b.end).length;
-    this.moveTo(from, slot > from ? slot - 1 : slot);
+    this.moveTo(from, slot > from ? slot - 1 : slot, focus);
   }
 
   private endDrag(): void {

@@ -326,6 +326,18 @@ describe('double-tap opens the inline editor on touch (#458)', () => {
     expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
   });
 
+  it('counts the window to the second press, so a normal-length second tap still opens the editor', () => {
+    const { grid } = setupCsv(10, 3);
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    touchUp(cell);
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    touchDown(cell);
+    vi.advanceTimersByTime(100);
+    touchUp(cell);
+    expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
+  });
+
   it('does not open the editor when the second tap lands on a different cell', () => {
     const { grid } = setupCsv(10, 3);
     touchDown(cellEl(grid, 1, 1));

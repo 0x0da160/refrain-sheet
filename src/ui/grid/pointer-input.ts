@@ -521,6 +521,7 @@ export class PointerInput {
     // gesture the browser's own synthetic click already treats as a plain
     // tap-to-select, and the only kind eligible to pair into a double-tap.
     const wasQuickTap = this.core.longPress.quickTap;
+    const pressedAt = this.core.longPress.pressStartedAt;
     this.core.longPress.clear();
     const menuTarget = this.core.longPress.menuTarget;
     this.core.longPress.menuTarget = null;
@@ -535,19 +536,18 @@ export class PointerInput {
       return;
     }
     if (wasQuickTap && event.type === 'pointerup') {
-      this.handleQuickTap(event);
+      this.handleQuickTap(event, pressedAt);
     }
   }
 
   /**
    * Pairs successive quick taps into a double-tap that opens the inline
    * editor, mirroring `onDoubleClick` — see `DOUBLE_TAP_MS`. The first tap of
-   * a pair only arms a pending-tap window; the second, landing on the same
-   * cell within that window and the long-press move tolerance, opens the
-   * editor with the caret placed under the tap, then clears the pending
-   * state so a third tap doesn't retrigger it.
+   * a pair records its release; the second, on the same cell and starting its
+   * press within the window, opens the editor with the caret placed under the
+   * tap. `pressedAt` is when this tap's press began (`LongPress.pressStartedAt`).
    */
-  private handleQuickTap(event: PointerEvent): void {
+  private handleQuickTap(event: PointerEvent, pressedAt: number): void {
     const tab = this.core.state.activeTab;
     if (!tab) {
       return;
@@ -556,7 +556,7 @@ export class PointerInput {
     if (!cell) {
       return;
     }
-    if (this.core.doubleTap.tap(cell, event)) {
+    if (this.core.doubleTap.tap(cell, event, pressedAt)) {
       const cellEl = this.cellAt(cell.row, cell.col);
       const caretOffset = cellEl ? caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
       this.core.editing.openEditor(tab, cell.row, cell.col, null, caretOffset ?? undefined);

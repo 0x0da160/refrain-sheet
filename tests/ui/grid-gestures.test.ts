@@ -133,19 +133,32 @@ describe('DoubleTap', () => {
 
   it('pairs two taps on the same cell within the window and slop', () => {
     const taps = new DoubleTap();
-    expect(taps.tap({ row: 1, col: 2 }, pointer(0, 0))).toBe(false);
-    expect(taps.tap({ row: 1, col: 2 }, pointer(DOUBLE_TAP_SLOP_PX, 0))).toBe(true);
+    expect(taps.tap({ row: 1, col: 2 }, pointer(0, 0), Date.now())).toBe(false);
+    // The second press starts 50ms inside the window after the first release.
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    expect(taps.tap({ row: 1, col: 2 }, pointer(DOUBLE_TAP_SLOP_PX, 0), Date.now())).toBe(true);
     // A third tap starts a new pair rather than retriggering.
-    expect(taps.tap({ row: 1, col: 2 }, pointer(0, 0))).toBe(false);
+    expect(taps.tap({ row: 1, col: 2 }, pointer(0, 0), Date.now())).toBe(false);
   });
 
   it('does not pair taps on different cells, too far apart, or too slow', () => {
     const taps = new DoubleTap();
-    taps.tap({ row: 1, col: 2 }, pointer(0, 0));
-    expect(taps.tap({ row: 1, col: 3 }, pointer(0, 0))).toBe(false);
-    expect(taps.tap({ row: 1, col: 3 }, pointer(DOUBLE_TAP_SLOP_PX + 1, 0))).toBe(false);
-    taps.tap({ row: 4, col: 4 }, pointer(0, 0));
-    vi.advanceTimersByTime(DOUBLE_TAP_MS);
-    expect(taps.tap({ row: 4, col: 4 }, pointer(0, 0))).toBe(false);
+    taps.tap({ row: 1, col: 2 }, pointer(0, 0), Date.now());
+    expect(taps.tap({ row: 1, col: 3 }, pointer(0, 0), Date.now())).toBe(false);
+    expect(taps.tap({ row: 1, col: 3 }, pointer(DOUBLE_TAP_SLOP_PX + 1, 0), Date.now())).toBe(false);
+    taps.tap({ row: 4, col: 4 }, pointer(0, 0), Date.now());
+    // A press that starts after the window has closed does not pair.
+    vi.advanceTimersByTime(DOUBLE_TAP_MS + 1);
+    expect(taps.tap({ row: 4, col: 4 }, pointer(0, 0), Date.now())).toBe(false);
+  });
+
+  it('measures the window from the first release to the second press, not to its release', () => {
+    const taps = new DoubleTap();
+    taps.tap({ row: 1, col: 2 }, pointer(0, 0), Date.now());
+    // The second press starts inside the window and is held for a normal tap.
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    const pressedAt = Date.now();
+    vi.advanceTimersByTime(100);
+    expect(taps.tap({ row: 1, col: 2 }, pointer(0, 0), pressedAt)).toBe(true);
   });
 });

@@ -16,7 +16,9 @@ function plainText(nodes: MarkdownInline[]): string {
         ? node.text
         : node.type === 'break'
           ? ' '
-          : plainText(node.children),
+          : node.type === 'htmlBreak'
+            ? node.raw
+            : plainText(node.children),
     )
     .join('');
 }
@@ -46,6 +48,8 @@ export function inlineToMarkdown(nodes: MarkdownInline[], lineBreak = '\n'): str
           return node.text.replace(/\n/g, lineBreak);
         case 'break':
           return lineBreak;
+        case 'htmlBreak':
+          return node.raw;
         case 'strong':
           return emphasis(node.children, ['**', '__']);
         case 'em':

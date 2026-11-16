@@ -24,7 +24,8 @@ import {
 import { toSquares } from '../../core/workbook/grid-paper';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, NotifyPort } from '../ui-port';
+import { isPhonePortrait } from '../phone-layout';
+import type { ConvertReason, GridViewPort, NotifyPort } from '../ui-port';
 
 /** The kinds Insert > Rectangle… makes (an image comes from a picture: {@link ObjectCommands.insertImage}). */
 export type ShapeKind = Exclude<SheetObjectKind, 'image' | 'chart'>;
@@ -68,7 +69,7 @@ export interface ObjectGeometry {
 export class ObjectCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: NotifyPort,
+    private readonly ui: NotifyPort & GridViewPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
@@ -152,9 +153,19 @@ export class ObjectCommands {
       return false;
     }
     const source = { sheetId: doc.activeSheetId, ...range };
-    // Beside the data, not over it.
-    const at = { row: range.top, col: Math.min(range.right + 1, doc.columnCount - 1) };
-    return this.place(tab, 'chart', () => ({ width: 480, height: 300, chart: { type: 'bar', source } }), at);
+    // Beside the data, not over it. A phone has no room beside it on screen,
+    // so there it goes under the data, and the view scrolls to its corner. The
+    // size stays 480 × 300 either way, so the file does not depend on the device.
+    const phone = isPhonePortrait();
+    const at = phone
+      ? { row: Math.min(range.bottom + 1, doc.rowCount - 1), col: range.left }
+      : { row: range.top, col: Math.min(range.right + 1, doc.columnCount - 1) };
+    const size = { width: 480, height: 300 };
+    const placed = await this.place(tab, 'chart', () => ({ ...size, chart: { type: 'bar', source } }), at);
+    if (placed && phone) {
+      this.ui.scrollObjectIntoView?.(tab, at.row, at.col, size.height);
+    }
+    return placed;
   }
 
   /** Add an object of `kind` near the active cell (fields from `fill`) and select it. */

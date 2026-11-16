@@ -24,6 +24,27 @@
   flex: none;
 }
 
+/* Each button keeps its label on one line; on a phone it is the auto-format
+   label that wraps, not 「整形」 splitting letter by letter. */
+.json-sheet-view .markdown-editor-toolbar > button {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Touch: the 22 px buttons keep their size and gain a tap area that fills the
+   toolbar's own padding, so the toolbar keeps its height. */
+@media (pointer: coarse) {
+  .json-sheet-view .markdown-editor-toolbar > button {
+    position: relative;
+  }
+
+  .json-sheet-view .markdown-editor-toolbar > button::before {
+    content: '';
+    position: absolute;
+    inset: -6px -4px;
+  }
+}
+
 .json-sheet-view .markdown-editor-panes {
   flex: 1;
   min-height: 0;

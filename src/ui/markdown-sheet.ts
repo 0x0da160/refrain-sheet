@@ -243,7 +243,11 @@ export class MarkdownSheetView {
       className: 'markdown-block-kind',
       attrs: { 'aria-label': t('dialog.markdownEditor.blockKind') },
     }) as HTMLSelectElement;
-    select.append(el('option', { text: '', attrs: { value: '', hidden: '' } }));
+    // The empty option is what the closed select shows while the caret is in
+    // no block; its label says what the control is, rather than a blank box.
+    select.append(
+      el('option', { text: t('dialog.markdownEditor.blockKind'), attrs: { value: '', hidden: '' } }),
+    );
     for (const kind of MARKDOWN_BLOCK_KINDS) {
       select.append(el('option', { text: t(`dialog.markdownEditor.kind.${kind}`), attrs: { value: kind } }));
     }

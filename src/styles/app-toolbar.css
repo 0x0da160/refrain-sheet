@@ -20,11 +20,20 @@
   display: none;
 }
 
-/* Phone width: the buttons wrap onto a second row rather than scrolling
-   sideways, the same way the menu row wraps on a phone (mobile-layout.css). */
-@media (max-width: 43.75em) {
-  .app-toolbar {
-    flex-wrap: wrap;
+/* Phone width: no wrap. The buttons stay on one row and the bar scrolls
+   sideways (the base rule above), so the toolbar takes one row of the screen. */
+
+/* Touch: a larger tap area around each 28 × 26 px icon. It is drawn in the
+   toolbar's own padding, so the bar keeps its height at every width. */
+@media (pointer: coarse) {
+  .app-toolbar-button {
+    position: relative;
+  }
+
+  .app-toolbar-button::before {
+    content: '';
+    position: absolute;
+    inset: -4px -5px;
   }
 }
 

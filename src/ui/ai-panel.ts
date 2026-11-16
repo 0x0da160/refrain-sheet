@@ -27,6 +27,7 @@ import { buildAiMessages, type AiChatMessage } from '../core/ai-prompt';
 import { atStart, dialogButton, externalLink } from './dialogs/shared';
 import { formSection } from './dialogs/form-layout';
 import { openSidePanel } from './dialogs/side-panel';
+import { isPhonePortrait } from '../app/phone-layout';
 import { clearChildren, el } from './dom';
 import { isComposingKey } from './ime';
 
@@ -252,7 +253,7 @@ function updatePendingReply(text: string): void {
 function renderModelInfo(): HTMLElement {
   const model = aiModel();
   return formSection(t('aiAssistant.model.title'), [
-    el('p', { className: 'ai-panel-model-name', text: `${model.name} (${model.quantization})` }),
+    el('p', { className: 'ai-panel-model-name', text: model.title }),
     el('p', {
       className: 'dialog-note',
       text: t('aiAssistant.model.details', {
@@ -260,9 +261,15 @@ function renderModelInfo(): HTMLElement {
         license: model.license,
       }),
     }),
+    // A phone on mobile data should not start a large download unprompted.
+    ...(isPhonePortrait() ? [el('p', { className: 'dialog-note', text: t('aiAssistant.model.wifi') })] : []),
     ...(model.runtime === 'wllama'
       ? [el('p', { className: 'dialog-note', text: t('aiAssistant.model.noWebGpu') })]
       : []),
+    el('p', {
+      className: 'dialog-note',
+      text: t('aiAssistant.model.id', { id: `${model.name} (${model.quantization})` }),
+    }),
     el('p', { className: 'dialog-note' }, [externalLink(t('aiAssistant.model.page'), model.pageUrl)]),
   ]);
 }

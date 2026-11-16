@@ -13,6 +13,7 @@ import { installOpenFilesChannel } from '../../app/open-elsewhere';
 import type { UiPort } from '../../app/commands';
 import { Dialogs, Toasts } from '../dialogs';
 import type { FindBar } from '../find-bar';
+import type { Grid } from '../grid';
 import { LoadingOverlay } from '../loading-overlay';
 import { installClipboardEvents, installFileDrop, installLeaveConfirmation, installShortcuts } from './input';
 import { mountLayout } from './layout';
@@ -38,7 +39,14 @@ export function startApp(): void {
   state.announce = (message) => toasts.notify(message, 'info');
   const loadingOverlay = new LoadingOverlay();
   let findBar: FindBar | null = null;
-  const ui = createUiPort({ dialogs, toasts, loadingOverlay, findBar: () => findBar! });
+  let grid: Grid | null = null;
+  const ui = createUiPort({
+    dialogs,
+    toasts,
+    loadingOverlay,
+    findBar: () => findBar!,
+    grid: () => grid!,
+  });
   installProtectedWarning(state, ui);
 
   const commands = new Commands(state, ui, document);
@@ -46,6 +54,7 @@ export function startApp(): void {
   installOpenFilesChannel(() => state.tabs.flatMap((tab) => (tab.handle ? [tab.handle] : [])));
   const surfaces = createSurfaces(state, commands, dialogs, toasts);
   findBar = surfaces.findBar;
+  grid = surfaces.grid;
 
   const app = document.getElementById('app');
   if (!app) {

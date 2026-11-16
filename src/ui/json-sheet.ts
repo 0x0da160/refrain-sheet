@@ -11,6 +11,7 @@ import {
   currentSidePanelPlacement,
 } from './dialogs/side-panel';
 import { Eye } from 'lucide';
+import { isPhonePortrait } from '../app/phone-layout';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
 import { SourceProblemBar } from './source-problem-bar';
@@ -77,8 +78,8 @@ export class JsonSheetView {
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
   /** Typed since the last load or auto-format: the next non-typing commit formats (when on). */
   private formatPending = false;
-  /** Whether the preview panel should be open while this view is active; opened by `previewToggle` and closed by its header ×, not persisted across reloads. */
-  private previewVisible = true;
+  /** Whether the preview panel should be open while this view is active; opened by `previewToggle` and closed by its header ×, not persisted across reloads. A phone starts with it closed, so the source has the screen. */
+  private previewVisible = !isPhonePortrait();
 
   constructor(
     private readonly state: AppState,

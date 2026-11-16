@@ -7,6 +7,7 @@
  * panel never covers the grid.
  */
 import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop, X, type IconNode } from 'lucide';
+import { isPhonePortrait } from '../../app/phone-layout';
 import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeEdgeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
@@ -51,22 +52,27 @@ let measuredReservation: string | null = null;
 /**
  * Smartphone-in-portrait viewports default to a bottom dock — there's little
  * usable width for a left/right split — while every other viewport keeps the
- * pre-existing right-docked default (#459).
+ * pre-existing right-docked default (#459). An explicit choice still wins; on
+ * a phone the dock controls are hidden, so only a choice made earlier can
+ * differ, and the phone panels are full-height sheets either way (see
+ * {@link currentSidePanelPlacement}).
  */
 function effectiveSidePanelPosition(): SidePanelPosition {
   if (sidePanelPositionExplicit) {
     return sidePanelPosition;
   }
-  const isMobilePortrait =
-    typeof globalThis.matchMedia === 'function' &&
-    globalThis.matchMedia('(max-width: 43.75em) and (orientation: portrait)').matches;
-  return isMobilePortrait ? 'bottom' : 'right';
+  return isPhonePortrait() ? 'bottom' : 'right';
 }
 
-/** The dock side/size any *new* dockable side panel should open at. */
+/**
+ * The dock side/size any *new* dockable side panel should open at. On a phone
+ * a new panel fills the space between the chrome, so the one just opened reads
+ * as a sheet; the panels already open collapse to their title bars (the stack).
+ */
 export function currentSidePanelPlacement(): { position: SidePanelPosition; size: number } {
   const position = effectiveSidePanelPosition();
-  return { position, size: sidePanelMaximized ? sidePanelMaximizedExtent(position) : sidePanelSize };
+  const fill = isPhonePortrait() || sidePanelMaximized;
+  return { position, size: fill ? sidePanelMaximizedExtent(position) : sidePanelSize };
 }
 
 function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {

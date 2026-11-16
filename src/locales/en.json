@@ -1776,6 +1776,8 @@
   "aiAssistant.model.title": "AI model",
   "aiAssistant.model.details": "About {size} MB. License: {license}. Downloaded from Hugging Face.",
   "aiAssistant.model.page": "Model page (Hugging Face)",
+  "aiAssistant.model.id": "Model ID: {id}",
+  "aiAssistant.model.wifi": "On mobile data, connect to Wi-Fi before you download.",
   "aiAssistant.model.noWebGpu": "This browser has no WebGPU, so it uses a larger model that runs on the CPU and replies more slowly.",
   "aiAssistant.downloadNote": "Nothing is downloaded until you press Download. The model is kept in this browser, so the next time it starts without downloading again.",
   "aiAssistant.download": "Download AI Model ({size} MB)",

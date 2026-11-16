@@ -141,6 +141,40 @@ export class Navigator {
   }
 
   /**
+   * Scroll so an object of `height` sheet pixels placed on this cell is in
+   * view. Its left edge goes to the left of the scrolled columns, which shows
+   * the most of a wide object. Vertically the view moves only as far as it
+   * must: an object already in view stays put, one below the view is brought
+   * up so its bottom is visible, and one taller than the view starts at the
+   * top. Moves the view only: the selection and the cells stay as they are.
+   */
+  scrollObjectIntoView(tab: Tab, row: number, col: number, height: number): void {
+    const idx = this.core.metrics.heightIndex(tab);
+    // The height index is keyed by display slot, not document row.
+    const slot = this.core.state.sortSlot(tab, row);
+    const startRow = this.core.metrics.scrollRowBase(tab);
+    if (slot >= startRow) {
+      const top = idx.offsetOf(slot) - idx.offsetOf(startRow);
+      const boxH = height * this.core.metrics.zoomOf(tab);
+      const viewH = this.core.element.clientHeight - this.core.metrics.overlayHeight(tab);
+      const scrollTop = this.core.element.scrollTop;
+      if (top < scrollTop || boxH > viewH) {
+        this.core.element.scrollTop = top;
+      } else if (top + boxH > scrollTop + viewH) {
+        this.core.element.scrollTop = top + boxH - viewH;
+      }
+    }
+    if (col >= this.core.metrics.frozenColCount(tab)) {
+      const x = this.core.metrics.colOffset(tab, col) - this.core.metrics.frozenColsWidth(tab);
+      this.core.element.scrollLeft = Math.max(0, x);
+    }
+    const current = this.core.state.activeTab;
+    if (current) {
+      this.core.renderer.render(current);
+    }
+  }
+
+  /**
    * Step a document row by `delta` counting only visible *display slots*, so
    * keyboard navigation (arrows, PageUp/Down) walks the grid in the order
    * rows actually appear on screen — skipping rows hidden by an active

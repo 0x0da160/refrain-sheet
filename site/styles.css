@@ -932,6 +932,17 @@ img {
     color: var(--fg-default);
   }
 }
+/* Touch: the footer links get the 44 px touch size, not the 24 px minimum
+   they keep with a mouse. */
+@media (pointer: coarse) {
+  .footer-links a,
+  .footer-links button,
+  .lang a {
+    min-block-size: var(--target-touch);
+    min-inline-size: var(--target-touch);
+    justify-content: center;
+  }
+}
 
 /* =========================================================================
    Consent banner (site/consent.js shows it; hidden by default)
@@ -967,6 +978,18 @@ img {
 .cookie-consent-actions {
   display: flex;
   gap: var(--space-2);
+}
+/* On a phone the banner sits closer to the edges and spends less padding.
+   Its wording is unchanged: the consent text itself is not trimmed here. */
+@media (max-width: 32.5em) {
+  .cookie-consent {
+    inset-inline: var(--space-2);
+    inset-block-end: var(--space-2);
+  }
+  .cookie-consent-inner {
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-3);
+  }
 }
 
 /* =========================================================================

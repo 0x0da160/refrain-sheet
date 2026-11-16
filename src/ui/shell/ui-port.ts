@@ -9,6 +9,7 @@ import { closeColumnMenu } from '../column-menu';
 import { closeAllContextMenus } from '../context-menu';
 import type { Dialogs, Toasts } from '../dialogs';
 import type { FindBar } from '../find-bar';
+import type { Grid } from '../grid';
 import type { LoadingOverlay } from '../loading-overlay';
 import { showAiAssistantPanel } from '../ai-panel';
 
@@ -28,10 +29,13 @@ export interface UiPortParts {
    * All), which needs this port, so it is created afterwards.
    */
   findBar: () => FindBar;
+  /** Late-bound for the same reason: the grid is built with the surfaces, after this port. */
+  grid: () => Grid;
 }
 
-export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPortParts): UiPort {
+export function createUiPort({ dialogs, toasts, loadingOverlay, findBar, grid }: UiPortParts): UiPort {
   return {
+    scrollObjectIntoView: (tab, row, col, height) => grid().scrollObjectIntoView(tab, row, col, height),
     confirmValidation: (name, summary) => dialogs.confirmValidation(name, summary),
     confirmUnsaved: (names) => dialogs.confirmUnsaved(names),
     confirmChangedOnDisk: (name) => dialogs.confirmChangedOnDisk(name),

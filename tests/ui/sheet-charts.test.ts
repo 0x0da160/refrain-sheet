@@ -27,10 +27,12 @@ function setup() {
   const state = new AppState();
   const notify = vi.fn();
   const confirmDeleteSheet = vi.fn(async () => true);
+  const scrollObjectIntoView = vi.fn();
   const fakes = new Map<string | symbol, unknown>([
     ['notify', notify],
     ['confirmConvert', vi.fn(async () => true)],
     ['confirmDeleteSheet', confirmDeleteSheet],
+    ['scrollObjectIntoView', scrollObjectIntoView],
   ]);
   const ui = new Proxy({} as UiPort, {
     get: (_target, key) => {
@@ -61,7 +63,7 @@ function setup() {
   ];
   rows.forEach((row, r) => row.forEach((v, c) => doc.setCell(r, c, v)));
   grid.refresh();
-  return { state, grid, commands, tab, doc, notify, confirmDeleteSheet };
+  return { state, grid, commands, tab, doc, notify, confirmDeleteSheet, scrollObjectIntoView };
 }
 
 const chartObject = (chart: ChartSpec, overrides: Partial<SheetObject> = {}): SheetObject => ({
@@ -199,7 +201,7 @@ describe('sheet charts: the file', () => {
 
 describe('sheet charts: commands', () => {
   it('charts the filled block around the selected cell, beside it, and undoes it', async () => {
-    const { doc, tab, commands, state } = setup();
+    const { doc, tab, commands, state, scrollObjectIntoView } = setup();
     state.setSelection(tab, { row: 2, col: 1 });
     await commands.run('insert.chart');
     expect(doc.objects).toHaveLength(1);
@@ -210,8 +212,27 @@ describe('sheet charts: commands', () => {
       chart: { type: 'bar', source: { sheetId: doc.activeSheetId, top: 0, left: 0, bottom: 3, right: 2 } },
     });
     expect(state.objectSelection.selected(tab)).toEqual([doc.objects[0].id]);
+    // Beside the data on a desktop, so the view stays where it is.
+    expect(scrollObjectIntoView).not.toHaveBeenCalled();
     state.undo(tab);
     expect(doc.objects).toHaveLength(0);
+  });
+
+  it('on a phone, puts the chart under the data and brings it into view', async () => {
+    const { doc, tab, commands, state, scrollObjectIntoView } = setup();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({ matches: query === '(max-width: 43.75em) and (orientation: portrait)' })),
+    );
+    try {
+      state.setSelection(tab, { row: 2, col: 1 });
+      await commands.run('insert.chart');
+      // The data is rows 0 to 3, so the chart starts on row 4, under its left edge.
+      expect(doc.objects[0]).toMatchObject({ kind: 'chart', row: 4, col: 0 });
+      expect(scrollObjectIntoView).toHaveBeenCalledWith(tab, 4, 0, 300);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('says so when there is nothing to chart', async () => {

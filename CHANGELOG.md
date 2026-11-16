@@ -38,6 +38,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- Data > Run SQL Query… works again. Its SQLite engine failed to start after a dependency update, so queries did not run.
+
 ## [0.9.41] - 2026-11-16
 
 ### Changed

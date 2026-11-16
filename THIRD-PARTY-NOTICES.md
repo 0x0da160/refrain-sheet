@@ -43,7 +43,7 @@ SOFTWARE.
 
 ## sql.js (and SQLite)
 
-- Version: 1.15.2
+- Version: 1.16.0
 - Author: sql.js authors
 - Source: https://github.com/sql-js/sql.js
 - Purpose: the execution engine behind **Data > Run SQL Query…**
@@ -85,7 +85,7 @@ SOFTWARE.
 
 ## lucide
 
-- Version: 1.69.0
+- Version: 1.72.0
 - Author: Lucide Contributors
 - Source: https://github.com/lucide-icons/lucide
 - Purpose: UI icons (menu toggle, close/add buttons, checkmarks, file actions,
@@ -141,7 +141,7 @@ THIS SOFTWARE.
 
 ## @wllama/wllama
 
-- Version: 3.8.1
+- Version: 3.13.0
 - Author: Xuan Son NGUYEN
 - Source: https://github.com/ngxson/wllama
 - Purpose: the AI assistant's in-browser inference runtime (a WebAssembly
@@ -177,7 +177,7 @@ SOFTWARE.
 
 ## @wllama/wllama-compat
 
-- Version: 3.8.1
+- Version: 3.13.0
 - Author: Xuan Son NGUYEN
 - Source: https://github.com/ngxson/wllama
 - Purpose: the same runtime built for browsers without WebAssembly JSPI or

@@ -68,9 +68,9 @@
       "support": "Rolling; LZ4 Frame codec (currently unused but linked; see THIRD-PARTY-NOTICES.md).",
       "plan": null
     },
-    "cargo:argon2@0.5": {
+    "cargo:argon2@0.6": {
       "eol": null,
-      "support": "Rolling; Argon2id key derivation for the encrypted .rsf container. Pinned to 0.5.3; the crate audit is a human-review item.",
+      "support": "Rolling; Argon2id key derivation for the encrypted .rsf container. Pinned to 0.6.0; the crate audit is a human-review item.",
       "plan": null
     },
     "npm:encoding-japanese@2": {

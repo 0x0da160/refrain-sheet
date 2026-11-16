@@ -266,6 +266,84 @@
     grid-column: 1 / -1;
     grid-row: 2;
   }
+
+  /* Formatted editing never scrolls sideways on a phone. A long line of code
+     wraps inside its block, and a long word (a URL, inline code, a table cell)
+     breaks where it must. A worksheet with wrap turned off (Alt+Z) keeps its
+     sideways scrolling: `.text-sheet-nowrap` sets `text-wrap-mode: nowrap` on
+     its blocks, which wins over the wrap set here. */
+  .markdown-sheet-view .markdown-visual {
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-sheet-view .markdown-visual pre {
+    white-space: pre-wrap;
+  }
+
+  /* No double-tap zoom anywhere in the docked Markdown worksheet. The browser
+     reads `touch-action` only up to the nearest scroll container, and several
+     controls here are scroll containers too (the mode switch, the source box,
+     the formatted pane, each code block), so every element carries the value
+     rather than relying on the chain. `manipulation` keeps panning and
+     pinch-zoom. */
+  .markdown-sheet-view,
+  .markdown-sheet-view * {
+    touch-action: manipulation;
+  }
+
+  /* The formatted editor's text keeps the 16px floor the source editor already
+     has, so tapping into a block does not zoom the page, even at a worksheet
+     zoom under 100%. */
+  .markdown-sheet-view .markdown-visual-pane {
+    font-size: max(16px, calc(var(--text-body) * var(--sheet-zoom, 1)));
+  }
+
+  /* Formatted editing with the on-screen keyboard up. While a block is being
+     typed into and the keyboard is open (`data-keyboard-open`, set by
+     `installKeyboardViewportFix` in ui/popup.ts), the phone shows that block
+     alone, with its formatting bar (block kind, Bold, Italic, Code) just above
+     the keyboard. The menus, tab strips, toolbars, find bar, side panels, the
+     other blocks and their tools are hidden until the keyboard closes or focus
+     leaves the block. The formatting buttons cancel `mousedown`
+     (`formatButton`), so tapping one keeps the block's focus and the bar stays
+     up. */
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) > :not(#app-body),
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) #app-body > :not(#app-content),
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) #app-content > :not(.main-row),
+  :root[data-keyboard-open]
+    #app:has(.markdown-visual-row:focus-within)
+    .main-row
+    > :not(.markdown-sheet-view),
+  :root[data-keyboard-open]
+    #app:has(.markdown-visual-row:focus-within)
+    .markdown-sheet-view
+    > .markdown-editor-toolbar
+    > :not(.markdown-visual-tools),
+  :root[data-keyboard-open]
+    #app:has(.markdown-visual-row:focus-within)
+    .markdown-visual-row:not(:focus-within),
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) .markdown-block-tools,
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) .markdown-block-gutter {
+    display: none;
+  }
+
+  :root[data-keyboard-open]
+    #app:has(.markdown-visual-row:focus-within)
+    .markdown-sheet-view
+    > .markdown-editor-toolbar {
+    order: 1;
+    border-top: 1px solid var(--border-default);
+    border-bottom: 0;
+  }
+
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) .markdown-visual-tools {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  :root[data-keyboard-open] #app:has(.markdown-visual-row:focus-within) .markdown-visual:not(.read-only) {
+    padding-top: var(--space-2);
+  }
 }
 
 /* An empty list item or quote paragraph (just made from `- ` or `> `) keeps

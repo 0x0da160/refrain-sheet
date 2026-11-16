@@ -30,6 +30,7 @@ import { blockToMarkdown } from '../core/markdown-serialize';
 import { t } from '../app/i18n';
 import { el } from './dom';
 import { caretAtStart, placeCaret, selectionRange } from './caret';
+import { onKeyboardOpenChange } from './popup';
 import { renderMarkdownBlock } from './markdown-render';
 import { moveMarkdownBlock } from '../core/markdown-blocks';
 import { buildBlockTools, type BlockAction } from './markdown-block-tools';
@@ -326,6 +327,15 @@ export class MarkdownVisualEditor {
     this.element.addEventListener('focusin', (event) => {
       this.focused = this.indexOf(event.target);
       this.onFocusBlock?.(this.focused >= 0 ? readBlock(this.blocks[this.focused].element) : null);
+    });
+    // With the keyboard up, a phone shows only the block being typed in (see
+    // markdown-sheet.css). When the keyboard closes, bring that block back into
+    // view: the pane's scroll position was reset while it was the only block.
+    onKeyboardOpenChange((open) => {
+      const block = this.focused >= 0 ? this.blocks[this.focused] : undefined;
+      if (!open && block) {
+        block.row.scrollIntoView({ block: 'nearest' });
+      }
     });
   }
 

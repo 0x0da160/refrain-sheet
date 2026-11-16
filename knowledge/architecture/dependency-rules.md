@@ -23,6 +23,7 @@ isolation (see [module-boundaries.md](module-boundaries.md)).
 formula/value.ts          value model, error set, coercion rules, documented limits
       ↑
       ├── formula/criteria.ts      criteria parsing, safe wildcard matching
+      ├── formula/columnar.ts      criteria scans over typed columns (COUNTIFS, SUMIFS, …)
       ├── formula/date.ts          the UTC date-serial scale, DATEDIF
       ├── formula/text.ts          code-point-safe text helpers
       ├── formula/text-format.ts   TEXT()'s Excel-compatible format-code subset
@@ -35,12 +36,16 @@ formula/functions/        the function registry: one FunctionDef per function,
 formula/refs.ts, tokenizer.ts, ref-toggle.ts   references, lexing, F4 cycling
       ↑
 formula/parser.ts, evaluator.ts, rewrite.ts, ref-scan.ts
+formula/template.ts       one parsed formula for a column of filled-down copies
 formula/index.ts          the public facade re-exporting the above
       ↑
 formula/spill.ts          dynamic-array placement (pure; takes a SpillSource)
       ↑
 workbook/*                the workbook: recalc-engine.ts (memo, spill maps,
-                          clock, cross-sheet eval) under rsf-document.ts
+                          clock, cross-sheet eval) under rsf-document.ts,
+                          with formula-runs.ts (filled-down formulas as
+                          runs), recalc-dependents.ts (what a change
+                          reaches), cell-memo.ts and column-store.ts
 ```
 
 `tests/tooling/architecture.test.ts` enforces this ranking: a module may
@@ -77,7 +82,13 @@ one bit for bit on coercion, rounding, comparison ordering, and every error
 case, or a workbook would compute different values depending on whether
 WASM loaded; that divergence risk is a poor trade for work that is already
 lazy and memoized (only cells the grid actually displays are ever
-evaluated). The same reasoning applies to moving evaluation into a worker:
+evaluated). The million-row work of 2026-11 kept to this: the slow part was
+recomputing everything after every change, and it was removed inside the
+TypeScript engine — shared parsed formulas, typed-column criteria scans
+that call the same `matchesCriterion`, and narrow invalidation — with the
+cell-by-cell paths kept as the reference the new ones are tested against
+(see [million-row-demo.md](../operations/million-row-demo.md)). The same
+reasoning applies to moving evaluation into a worker:
 the engine has no worker infrastructure, and the existing cooperative
 time-slicer (`scheduler.ts`) is the established pattern for keeping long
 _scans_ responsive. If profiling later shows a real bottleneck,

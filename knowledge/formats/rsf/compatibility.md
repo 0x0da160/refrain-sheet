@@ -65,6 +65,18 @@ format), and stores version history as `history.deltas` instead of
 history keys. A release up to 0.9.14 ignores `deltas`, so it opens such a
 file with its content intact but without its version history.
 
+The filter bound also keeps `"version": 1`. A filter's range may now span
+1,000,000 data rows plus its header row (see
+[json-document.md](json-document.md#filter)). Earlier releases count the header
+row against the bound, so they refuse a filter over a whole million-row sheet
+with a header row. Such a file still opens in them: the filter is dropped and
+the user is warned, as for any filter a reader cannot validate, and the rest of
+the workbook loads. Saving the file again in those releases writes the sheet
+without that filter. The change alters which filters are accepted, not what any
+key means, and no earlier reader refuses the file as a whole. Raising the
+version would make those releases refuse the whole workbook (`bad-version`) to
+keep one filter.
+
 Defaults are left out when writing (UTC timezone, English, unlocked,
 `grid`, solid/thin borders, history on with no snapshots and no limit), so
 the same content always serializes to the same text.

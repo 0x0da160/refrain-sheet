@@ -37,10 +37,18 @@ generated:
   move is one atomic, undoable entry. A reference to a moved cell follows
   it; every other reference — and any range that only partially overlaps
   the move — is left exactly as written.
-- **Workbook-wide recalculation:** any mutation to any worksheet clears the
-  whole workbook memo, because a cross-sheet reference means a change
-  anywhere can invalidate a formula anywhere. Recalculation stays lazy and
-  memoized — there is no separate dependency graph.
+- **Workbook-wide recalculation:** the evaluation memo is workbook-wide,
+  because a cross-sheet reference means a change anywhere can invalidate a
+  formula anywhere. A kept result must always equal what recomputing
+  everything would produce. A change to one cell's input drops only the
+  results that can read that cell — found from the formulas' own text, as
+  every reference is written out (`src/core/workbook/recalc-dependents.ts`)
+  — and any other mutation (rows, columns, worksheets, settings) drops the
+  whole memo. So does any cell change in a workbook the narrow rule does
+  not cover: one holding a dynamic array, or one where a circular reference
+  has been met. Recalculation stays lazy and memoized — no dependency graph
+  is stored. `tests/core/recalc-incremental.test.ts` holds a long-lived
+  workbook against a freshly built one after every step.
 - **RSF container safety:** magic/version are validated as a pair, the body
   CRC is checked, decompression is bounded by the declared length (512 MiB
   ceiling), and parsing never executes anything. Display settings (zoom,

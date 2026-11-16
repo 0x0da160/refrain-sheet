@@ -56,7 +56,9 @@ progress.
 | Selection statistics                                             | ≤ 20,000 cells synchronous; larger selections deferred: debounce, time-sliced scan, cancellation on newer selection/edit/tab, "Calculating…" placeholder             | `src/ui/status-bar.ts`, `src/core/stats.ts` (`SelectionStatsAccumulator`)                   |
 | Replace All                                                      | Time-sliced read-only match scan with % progress and cancellation, then one synchronous atomic `bulkEdit`                                                            | `src/app/commands/range-ops.ts` (`replaceAll`), `src/core/scheduler.ts`                     |
 | Find-as-you-type counts                                          | 120 ms debounce + wall-clock search budget (partial results instead of a freeze)                                                                                     | `src/ui/find-bar.ts`, `src/core/search.ts`                                                  |
-| Formula recalculation                                            | Lazy evaluation with memoization; only displayed cells are computed                                                                                                  | `src/core/workbook/rsf-document.ts`                                                         |
+| Formula recalculation                                            | Lazy evaluation with memoization; only displayed cells are computed; a cell change drops only the results that can read it                                           | `src/core/workbook/recalc-engine.ts`, `recalc-dependents.ts`                                |
+| Filled-down formulas                                             | Consecutive copies of one formula share a single parsed tree, evaluated with a row shift; membership is decided by exact text                                        | `src/core/formula/template.ts`, `src/core/workbook/formula-runs.ts`                         |
+| `COUNTIFS` / `SUMIFS` / `AVERAGEIFS` over long columns           | Typed column copies and one cached bit mask per (column, criterion); sums added in row order; columns holding an error scanned position by position                  | `src/core/formula/columnar.ts`, `src/core/workbook/column-store.ts`                         |
 | Formula-cell enumeration                                         | Per-row formula index (built lazily, maintained by every mutator) so the status-bar count and reference-rewrite scan skip formula-free rows                          | `src/core/workbook/rsf-document.ts` (`formulaPerRow`)                                       |
 | `.rsf` save / open                                               | JSON + WASM Zstandard + CRC-32 behind the busy indicator; decompression bounded by the header length (512 MiB ceiling)                                               | `src/core/workbook/rsf-codec.ts`, `wasm/src/compress.rs`                                    |
 | CSV field decoding (per-cell text, every field, every load/save) | One cached `TextDecoder` per (encoding, fatal) pair, reused across all fields                                                                                        | `src/core/csv/encoding.ts` (`decodeBytes`, `decodesCleanly`)                                |
@@ -70,13 +72,16 @@ progress.
   lifecycle complexity. Profiling that shows a specific operation
   exceeding its budget on reference hardware is the trigger for moving it
   to a worker.
-- **No formula dependency graph.** Evaluation is lazy and memoized, and
-  only the visible window plus the status bar ever request values, so the
-  work per edit is bounded by the viewport, not the sheet. The one case
-  profiling did find worth fixing — many formula cells doing an
-  exact-match lookup against the same range — was addressed with a
-  scoped, per-function cached index (see `VLOOKUP`/`MATCH`/`XLOOKUP`
-  above), not a general dependency graph.
+- **No stored formula dependency graph.** Evaluation is lazy and memoized,
+  and only the visible window plus the status bar ever request values.
+  That bounded the work per edit by the viewport only while no displayed
+  formula read a long range: a summary over a million rows made every edit
+  recompute the million rows (about 20 s per change, measured in
+  [million-row-demo.md](million-row-demo.md)). What a change reaches is now
+  worked out when it happens, from the formulas' text — arithmetic on runs
+  of filled-down formulas, not a graph of cells — and everything else keeps
+  its result. A workbook holding a dynamic array, or one where a circular
+  reference has been met, still recomputes everything per change.
 - **No WASM multi-threading (`SharedArrayBuffer`).** Rejected by design,
   not merely deferred: `SharedArrayBuffer` requires cross-origin-isolation
   (`COOP`/`COEP` response headers), which have no `file://` equivalent, so
@@ -165,6 +170,11 @@ moved into the Rust core.
   the same evaluator-language-split risk that keeps formula evaluation
   itself JS-only. **Revisit only if profiling shows a specific
   `SUMIFS`/`COUNTIFS`-heavy sheet exceeding its responsiveness budget.**
+  That happened with the million-row demo (2026-11); the scan was
+  restructured in TypeScript instead (`src/core/formula/columnar.ts`: typed
+  columns, one bit mask per column and criterion, matching still decided by
+  `matchesCriterion`), which removed the per-cell value objects without a
+  second implementation of the comparison rules.
 - **CSV/XLSX export quoting and escaping** — no benchmark suggests it's a
   bottleneck. One low-risk, performance-orthogonal cleanup surfaced here:
   `xlsx-export.ts` hand-rolls its own JS CRC-32 table instead of reusing

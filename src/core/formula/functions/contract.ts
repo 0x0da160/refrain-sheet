@@ -33,6 +33,15 @@ export interface FnArg {
   /** The argument as a rectangular grid; a single value becomes 1×1. */
   grid(): GridResult;
   /**
+   * {@link grid}, except that a range's cells are not read from the worksheet
+   * until the grid's `cells` are first touched. For a function that can scan
+   * a long range through `ValueGrid.column` instead and so may never need
+   * them; such a function must still read each argument at the point where
+   * it would have called `grid()`, so cells are evaluated in the same order
+   * either way. Absent on hand-built arguments, which have nothing to defer.
+   */
+  lazyGrid?(): GridResult;
+  /**
    * True when the argument is written as a **range** (`A1:B2`, `A:A`, `1:10`,
    * or a worksheet-qualified one). A single cell reference is not a range —
    * that distinction is what makes `SUM(A1)` with text in `A1` a `#VALUE!`

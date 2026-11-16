@@ -182,7 +182,7 @@ tests/        core/, app/, ui/ (mirroring src/), tooling/ (scripts, workflows,
               repository rules), site/; fixtures/rsf/ is the frozen .rsf
               compatibility corpus
 bench/        reproducible performance benchmarks (npm run bench)
-scripts/      build/, check/, release/, ui-check/ and shared lib/ (npm run …)
+scripts/      build/, check/, release/, ui-check/, bench/ and shared lib/ (npm run …)
 site/         the separate static marketing site, plain JS (npm run build:landing)
 knowledge/    the OKF knowledge bundle (architecture, operations, formats,
               agent-loop, domains, ui, references, decisions)

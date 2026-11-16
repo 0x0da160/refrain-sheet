@@ -10,7 +10,7 @@ import { ImageStore } from './sheet-images';
 import { followCharts } from './sheet-charts';
 import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import type { SheetFilter } from './filter';
-import { RecalcEngine } from './recalc-engine';
+import { type CellChange, RecalcEngine } from './recalc-engine';
 import type { SheetFolder, SheetOrganization } from './sheet-folders';
 import { SheetRegistry } from './sheet-registry';
 import type { SheetSort } from './sort';
@@ -26,9 +26,9 @@ import { Worksheet } from './worksheet';
  * worksheet (`Sheet1!A1`): the memo and the in-progress set are workbook-wide
  * (see `RecalcEngine`), which is what makes results consistent across
  * worksheets and circular references detectable *across* worksheet
- * boundaries. Any mutation, in any worksheet, invalidates the whole memo —
- * cross-sheet dependencies mean a change anywhere can affect a formula
- * anywhere, so results are recomputed lazily on next access.
+ * boundaries. A change to one cell's input drops the results that can read
+ * that cell, on whatever worksheet they are; any other mutation drops the
+ * whole memo. Either way results are recomputed lazily on next access.
  *
  * The single-worksheet editing surface (`rowCount`, `getValue`, `setCell`, …)
  * delegates to the **active** worksheet, so every existing UI, command, and
@@ -647,8 +647,9 @@ export class Workbook {
   }
 
   setCellOn(sheetId: string | undefined, row: number, col: number, input: string): void {
-    if (this.resolveSheet(sheetId).setCell(row, col, input)) {
-      this.touch();
+    const sheet = this.resolveSheet(sheetId);
+    if (sheet.setCell(row, col, input)) {
+      this.touch({ sheet, row, col });
     }
   }
 
@@ -765,14 +766,14 @@ export class Workbook {
   }
 
   /**
-   * Record a mutation: bump the revision and drop every cached evaluation.
-   * The whole workbook memo is cleared because a worksheet-qualified reference
-   * means a change in one worksheet can invalidate a formula in another.
+   * Record a mutation: bump the revision and drop the cached evaluations it
+   * can change — those that read `cell` when one cell's input is all that
+   * changed, every one otherwise (see `RecalcEngine.invalidate`).
    */
-  protected touch(): void {
+  protected touch(cell?: CellChange): void {
     this.revision += 1;
     this.registry.invalidateNames();
-    this.engine.invalidate();
+    this.engine.invalidate(cell);
   }
 
   /**

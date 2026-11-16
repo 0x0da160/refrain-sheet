@@ -126,14 +126,15 @@ function isWildcardNeedle(needle: FormulaValue): boolean {
 
 /**
  * Cached exact-match index for VLOOKUP/MATCH/XLOOKUP's non-wildcard search
- * path, keyed by the shared, per-revision {@link ValueGrid} that
- * `rangeGridCaches` in `formula.ts` already hands out for a given range
- * within one evaluation pass. Building the index costs one pass over the
+ * path, keyed by the shared {@link ValueGrid} that `rangeGridCaches` in
+ * `evaluator.ts` already hands out for a given range while its cells hold
+ * what the grid read. Building the index costs one pass over the
  * lookup column; every subsequent formula cell that searches the *same*
  * range then does an O(1)-average map lookup instead of its own O(n) linear
  * scan. A `WeakMap` keyed on the grid drops the index for free once a
- * mutation retires that grid (a fresh grid is built per revision — see
- * `RsfDocument`'s `touch`/`recalculate`), so no explicit invalidation is
+ * mutation retires that grid (the workbook retires a range's grid when a
+ * change can have touched one of its cells — see `dropCachedRanges` and
+ * `RecalcEngine`), so no explicit invalidation is
  * needed. This is what fixes the "VLOOKUP table shared by 2,000 formula
  * cells" cost measured in `bench/perf.bench.ts`.
  */

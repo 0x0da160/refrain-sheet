@@ -78,5 +78,5 @@ The directory structure itself is part of the contract, enforced by
   `tests/ui/`, plus `tests/tooling/` (scripts, workflows, repository rules)
   and `tests/site/` (the landing site). Scripts are grouped by role:
   `scripts/build/`, `scripts/check/`, `scripts/release/`, `scripts/lib/`,
-  `scripts/ui-check/`.
+  `scripts/ui-check/`, `scripts/bench/`.
 - File names are kebab-case; generated output lives in `src/generated/`.

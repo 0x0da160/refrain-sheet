@@ -4,7 +4,14 @@
  * function-name completion.
  */
 import { FUNCTION_INFOS, type FunctionInfo, lookupFunction } from './functions';
-import { isFormula, parseRefEx, parseWholeColumn, parseWholeRow, parseWholeRowEx } from './refs';
+import {
+  type CellRefEx,
+  isFormula,
+  parseRefEx,
+  parseWholeColumn,
+  parseWholeRowEx,
+  type SpanEnd,
+} from './refs';
 import { FormulaError, MAX_PARSE_DEPTH, type Token, tokenize, type TokenType } from './tokenizer';
 import { type ErrorCode, MAX_FORMULA_LENGTH, MAX_FUNCTION_ARGS } from './value';
 
@@ -23,6 +30,12 @@ interface RefNode {
    * an unresolvable name evaluates to #REF!.
    */
   sheet?: string;
+  /**
+   * Present when the row is written with a `$` (`A$1`). It never changes which
+   * cell is read here; it marks the row as fixed when one parsed formula is
+   * evaluated for another row of the same column (see `./template.ts`).
+   */
+  absRow?: true;
 }
 
 export type AstNode =
@@ -35,7 +48,7 @@ export type AstNode =
   /** Whole-column range (e.g. A:C); bounded to the used grid at evaluation. */
   | { kind: 'colrange'; fromCol: number; toCol: number; sheet?: string }
   /** Whole-row range (e.g. 1:10); bounded to the used grid at evaluation. */
-  | { kind: 'rowrange'; fromRow: number; toRow: number; sheet?: string }
+  | { kind: 'rowrange'; fromRow: number; toRow: number; sheet?: string; absFrom?: true; absTo?: true }
   | { kind: 'unary'; op: '+' | '-'; operand: AstNode }
   | { kind: 'binary'; op: string; left: AstNode; right: AstNode }
   | { kind: 'call'; name: string; args: AstNode[] }
@@ -91,8 +104,32 @@ export function functionCompletions(text: string, caret: number): { word: string
 
 export type ParseResult = { ok: true; ast: AstNode } | { ok: false; code: ErrorCode };
 
+/**
+ * Where a relative row number (one written without `$`) sits in a formula's
+ * source: `[start, end)` are the offsets of its digits.
+ */
+export interface RowSlot {
+  start: number;
+  end: number;
+}
+
 /** Parse a formula string (must start with '='). Never throws. */
 export function parseFormula(src: string): ParseResult {
+  return parse(src);
+}
+
+/**
+ * {@link parseFormula}, also reporting every relative row number in source
+ * order — what `./template.ts` needs to tell that two formulas in one column
+ * are the same formula written for different rows.
+ */
+export function parseFormulaSlots(src: string): { parsed: ParseResult; slots: RowSlot[] } {
+  const slots: RowSlot[] = [];
+  const parsed = parse(src, slots);
+  return { parsed, slots: parsed.ok ? slots : [] };
+}
+
+function parse(src: string, slots?: RowSlot[]): ParseResult {
   if (!isFormula(src)) {
     return { ok: false, code: '#ERROR!' };
   }
@@ -108,7 +145,7 @@ export function parseFormula(src: string): ParseResult {
   if (tokens.length === 0) {
     return { ok: false, code: '#ERROR!' };
   }
-  const parser = new Parser(tokens);
+  const parser = new Parser(tokens, slots);
   try {
     const ast = parser.parseExpr(0);
     if (!parser.atEnd()) {
@@ -123,7 +160,52 @@ export function parseFormula(src: string): ParseResult {
 class Parser {
   private pos = 0;
 
-  constructor(private readonly tokens: Token[]) {}
+  constructor(
+    private readonly tokens: Token[],
+    private readonly slots?: RowSlot[],
+  ) {}
+
+  /** The node for a cell reference token, recording a relative row's place in the source. */
+  private refNode(token: Token, ref: CellRefEx, sheet?: string): RefNode {
+    const node: RefNode = { kind: 'ref', row: ref.row, col: ref.col };
+    if (sheet !== undefined) {
+      node.sheet = sheet;
+    }
+    if (ref.absRow) {
+      node.absRow = true;
+    } else {
+      // Token offsets are relative to the text after the leading `=`.
+      this.slots?.push({ start: token.end + 1 - String(ref.row + 1).length, end: token.end + 1 });
+    }
+    return node;
+  }
+
+  /** One end of a whole-row range (`1`, `$10`), recording a relative row's place in the source. */
+  private wholeRow(token: Token): SpanEnd | null {
+    const row = token.type === 'number' || token.type === 'ident' ? parseWholeRowEx(token.text) : null;
+    if (row && !row.abs) {
+      this.slots?.push({ start: token.start + 1, end: token.end + 1 });
+    }
+    return row;
+  }
+
+  /** A whole-row range node from its two ends (either may have failed to parse). */
+  private rowRange(from: SpanEnd | null, to: SpanEnd | null, sheet?: string): AstNode {
+    if (from === null || to === null) {
+      throw new FormulaError('#ERROR!');
+    }
+    const node: AstNode = { kind: 'rowrange', fromRow: from.index, toRow: to.index };
+    if (sheet !== undefined) {
+      node.sheet = sheet;
+    }
+    if (from.abs) {
+      node.absFrom = true;
+    }
+    if (to.abs) {
+      node.absTo = true;
+    }
+    return node;
+  }
 
   atEnd(): boolean {
     return this.pos >= this.tokens.length;
@@ -239,15 +321,9 @@ class Parser {
       if (this.peek()?.type !== 'colon') {
         throw new FormulaError('#ERROR!');
       }
-      const fromRow = parseWholeRow(token.text);
+      const fromRow = this.wholeRow(token);
       this.next(); // colon
-      const endToken = this.next();
-      const toRow =
-        endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
-      if (fromRow === null || toRow === null) {
-        throw new FormulaError('#ERROR!');
-      }
-      return { kind: 'rowrange', fromRow, toRow, sheet };
+      return this.rowRange(fromRow, this.wholeRow(this.next()), sheet);
     }
     if (token.type !== 'ident') {
       throw new FormulaError('#ERROR!');
@@ -255,7 +331,7 @@ class Parser {
     const nextToken = this.peek();
     const ref = parseRefEx(token.text);
     if (ref) {
-      const refNode: RefNode = { kind: 'ref', row: ref.row, col: ref.col, sheet };
+      const refNode = this.refNode(token, ref, sheet);
       if (nextToken && nextToken.type === 'colon') {
         this.next();
         const endToken = this.expect('ident');
@@ -263,12 +339,7 @@ class Parser {
         if (!endRef) {
           throw new FormulaError('#ERROR!');
         }
-        return {
-          kind: 'range',
-          from: refNode,
-          to: { kind: 'ref', row: endRef.row, col: endRef.col },
-          sheet,
-        };
+        return { kind: 'range', from: refNode, to: this.refNode(endToken, endRef), sheet };
       }
       return refNode;
     }
@@ -287,13 +358,7 @@ class Parser {
     const row = parseWholeRowEx(token.text);
     if (row !== null && row.abs && nextToken && nextToken.type === 'colon') {
       this.next();
-      const endToken = this.next();
-      const toRow =
-        endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
-      if (toRow === null) {
-        throw new FormulaError('#ERROR!');
-      }
-      return { kind: 'rowrange', fromRow: row.index, toRow, sheet };
+      return this.rowRange(row, this.wholeRow(this.next()), sheet);
     }
     throw new FormulaError('#ERROR!');
   }
@@ -305,7 +370,7 @@ class Parser {
       case 'number':
         // A whole-row range such as 1:1, 2:10, or 1:$10.
         if (this.peek()?.type === 'colon') {
-          return this.parseRowRangeEnd(parseWholeRow(token.text));
+          return this.parseRowRangeEnd(this.wholeRow(token));
         }
         return { kind: 'number', value: token.value as number };
       case 'string':
@@ -352,16 +417,17 @@ class Parser {
     const followedByColon = nextToken?.type === 'colon';
     const ref = parseRefEx(token.text);
     if (ref) {
-      const refNode: RefNode = { kind: 'ref', row: ref.row, col: ref.col };
+      const refNode = this.refNode(token, ref);
       if (!followedByColon) {
         return refNode;
       }
       this.next();
-      const endRef = parseRefEx(this.expect('ident').text);
+      const endToken = this.expect('ident');
+      const endRef = parseRefEx(endToken.text);
       if (!endRef) {
         throw new FormulaError('#ERROR!');
       }
-      return { kind: 'range', from: refNode, to: { kind: 'ref', row: endRef.row, col: endRef.col } };
+      return { kind: 'range', from: refNode, to: this.refNode(endToken, endRef) };
     }
     // A whole-column range such as A:A, A:C, or $A:$C.
     const col = parseWholeColumn(token.text);
@@ -376,21 +442,15 @@ class Parser {
     // A whole-row range starting with a `$`-marked row, e.g. $1:10.
     const row = parseWholeRowEx(token.text);
     if (row !== null && row.abs && followedByColon) {
-      return this.parseRowRangeEnd(row.index);
+      return this.parseRowRangeEnd(row);
     }
     throw new FormulaError('#NAME?');
   }
 
   /** The `:end` of a whole-row range whose start row is `fromRow` (null when invalid). */
-  private parseRowRangeEnd(fromRow: number | null): AstNode {
+  private parseRowRangeEnd(fromRow: SpanEnd | null): AstNode {
     this.next(); // colon
-    const endToken = this.next();
-    const toRow =
-      endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
-    if (fromRow === null || toRow === null) {
-      throw new FormulaError('#ERROR!');
-    }
-    return { kind: 'rowrange', fromRow, toRow };
+    return this.rowRange(fromRow, this.wholeRow(this.next()));
   }
 
   /** A function call's argument list, after its opening parenthesis. */

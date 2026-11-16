@@ -254,7 +254,11 @@ older than this key ignore it and show the text with the cell's own style.
 "text", op, value }` or `{ kind: "number", op, value, value2? }`), and
 `values` (a list of allowed display values, or `null`). It is validated
 against the worksheet; a filter that fails validation is **dropped** and
-the user is warned, while the rest of the file loads.
+the user is warned, while the rest of the file loads. A range spans at most
+1,000,000 data rows (`MAX_FILTER_ROWS`). When `headerRow` is `true`, the
+first row of the range is not a data row and does not count, so a header row
+plus 1,000,000 data rows is valid. Earlier releases count the header row too,
+so they drop such a filter (see [compatibility.md](compatibility.md)).
 
 ### Validations
 

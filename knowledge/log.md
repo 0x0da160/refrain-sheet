@@ -398,3 +398,29 @@ in the light, dark, and hybrid looks, open every image, and report what it
 shows. The images stay outside the repository. It also records how to launch
 the app (a built single file opened over `file://`). Listed it in
 `references/index.md`.
+
+## 2026-11-15
+
+**Recalculation follows the change; million-row demo and browser benchmark.**
+Added `operations/million-row-demo.md` (the deterministic sales-analysis
+workbook, its generator, the real-operation browser benchmark and the
+before/after numbers) and linked it from `operations/index.md`. Rewrote
+"Workbook-wide recalculation" in `architecture/invariants.md`: a cell change
+now drops only the results that can read that cell, with the cases that
+still recompute everything listed there. `architecture/dependency-rules.md`,
+`architecture/system-overview.md`, `architecture/module-boundaries.md` and
+`operations/performance-principles.md` name the new modules and
+`scripts/bench/`.
+
+**Filter header rows count apart; million-row results.** A filter's header row
+no longer counts against `MAX_FILTER_ROWS`, so a whole million-row sheet with a
+header can be filtered (`src/core/workbook/filter.ts`, `src/app/commands/filter.ts`).
+This changes which `.rsf` files the reader accepts, so it is a separate commit for
+review. `operations/million-row-demo.md` now has a same-batch comparison with
+v0.9.40, and every step passes at one million rows in all three runs.
+
+**Filter bound keeps the JSON document version at 1.** Earlier releases drop a
+filter over a whole million-row sheet with a header row and warn the user; they
+do not refuse the file. Raising `version` would make them refuse the whole
+workbook instead, so `formats/rsf/compatibility.md` records the rule and the
+version stays 1.

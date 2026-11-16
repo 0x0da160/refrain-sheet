@@ -155,6 +155,50 @@ export interface ValueGrid {
   readonly cols: number;
   /** Row-major cells; `cells[r][c]` with `r < rows`, `c < cols`. */
   readonly cells: readonly (readonly FormulaValue[])[];
+  /**
+   * The same cells in typed, column-wise form, when the grid is one long
+   * column of a worksheet and the workbook can supply it (see
+   * {@link ColumnData}); null or absent otherwise. A function that scans a
+   * very large range reads this instead of `cells`, which would cost one
+   * object per cell.
+   */
+  column?(): ColumnData | null;
+}
+
+/** What `kinds[i]` of a {@link ColumnData} says the cell holds. */
+export const KIND_EMPTY = 0;
+export const KIND_NUMBER = 1;
+export const KIND_STRING = 2;
+export const KIND_BOOLEAN = 3;
+export const KIND_ERROR = 4;
+
+/**
+ * One column of worksheet cells as typed arrays: the value model above, laid
+ * out column-wise so a scan over a million rows touches three arrays instead
+ * of a million value objects. It holds exactly what the cells evaluate to —
+ * a number is the same double, text is the same string — so a function may
+ * read either form and must compute the same result from both.
+ *
+ * Row `i` of the view (`0 <= i < length`) is index `offset + i` of each array:
+ * `kinds` is the cell's kind (`KIND_*`); `nums` its number, or 1 / 0 for a
+ * boolean; `ids` its text as an index into `strings`, or its error as an index
+ * into {@link ERROR_CODES}.
+ */
+export interface ColumnData {
+  readonly length: number;
+  readonly offset: number;
+  readonly kinds: Uint8Array;
+  readonly nums: Float64Array;
+  readonly ids: Int32Array;
+  /** Every distinct text of the column, indexed by `ids`. */
+  readonly strings: readonly string[];
+  /**
+   * Where a scan may keep what it derived from this column (which rows
+   * satisfy a criterion), to reuse while the column is unchanged. Whoever
+   * owns the column empties it the moment any row changes; a key must name
+   * the rows it covers. Absent when nothing can be kept.
+   */
+  readonly derived?: Map<string, Uint32Array>;
 }
 
 /** Build a grid from row-major cells, trusting (and asserting) rectangularity. */

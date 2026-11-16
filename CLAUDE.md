@@ -58,6 +58,8 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Minimal edition UI check     | `npm run ui:check:minimal` (needs `dist/` and `dist-minimal/`; same saved bytes)     |
 | Version consistency          | `npm run check:versions`                                                             |
 | Headless-browser UI check    | `npm run ui:check` (requires `dist/`; confirms the built app loads; CI runs it)      |
+| Million-row demo workbook    | `npm run bench:million-rows:generate -- --rows 1000000` (→ `bench/data/`, untracked) |
+| Million-row browser bench    | `npm run bench:million-rows -- --rows 1000000 --label <name>` (needs `dist/`)        |
 | Changelog gate (PR CI only)  | `npm run check:changelog`                                                            |
 | Production dependency audit  | `npm run audit:ci`                                                                   |
 | Knowledge bundle checks      | `npm run check:knowledge` (frontmatter, links, paths)                                |

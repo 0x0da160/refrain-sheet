@@ -22,9 +22,12 @@
  * - **CSV export, filters, search.** All of them read displayed values, which
  *   already consult the spill map.
  *
- * The cost is that a spill must be recomputed after every mutation. That is
- * bounded by {@link canSpill}, a static check that skips any formula which
- * cannot possibly return an array, and by {@link MAX_SPILL_ANCHORS}.
+ * The cost is that a spill must be recomputed after every mutation — and,
+ * with it, every formula result, since which cells a spill covers is not
+ * written in any formula (a workbook with no spill is recomputed only where
+ * a change reaches; see `RecalcEngine`). That is bounded by
+ * {@link canSpill}, a static check that skips any formula which cannot
+ * possibly return an array, and by {@link MAX_SPILL_ANCHORS}.
  *
  * ## Placement rules
  *

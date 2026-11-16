@@ -96,6 +96,12 @@
   background: var(--bg-hover);
 }
 
+/* The mark the selection is entirely in (see `onInlineState`), shown like a pressed mode button. */
+.markdown-format-button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
 .markdown-sheet-view .markdown-visual {
   min-height: 0;
 }
@@ -201,6 +207,13 @@
 
 .markdown-visual-row.dragging {
   opacity: 0.5;
+}
+
+/* A block being moved (by its grip, or a held finger) is not text to select. */
+.markdown-visual-row.dragging .markdown-visual-block {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .markdown-visual-row.drop-before {

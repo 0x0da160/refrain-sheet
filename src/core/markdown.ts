@@ -4,11 +4,12 @@
  * Markdown worksheet (#433, `src/ui/markdown-sheet.ts`). It parses a scoped
  * subset — headings, paragraphs, bold/italic, inline code, fenced and
  * indented code blocks, links, unordered/ordered lists, blockquotes, horizontal rules —
- * into a typed AST, never an HTML string. `src/ui/markdown-render.ts`
+ * into a typed AST, never an HTML string. The one HTML it keeps is a `<br>`
+ * tag, read as a line break (`htmlBreak`). `src/ui/markdown-render.ts`
  * renders that AST into DOM nodes via `el()`/`textContent` (see
  * `src/ui/dom.ts`), the same convention every other surface in this app
- * uses to render untrusted content, so injected `<script>`/HTML in the
- * source can only ever appear as literal displayed text: safety comes from
+ * uses to render untrusted content, so any other HTML in the source can only
+ * ever appear as literal displayed text: safety comes from
  * never building an HTML string, not from escaping one, and this module
  * does not need to escape anything itself.
  *
@@ -31,7 +32,9 @@ export type MarkdownInline =
   | { type: 'em'; children: MarkdownInline[] }
   | { type: 'code'; text: string }
   | { type: 'link'; href: string; children: MarkdownInline[] }
-  | { type: 'break' };
+  | { type: 'break' }
+  /** A `<br>` tag as typed (any case, `<br/>` or `<br />`): a line break, written back exactly as `raw`. */
+  | { type: 'htmlBreak'; raw: string };
 
 export type MarkdownTableAlign = 'left' | 'center' | 'right' | null;
 
@@ -343,9 +346,10 @@ function parseInlineLines(lines: string[]): MarkdownInline[] {
 // one numbered group so the winning alternative is identified by which
 // group is defined. Emphasis/code content excludes its own delimiter
 // character so a run of `**`/`*`/`_`/`` ` `` never spans past the intended
-// closing delimiter.
+// closing delimiter. The last alternative is a `<br>` tag, the one piece of
+// HTML the subset keeps; it captures the whole tag.
 const INLINE_TOKEN_RE =
-  /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/;
+  /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)|(<[bB][rR]\s*\/?>)/;
 
 function parseInline(text: string): MarkdownInline[] {
   const out: MarkdownInline[] = [];
@@ -359,13 +363,15 @@ function parseInline(text: string): MarkdownInline[] {
     if (match.index > 0) {
       out.push({ type: 'text', text: rest.slice(0, match.index) });
     }
-    const [whole, strongA, strongB, emA, emB, code, linkText, linkHref] = match;
+    const [whole, strongA, strongB, emA, emB, code, linkText, linkHref, breakTag] = match;
     if (strongA !== undefined || strongB !== undefined) {
       out.push({ type: 'strong', children: [{ type: 'text', text: (strongA ?? strongB)! }] });
     } else if (emA !== undefined || emB !== undefined) {
       out.push({ type: 'em', children: [{ type: 'text', text: (emA ?? emB)! }] });
     } else if (code !== undefined) {
       out.push({ type: 'code', text: code });
+    } else if (breakTag !== undefined) {
+      out.push({ type: 'htmlBreak', raw: breakTag });
     } else if (linkHref !== undefined) {
       if (isSafeMarkdownUrl(linkHref)) {
         out.push({

@@ -359,3 +359,119 @@ describe('MarkdownVisualEditor: the Enter that confirms a Japanese conversion', 
     expect(last(changes)).toBe('Hello\n\n world');
   });
 });
+
+describe('MarkdownVisualEditor: a <br> tag', () => {
+  it('shows a <br> as a line break and keeps the tag when the block is edited', () => {
+    const { visual, changes } = editor('one<br>two\n\nthree');
+    const [first] = blocks(visual);
+    expect(first.querySelector('br')?.dataset.mdRaw).toBe('<br>');
+    first.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(last(changes)).toBe('one<br>two\n\nthree');
+  });
+
+  it('keeps a <br> in a table cell, where a line break cannot be written any other way', () => {
+    const { visual, changes } = editor('| a<br>b | c |\n|---|---|\n| 1 | 2 |');
+    const table = blocks(visual).find((block) => block.tagName === 'TABLE');
+    expect(table).toBeDefined();
+    table!.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(last(changes)).toContain('a<br>b');
+  });
+});
+
+describe('MarkdownVisualEditor: marks on the selected text', () => {
+  /** Select from `startOffset` of `startNode` to `endOffset` of `endNode`. */
+  function selectBetween(startNode: Node, startOffset: number, endNode: Node, endOffset: number): void {
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  it('takes bold off only the selected part of a bold run, and puts it back', () => {
+    const { visual, changes } = editor('**Hello world**');
+    const text = blocks(visual)[0].querySelector('strong')!.firstChild!;
+    selectBetween(text, 3, text, 8);
+    visual.toggleInline('strong');
+    expect(last(changes)).toBe('**Hel**lo wo**rld**');
+    visual.toggleInline('strong');
+    expect(last(changes)).toBe('**Hello world**');
+  });
+
+  it('makes a selection that starts in plain text bold all through, keeping the bold beside it', () => {
+    const { visual, changes } = editor('ab **cd** ef');
+    const paragraph = blocks(visual)[0];
+    const plain = paragraph.firstChild!;
+    const bold = paragraph.querySelector('strong')!.firstChild!;
+    selectBetween(plain, 1, bold, 2);
+    visual.toggleInline('strong');
+    expect(last(changes)).toBe('a**b cd** ef');
+  });
+
+  it('reports the marks the selection is entirely in', () => {
+    const { visual } = editor('**Hello** world');
+    const states: Record<'strong' | 'em' | 'code', boolean>[] = [];
+    visual.onInlineState = (state) => states.push(state);
+    const paragraph = blocks(visual)[0];
+    const bold = paragraph.querySelector('strong')!.firstChild!;
+    const plain = paragraph.lastChild!;
+    selectBetween(bold, 1, bold, 3);
+    visual.updateInlineState();
+    expect(states[states.length - 1]).toEqual({ strong: true, em: false, code: false });
+    selectBetween(plain, 1, plain, 3);
+    visual.updateInlineState();
+    expect(states[states.length - 1]).toEqual({ strong: false, em: false, code: false });
+    selectBetween(bold, 2, plain, 2);
+    visual.updateInlineState();
+    expect(states[states.length - 1]).toEqual({ strong: false, em: false, code: false });
+  });
+});
+
+describe('MarkdownVisualEditor: a finger held on a block moves it', () => {
+  /** A touch event on `target` at (`x`, `y`), as a pointer event of the given type. */
+  function touch(target: Element, type: string, x: number, y: number): void {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+    });
+    Object.defineProperty(event, 'pointerId', { value: 1 });
+    Object.defineProperty(event, 'pointerType', { value: 'touch' });
+    target.dispatchEvent(event);
+  }
+
+  /** Give each row a 40px band from the top of the page, so a finger's height picks the drop place. */
+  function layOut(visual: MarkdownVisualEditor): void {
+    Array.from(visual.element.querySelectorAll<HTMLElement>('.markdown-visual-row')).forEach((row, i) => {
+      row.getBoundingClientRect = () => ({ top: i * 40, height: 40, bottom: i * 40 + 40 }) as DOMRect;
+    });
+  }
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('moves the block the finger lifts it onto, once held and dragged', () => {
+    const { visual, changes } = editor('First\n\nSecond\n\nThird');
+    layOut(visual);
+    const first = blocks(visual)[0];
+    touch(first, 'pointerdown', 10, 10);
+    vi.advanceTimersByTime(500);
+    touch(first, 'pointermove', 10, 65);
+    touch(first, 'pointerup', 10, 65);
+    expect(last(changes)).toBe('Second\n\nFirst\n\nThird');
+  });
+
+  it('leaves a touch that moves before the hold completes to scroll', () => {
+    const { visual, changes } = editor('First\n\nSecond');
+    layOut(visual);
+    const first = blocks(visual)[0];
+    touch(first, 'pointerdown', 10, 10);
+    touch(first, 'pointermove', 10, 60);
+    vi.advanceTimersByTime(500);
+    touch(first, 'pointerup', 10, 60);
+    expect(changes).toEqual([]);
+  });
+});

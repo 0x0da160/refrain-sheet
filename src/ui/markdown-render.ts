@@ -28,7 +28,8 @@ function renderCode(text: string, lang: string | null): Array<Node | string> {
  * Render a parsed Markdown AST (`src/core/markdown.ts`) as DOM nodes via
  * `el()`/`textContent` — never as an HTML string — so arbitrary Markdown
  * source (including an embedded `<script>` or other HTML-looking text) can
- * only ever render as literal displayed text, the same guarantee every other
+ * only ever render as literal displayed text (a `<br>` tag renders as a line
+ * break instead), the same guarantee every other
  * surface in this app gives untrusted content (`src/ui/dom.ts`). Used by the
  * in-workbook Markdown worksheet (`markdown-sheet.ts`, #433).
  */
@@ -41,6 +42,10 @@ function renderInline(nodes: MarkdownInline[]): Array<Node | string> {
         break;
       case 'break':
         out.push(el('br'));
+        break;
+      case 'htmlBreak':
+        // The tag's text rides along as an attribute, so the visual editor writes it back as typed.
+        out.push(el('br', { attrs: { 'data-md-raw': node.raw } }));
         break;
       case 'strong':
         out.push(el('strong', {}, renderInline(node.children)));

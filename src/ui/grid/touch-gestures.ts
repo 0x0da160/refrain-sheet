@@ -16,12 +16,14 @@ export const LONG_PRESS_MS = 400;
  * start of a scroll, not a drag, and cancels the pending long-press. */
 export const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 /**
- * Touch/pen double-tap detection window: a second quick tap landing on the
- * same cell within this many ms of the first opens the inline editor, the
- * touch equivalent of a desktop double-click. Mobile browsers do not
- * reliably synthesize a `dblclick` DOM event from two taps on a plain
- * (non-form, non-anchor) element, so this is detected explicitly rather than
- * relying on `dblclick` for touch input.
+ * Touch/pen double-tap detection window: a second quick tap on the same cell
+ * opens the inline editor, the touch equivalent of a desktop double-click,
+ * when its press starts within this many ms of the first tap's release. It is
+ * measured to the second press, not to its release, so a normal-length tap
+ * does not use up part of the window. Mobile browsers do not reliably
+ * synthesize a `dblclick` DOM event from two taps on a plain (non-form,
+ * non-anchor) element, so this is detected explicitly rather than relying on
+ * `dblclick` for touch input.
  */
 export const DOUBLE_TAP_MS = 300;
 /**
@@ -59,10 +61,14 @@ export class LongPress {
    * tolerance cancels this back to `null`. */
   menuTarget: PressPoint | null = null;
 
+  /** When the press that armed the latest hold began (`Date.now()`); 0 before any press. */
+  private armedAt = 0;
+
   /** Arms a hold; `onHold` replays the original press once it completes with no real movement. */
   arm(event: PointerEvent, onHold: (press: PointerEvent) => void): void {
     this.clear();
     this.menuTarget = null;
+    this.armedAt = Date.now();
     this.origin = { event, x: event.clientX, y: event.clientY };
     this.timer = setTimeout(() => {
       this.timer = null;
@@ -89,6 +95,11 @@ export class LongPress {
     return this.origin !== null && this.timer !== null;
   }
 
+  /** When the press that armed the latest hold began (`Date.now()`), for double-tap timing. */
+  get pressStartedAt(): number {
+    return this.armedAt;
+  }
+
   /** Whether `event` moved past the tolerance from the pending hold's origin. */
   movedFromOrigin(event: PointerEvent): boolean {
     return this.origin !== null && !within(this.origin, event, LONG_PRESS_MOVE_TOLERANCE_PX);
@@ -111,45 +122,44 @@ export class LongPress {
 
 /**
  * Pairs successive quick taps into a double-tap — see `DOUBLE_TAP_MS`. The
- * first tap of a pair only arms a pending-tap window; the second, landing on
- * the same cell within that window and `DOUBLE_TAP_SLOP_PX`, completes the
- * pair and clears the pending state so a third tap doesn't retrigger it.
+ * first tap of a pair records where and when it was released; the second, on
+ * the same cell within `DOUBLE_TAP_SLOP_PX` and with its press starting inside
+ * the window, completes the pair. The completed pair clears the pending state
+ * so a third tap doesn't retrigger it. No timer is needed: a stale first tap
+ * simply fails the window check on the next tap.
  */
 export class DoubleTap {
-  /** A completed quick tap awaiting a possible second tap; cleared once the
-   * window elapses with no matching second tap. */
+  /** The last quick tap that could still become the first of a pair. */
   private pending: {
     row: number;
     col: number;
     x: number;
     y: number;
-    timer: ReturnType<typeof setTimeout>;
+    releasedAt: number;
   } | null = null;
 
-  /** Records a quick tap on a cell; true when it completes a double-tap. */
-  tap(cell: { row: number; col: number }, event: PointerEvent): boolean {
-    const pending = this.pending;
+  /**
+   * Records a quick tap on a cell, released at `event`, whose press began at
+   * `pressedAt` (`Date.now()`); true when it completes a double-tap.
+   */
+  tap(cell: { row: number; col: number }, event: PointerEvent, pressedAt: number): boolean {
+    const first = this.pending;
+    this.pending = null;
     if (
-      pending &&
-      pending.row === cell.row &&
-      pending.col === cell.col &&
-      within(pending, event, DOUBLE_TAP_SLOP_PX)
+      first &&
+      first.row === cell.row &&
+      first.col === cell.col &&
+      within(first, event, DOUBLE_TAP_SLOP_PX) &&
+      pressedAt - first.releasedAt <= DOUBLE_TAP_MS
     ) {
-      clearTimeout(pending.timer);
-      this.pending = null;
       return true;
-    }
-    if (pending) {
-      clearTimeout(pending.timer);
     }
     this.pending = {
       row: cell.row,
       col: cell.col,
       x: event.clientX,
       y: event.clientY,
-      timer: setTimeout(() => {
-        this.pending = null;
-      }, DOUBLE_TAP_MS),
+      releasedAt: Date.now(),
     };
     return false;
   }

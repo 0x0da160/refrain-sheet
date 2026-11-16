@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { isSafeMarkdownUrl, parseMarkdown, type MarkdownInline } from '../../src/core/markdown';
+import { blockToMarkdown } from '../../src/core/markdown-serialize';
 
 function text(t: string): MarkdownInline {
   return { type: 'text', text: t };
@@ -298,6 +299,43 @@ describe('parseMarkdown', () => {
     expect(parseMarkdown('a | b\nnot a delimiter row')).toEqual([
       { type: 'paragraph', children: [text('a | b'), { type: 'break' }, text('not a delimiter row')] },
     ]);
+  });
+});
+
+describe('parseMarkdown: a <br> tag', () => {
+  it('reads a <br> tag as a line break that keeps its text', () => {
+    const [block] = parseMarkdown('one<br>two');
+    expect(block).toEqual({
+      type: 'paragraph',
+      children: [text('one'), { type: 'htmlBreak', raw: '<br>' }, text('two')],
+    });
+  });
+
+  it('accepts the other spellings of the tag, in any case', () => {
+    for (const raw of ['<BR>', '<br/>', '<br />']) {
+      const [block] = parseMarkdown(`a${raw}b`);
+      expect(block).toEqual({
+        type: 'paragraph',
+        children: [text('a'), { type: 'htmlBreak', raw }, text('b')],
+      });
+    }
+  });
+
+  it('writes the tag back exactly as typed', () => {
+    for (const source of ['one<br>two', 'one<BR />two']) {
+      expect(parseMarkdown(source).map(blockToMarkdown).join('\n\n')).toBe(source);
+    }
+    // A table keeps the tag inside its cell; its delimiter row is written in the serializer's own form.
+    const [table] = parseMarkdown('| a<br>b | c |\n|---|---|\n| 1 | 2 |');
+    expect(blockToMarkdown(table)).toContain('| a<br>b | c |');
+  });
+
+  it('keeps other HTML, and a <br> inside code, as literal text', () => {
+    const [block] = parseMarkdown('<span>x</span> `<br>`');
+    expect(block).toEqual({
+      type: 'paragraph',
+      children: [text('<span>x</span> '), { type: 'code', text: '<br>' }],
+    });
   });
 });
 

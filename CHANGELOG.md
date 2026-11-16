@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.46] - 2026-11-16
+
 ### Changed
 
 - On a phone, a selected range shows one figure in the status bar: its sum, or its count when nothing is numeric. The other statistics come back when Details is open, so the bar stays on one line.

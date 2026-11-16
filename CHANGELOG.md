@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.41] - 2026-11-16
+
 ### Changed
 
 - Changing a cell in a large workbook recalculates only the formulas that depend on it. In a workbook with one million rows and two million formulas, the totals update in about 0.1 seconds after you change a condition or a value. Each change used to freeze the app for about 20 seconds in our benchmark. Undo and redo are as quick, and that workbook opens in about 5 seconds instead of about 14. The results are the same as before. A workbook that shows a dynamic array, or in which a circular reference has occurred, still recalculates everything after each change.

@@ -21,6 +21,8 @@ declare const __WEBLLM_VERSION__: string;
 export interface AiModelInfo {
   /** Which runtime runs it: WebLLM needs WebGPU, wllama runs on the CPU. */
   readonly runtime: 'webllm' | 'wllama';
+  /** The name the panel shows; `name` below is the build's own identifier, shown under Details. */
+  readonly title: string;
   readonly name: string;
   readonly quantization: string;
   /** The model's license, shown before the download. */
@@ -38,6 +40,7 @@ export interface AiModelInfo {
  */
 export const GEMMA_MODEL = {
   runtime: 'webllm',
+  title: 'Gemma 3 270M (Japanese)',
   name: 'gemma3-270m-japanese-webllm-04',
   quantization: 'q4f32_1',
   license: 'Gemma Terms of Use',
@@ -50,6 +53,7 @@ export const GEMMA_MODEL = {
 /** The model for browsers without WebGPU: a GGUF file run by llama.cpp on the CPU. */
 export const QWEN_MODEL = {
   runtime: 'wllama',
+  title: 'Qwen2.5 0.5B Instruct',
   name: 'Qwen2.5-0.5B-Instruct',
   quantization: 'Q4_K_M',
   license: 'Apache-2.0',

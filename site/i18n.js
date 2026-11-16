@@ -7,7 +7,7 @@ export const I18N = {
   ja: {
     'meta.title': 'CSVを壊さず編集できる無料の表計算ソフト｜Refrain Sheet',
     'meta.desc':
-      '先頭ゼロ・文字コード・改行コードを変えずにCSVを編集できる、無料の表計算ソフト。数式やフィルタでの集計にも対応。ブラウザで開くだけで、インストールもログインも不要です。',
+      '先頭ゼロ・文字コード・改行コードを変えずにCSVを編集できる、無料の表計算ソフト。数式やフィルタ、ピボットテーブルでの集計にも対応。ブラウザで開くだけで、インストールもログインも不要です。',
     'a11y.skip': '本文へスキップ',
     'nav.features': '機能',
     'nav.csv': 'CSVの保持',
@@ -59,7 +59,8 @@ export const I18N = {
     'pillars.p1p':
       '先頭の「0」も、文字コードも、改行コードも、開いたときのまま。変わるのは、直したセルだけです。',
     'pillars.p2h': '表計算ソフトとして使える',
-    'pillars.p2p': '数式、フィルタ、条件付き書式、複数のシート。よく使う機能に絞った、軽い表計算ソフトです。',
+    'pillars.p2p':
+      '数式、フィルタ、ピボットテーブル、グラフ、複数のシート。よく使う機能に絞った、軽い表計算ソフトです。',
     'pillars.p3h': 'データを外に出さない',
     'pillars.p3p':
       'ブラウザの中だけで動くので、ファイルをサーバーに送る必要がありません。1つのHTMLファイルで、オフラインでも使えます。',
@@ -69,20 +70,35 @@ export const I18N = {
     'feat.f1h': '数式と55の関数',
     'feat.f1p': 'SUMIFS、XLOOKUP、FILTER、UNIQUE など。シートをまたぐ参照にも対応しています。',
     'feat.f2h': '並べ替えとフィルタ',
-    'feat.f2p': '必要な行だけを絞り込み、最大8つの列を組み合わせて並べ替えられます。',
+    'feat.f2p':
+      '必要な行だけを絞り込み、最大8つの列を組み合わせて並べ替えられます。CSVのままでも使え、保存すると元と同じバイト列になります。',
     'feat.f3h': '入力規則と条件付き書式',
     'feat.f3p':
       '入力できる値を決めたり、条件に合うセルに色をつけたりできます。数値の表示形式や、太字・色・罫線も設定できます。',
     'feat.f4h': 'SQLで集計',
-    'feat.f4p': '表にSQLで問い合わせて、結果を読み取り専用で表示します。',
+    'feat.f4p':
+      '表にSQLで問い合わせて、結果を読み取り専用で表示します。SQLを書かずに、列・条件・グループを選んで問い合わせを作ることもできます。',
     'feat.f5h': '2つの表の比較',
     'feat.f5p': 'タブを並べて、どこが違うかを確かめられます。',
     'feat.f6h': 'コメントと版の履歴',
-    'feat.f6p': 'セルにメモを残し、前の版を確かめて元に戻せます。',
+    'feat.f6p': 'セルにメモを残し、前の版と比べて変わったセルを確かめ、元に戻せます。',
     'feat.f7h': 'XLSX・JSONの読み書き',
     'feat.f7p': 'CSV・JSON・XLSXを読み込み、書き出せます（書き出しは値のみ）。',
     'feat.f8h': 'メモや設定のシート',
-    'feat.f8p': 'Markdown・JSON・YAML・テキストのシートを、同じファイルにまとめられます。',
+    'feat.f8p':
+      'Markdown・JSON・YAML・テキストを、ファイルのまま開いて保存できます。RSFファイルの中に、シートとしてまとめることもできます。',
+    'feat.f9h': 'ピボットテーブル',
+    'feat.f9p':
+      '行と列の項目、集計の方法（件数・合計・平均・最小・最大）を選んで、表を集計できます。CSVのままでも使え、元の表は変わりません。',
+    'feat.f10h': 'グラフ・図形・画像',
+    'feat.f10p':
+      'RSFスプレッドシートに、棒・折れ線・円のグラフを作れます。図形、テキストボックス、PNG・JPEG・WebP・SVGの画像も配置できます。',
+    'feat.f11h': '印刷・PDF',
+    'feat.f11p':
+      '印刷範囲を決め、用紙や向き、倍率を選んで印刷できます。PDFにするときは、印刷画面で「PDFとして保存」を選びます。',
+    'feat.f12h': 'ブラウザで動くAIアシスタント',
+    'feat.f12p':
+      'Webアプリでは、開いているシートについて質問したり、セルの変更を提案してもらったりできます。変更は一覧で確かめてから適用し、元に戻せます。',
     'csv.h2': '変わるのは、直したセルだけ。\nほかは1バイトも変えません。',
     'csv.p':
       '文字化けしない、先頭ゼロが消えない。会計や給与、受発注のシステムに取り込み直すCSVも、開いたときのまま保存します。何も変えずに保存すれば、元のファイルとバイト単位で同じです。',
@@ -131,7 +147,7 @@ export const I18N = {
     'use.c4t': '集計・確認',
     'use.c4h': '書き出したCSVを、ちょっと集計して確かめたい',
     'use.c4p':
-      'RSFスプレッドシートに変換すれば、数式やフィルタ、SQLで集計できます。元のCSVファイルは変更しません。',
+      'CSVのままピボットテーブルやSQLで集計できます。数式を使うときは、RSFスプレッドシートに変換します。どちらも、元のCSVファイルは変更しません。',
     'use.c5t': '原因の調査',
     'use.c5h': 'どこが壊れているのか分からないCSVがある',
     'use.c5p': '閉じていない引用符やフィールド数の違いを、自動で直さずに、行と列の位置つきで確かめられます。',
@@ -156,6 +172,12 @@ export const I18N = {
     'sec.c6h': 'Google ドライブ連携は、使うときだけ',
     'sec.c6p':
       'Webアプリで「ドライブから開く」「ドライブに保存」を選んだときだけ、Google と通信します。アクセスできるのは、この機能で開いたファイルと作ったファイルだけです（drive.file）。',
+    'sec.c7h': 'RSFファイルをパスワードで暗号化',
+    'sec.c7p':
+      'RSFファイルは、AES-256-GCMで暗号化して保存できます（鍵の導出はArgon2id）。パスワードは12文字以上です。パスワードを忘れると、ファイルは復元できません。',
+    'sec.c8h': 'AIアシスタントも、シートを送らない',
+    'sec.c8p':
+      'AIアシスタントのモデルは、ブラウザの中で動きます。シートの内容は送信しません。モデルを取得するのは、ダウンロードを押したときだけで、そのときに限り Hugging Face と通信します。',
     'cmp.h2': '一般的な表計算ソフトとの違い',
     'cmp.lead':
       '大きな表計算ソフトの代わりではありません。違いは、CSVを開いて保存するときの扱いと、使いはじめるまでの手間です。',
@@ -179,7 +201,7 @@ export const I18N = {
     'cmp.r5b': '自動で直さず、問題の位置を示して開く',
     'cmp.r6': '数式・関数・書式',
     'cmp.r6a': '豊富にそろっている',
-    'cmp.r6b': '55の関数と、よく使う書式。RSFスプレッドシートで使う',
+    'cmp.r6b': '55の関数、ピボットテーブル、グラフ。数式と書式はRSFスプレッドシートで使う',
     'cmp.r7': '使いはじめるまで',
     'cmp.r7a': 'インストールやアカウント登録が必要なことがある',
     'cmp.r7b': 'ブラウザで開くだけ。ログインもアカウント登録も不要',
@@ -200,16 +222,16 @@ export const I18N = {
       '開くときに文字コードを判定し、保存するときも同じ文字コードで書き戻します。判定と違う場合は、文字コードを指定して開き直せます。対応しているのは UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP です。UTF-16 と ISO-2022-JP には対応しておらず、該当しそうなファイルは警告を表示したうえでベストエフォートで開きます（元のバイトは変更されません）。',
     'faq.q6': 'CSVのまま数式や色を付けられますか？',
     'faq.a6':
-      'CSVのままではできません。数式や書式（太字・色・罫線など）はRSFスプレッドシートの機能で、使うときはRSFへ明示的に変換します。変換しても元のCSVファイルは変更されず、書式設定はセルの値・数式の結果・CSVの書き出しを変えません。',
+      'CSVのままでは、数式や書式（太字・色・罫線など）は使えません。数式や書式はRSFスプレッドシートの機能で、使うときはRSFへ明示的に変換します。並べ替え・フィルタ・ピボットテーブルは、CSVのままでも使えます。変換しても元のCSVファイルは変更されず、書式設定はセルの値・数式の結果・CSVの書き出しを変えません。',
     'faq.q1': 'データは外部へ送信されますか？',
     'faq.a1':
-      '通常の編集では送信されません。ファイルはブラウザ内で読み込まれ、保存もお使いの端末に対して行われます。Webアプリで Google ドライブ連携を使ったときだけ、操作に応じてブラウザと Google ドライブの間で直接ファイルをやり取りします。',
+      '通常の編集では送信されません。ファイルはブラウザ内で読み込まれ、保存もお使いの端末に対して行われます。Webアプリで Google ドライブ連携を使ったときだけ、操作に応じてブラウザと Google ドライブの間で直接ファイルをやり取りします。AIアシスタントのモデルを取得するとき（ダウンロードを押したとき）は Hugging Face と通信しますが、シートの内容は送信されません。',
     'faq.q11': 'インターネットにつながっていないパソコンで使えますか？',
     'faq.a11':
-      '使えます。リリースページからオフライン版（ZIP）をダウンロードして展開し、index.html をブラウザで開くだけです。file:// でも動き、ネットワークには接続しません。',
+      '使えます。リリースページからオフライン版（ZIP）をダウンロードして展開し、index.html をブラウザで開くだけです。file:// でも動き、ネットワークには接続しません。Webアプリも、一度開いたあとはオフラインで使えます。',
     'faq.q3': '大きなCSVを開けますか？',
     'faq.a3':
-      '既定の上限は512MiBで、設定で16MiB〜2GiBに変更できます。上限を超えるファイルは読み込む前に拒否されます。表示は仮想化されていますが、数百MB級のファイルは環境によって描画・編集が重くなることがあります。',
+      '既定の上限は512MiBで、設定で16MiB〜2GiBに変更できます。上限を超えるファイルは読み込む前に拒否されます。表示は仮想化されていますが、数百MB級のファイルは環境によって描画・編集が重くなることがあります。RSFスプレッドシートは、変更したセルに関係する数式を中心に再計算します。当方のベンチマーク（100万行・数式200万個）では、変更後の再計算が約0.1秒でした。',
     'faq.q9': '壊れたCSVでも開けますか？',
     'faq.a9':
       '開けます。閉じていない引用符やフィールド数の不一致などを行・列つきで示したうえで、自動修復せずに開くかどうかを選べます。不正な箇所は編集しない限りバイト単位で保持されますが、壊れたままのデータを取り込み先のシステムが受け付けるとは限りません。',
@@ -227,7 +249,13 @@ export const I18N = {
       'あります。画面の言語は日本語と英語を切り替えられ、テーマはシステムの設定に合わせるほか、ライトやダークを選べます。表示の設定を変えても、ファイルの中身は変わりません。',
     'faq.q14': 'スマートフォンやタブレットでも使えますか？',
     'faq.a14':
-      'ブラウザで開けば使えます。画面の幅が狭いときや、タッチで操作する端末では、文字やボタンを大きめにしたレイアウトで表示します。',
+      'ブラウザで開けば使えます。ホーム画面に追加して、アプリのように開くこともできます。画面の幅が狭いときや、タッチで操作する端末では、文字やボタンを大きめにしたレイアウトで表示します。',
+    'faq.q15': 'AIアシスタントを使うと、シートが送信されますか？',
+    'faq.a15':
+      'いいえ。Webアプリの AI アシスタントは、ブラウザの中でモデルを動かすため、シートの内容は送信されません。モデルは、ダウンロードを押したときだけ Hugging Face から取得します（既定のモデルは約190MB）。取得したモデルはブラウザに残り、削除するまで再びダウンロードする必要はありません。オフライン版には含まれません。',
+    'faq.q16': 'ファイルをパスワードで保護できますか？',
+    'faq.a16':
+      'はい。RSFスプレッドシートは、AES-256-GCM でパスワード暗号化して保存できます。パスワードは12文字以上で、大文字と小文字を区別します。暗号化できるのは RSF ファイルだけで、CSV は対象外です。パスワードを忘れると、ファイルは開けず、復元もできません。',
     'start.h2': '使いはじめは、3ステップ。',
     'start.s1h': 'ブラウザで開く',
     'start.s1p': 'インストールも、ログインやアカウント登録もいりません。',
@@ -273,10 +301,10 @@ export const I18N = {
     'privacy.drive.googleLink': 'Google プライバシーポリシー',
     'privacy.app.h2': 'CSVエディタ本体の通信',
     'privacy.app.p':
-      'Googleドライブ連携を使わない限り、CSVを開く・編集する・保存するといった操作は、いかなるネットワーク通信も発生させません。ファイルはすべてブラウザの中だけで処理され、外部に送信されることはありません。',
+      'Googleドライブ連携を使わない限り、CSVを開く・編集する・保存するといった操作は、いかなるネットワーク通信も発生させません。ファイルはすべてブラウザの中だけで処理され、外部に送信されることはありません。AIアシスタントのモデルを取得するときだけ（ダウンロードを押したときに限り）、Hugging Face と通信します。その通信にシートの内容は含まれません。',
     'privacy.storage.h2': 'Cookieとローカルストレージ',
     'privacy.storage.p':
-      '紹介ページの同意設定（Analyticsに同意したかどうか）と、ライト・ダークを選んだときのテーマの設定は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。',
+      '紹介ページの同意設定（Analyticsに同意したかどうか）と、ライト・ダークを選んだときのテーマの設定は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。ホスト版アプリは、表示やツールバーの設定、最近使った色などを、同じくブラウザの中に保存します。これらはファイルには保存されません。AIアシスタントのモデルも、取得すればブラウザに残ります。',
     'privacy.changes.h2': '本ポリシーの変更',
     'privacy.changes.p':
       '機能の追加や法令の変更に応じて、本ポリシーを更新することがあります。重要な変更がある場合は、このページの内容を更新してお知らせします。',
@@ -301,7 +329,7 @@ export const I18N = {
       '本サービスに対して、法令に違反する行為、本サービスや関連インフラへ過度な負荷をかける行為、脆弱性を悪用する行為、その他本サービスの通常の提供を妨げる行為を行わないでください。',
     'terms.third.h2': '第三者サービス',
     'terms.third.p':
-      '本サービスは、紹介ページでのGoogle Analytics（同意時のみ）、ホスト版アプリでのGoogleドライブ連携など、第三者のサービスを利用する場合があります。これらの利用には、各サービス提供者自身の利用規約・プライバシーポリシーが別途適用されます。',
+      '本サービスは、紹介ページでのGoogle Analytics（同意時のみ）、ホスト版アプリでのGoogleドライブ連携など、第三者のサービスを利用する場合があります。これらの利用には、各サービス提供者自身の利用規約・プライバシーポリシーが別途適用されます。ホスト版アプリのAIアシスタントは、モデルの取得に Hugging Face を利用します（ダウンロードを押したときだけ）。',
     'terms.changes.h2': '規約の変更',
     'terms.changes.p':
       '本規約は、機能の追加や法令の変更に応じて、予告なく変更されることがあります。変更後も本サービスの利用を継続した場合、変更後の規約に同意したものとみなします。',
@@ -314,7 +342,7 @@ export const I18N = {
   en: {
     'meta.title': 'Free CSV Editor & Lightweight Spreadsheet | Refrain Sheet',
     'meta.desc':
-      'Edit CSV files without losing leading zeros, encoding or line endings. A free, lightweight spreadsheet with formulas and filters that runs in your browser — no install, no sign-in.',
+      'Edit CSV files without losing leading zeros, encoding or line endings. A free, lightweight spreadsheet with formulas, filters and pivot tables that runs in your browser — no install, no sign-in.',
     'a11y.skip': 'Skip to main content',
     'nav.features': 'Features',
     'nav.csv': 'CSV',
@@ -367,7 +395,7 @@ export const I18N = {
       'Leading zeros, encoding and line endings stay as they were. Only the cells you edit change.',
     'pillars.p2h': 'A real spreadsheet, kept light',
     'pillars.p2p':
-      'Formulas, filters, conditional formatting and multiple sheets. Just the features you use most.',
+      'Formulas, filters, pivot tables, charts and multiple sheets. Just the features you use most.',
     'pillars.p3h': 'Your data stays with you',
     'pillars.p3p':
       'It runs entirely in your browser, so your files never need to be uploaded. One HTML file that works offline.',
@@ -377,20 +405,35 @@ export const I18N = {
     'feat.f1h': 'Formulas and 55 functions',
     'feat.f1p': '55 functions including SUMIFS, XLOOKUP, FILTER and UNIQUE, with references across sheets.',
     'feat.f2h': 'Sort and filter',
-    'feat.f2p': 'Narrow down to the rows you need and sort by up to eight columns at once.',
+    'feat.f2p':
+      'Narrow down to the rows you need and sort by up to eight columns at once. Works on a CSV as it is, and saving writes the same bytes as before.',
     'feat.f3h': 'Data validation and conditional formatting',
     'feat.f3p':
       'Limit what can be entered and color the cells that match a rule. Number formats, bold, colors and borders are there too.',
     'feat.f4h': 'Totals with SQL',
-    'feat.f4p': 'Query your tables with SQL and see the results in a read-only view.',
+    'feat.f4p':
+      'Query your tables with SQL and see the results in a read-only view. You can also build a query by choosing columns, conditions and groups, without typing SQL.',
     'feat.f5h': 'Compare two tables',
     'feat.f5p': 'Put two tabs side by side and see exactly what differs.',
     'feat.f6h': 'Comments and version history',
-    'feat.f6p': 'Leave notes on cells, review earlier versions and restore them.',
+    'feat.f6p': 'Leave notes on cells, see which cells changed since an earlier version, and restore it.',
     'feat.f7h': 'XLSX and JSON in and out',
     'feat.f7p': 'Import and export CSV, JSON and XLSX (exports contain values only).',
     'feat.f8h': 'Notes and settings sheets',
-    'feat.f8p': 'Keep Markdown, JSON, YAML and plain-text sheets in the same file.',
+    'feat.f8p':
+      'Open and save Markdown, JSON, YAML and plain-text files as they are, or keep them as sheets in one RSF file.',
+    'feat.f9h': 'Pivot tables',
+    'feat.f9p':
+      'Pick row and column fields and a summary: count, sum, average, minimum or maximum. Works on a CSV too, and the original table is not changed.',
+    'feat.f10h': 'Charts, shapes and pictures',
+    'feat.f10p':
+      'In an RSF spreadsheet, make bar, line or pie charts, and place shapes, text boxes, and PNG, JPEG, WebP or SVG pictures.',
+    'feat.f11h': 'Printing and PDF',
+    'feat.f11p':
+      'Set a print area, then choose the paper size, orientation and scale. To make a PDF, choose Save as PDF in the print dialog.',
+    'feat.f12h': 'An AI assistant in your browser',
+    'feat.f12p':
+      'In the web app, ask about the open sheet or have changes to cells proposed. Review the list, apply it, and undo it if you need to.',
     'csv.h2': 'Only the cells you edit change.\nEvery other byte stays the same.',
     'csv.p':
       'No garbled text, no lost leading zeros. CSV files headed back into accounting, payroll or ordering systems are saved just as they were opened. Save without editing and you get a byte-for-byte identical file.',
@@ -439,7 +482,7 @@ export const I18N = {
     'use.c4t': 'Totals and checks',
     'use.c4h': 'You want to total an exported CSV to check it',
     'use.c4p':
-      'Convert it to an RSF spreadsheet and total it with formulas, filters or SQL. The original CSV file is not changed.',
+      'Total it on the CSV itself with a pivot table or SQL. For formulas, convert it to an RSF spreadsheet. Neither changes the original CSV file.',
     'use.c5t': 'Troubleshooting',
     'use.c5h': 'A CSV is broken and you can’t tell where',
     'use.c5p':
@@ -464,6 +507,12 @@ export const I18N = {
     'sec.c6h': 'Google Drive, only when you use it',
     'sec.c6p':
       'The web app talks to Google only when you choose Open from Drive or Save to Drive. It can reach only the files opened or created through this feature (drive.file).',
+    'sec.c7h': 'RSF files can be password-encrypted',
+    'sec.c7p':
+      'An RSF file can be saved encrypted with AES-256-GCM, with the key derived by Argon2id. The password must be at least 12 characters. A lost password cannot be recovered.',
+    'sec.c8h': 'The AI assistant keeps your sheet local',
+    'sec.c8p':
+      'The AI model runs inside your browser, and the sheet is never sent. The model is downloaded only when you choose to, and only that download contacts Hugging Face.',
     'cmp.h2': 'How it differs from a typical spreadsheet app',
     'cmp.lead':
       "It isn't meant to replace a full office suite. The difference is in how a CSV is opened and saved, and in how quickly you can start.",
@@ -487,7 +536,8 @@ export const I18N = {
     'cmp.r5b': 'Opened as they are, with the problems pointed out',
     'cmp.r6': 'Formulas, functions, formatting',
     'cmp.r6a': 'A very wide range',
-    'cmp.r6b': '55 functions and the formatting you use most, in an RSF spreadsheet',
+    'cmp.r6b':
+      '55 functions, pivot tables and charts. Formulas and formatting are used in an RSF spreadsheet.',
     'cmp.r7': 'Getting started',
     'cmp.r7a': 'May need an install or an account',
     'cmp.r7b': 'Just open it in a browser — no sign-in, no account',
@@ -508,16 +558,16 @@ export const I18N = {
       'No. The encoding is detected when the file opens, and the file is written back in the same encoding; if the detection is wrong, you can reopen the file with a chosen encoding. Supported encodings are UTF-8 (with or without BOM), Shift_JIS / CP932 and EUC-JP. UTF-16 and ISO-2022-JP are not supported; such files still open with a best-effort interpretation and a warning, and their bytes remain untouched.',
     'faq.q6': 'Can I add formulas or colors while keeping the file a CSV?',
     'faq.a6':
-      'Not in the CSV itself. Formulas and formatting (bold, color, borders) are RSF spreadsheet features that require an explicit conversion to RSF. The original CSV file is not changed by the conversion, and formatting never changes a cell’s value, formula results or CSV export.',
+      'Formulas and formatting (bold, color, borders) need an RSF spreadsheet, and you convert to RSF explicitly when you want them. Sorting, filtering and pivot tables work on a CSV as it is. Converting does not change the original CSV file, and formatting never changes a cell’s value, formula results or CSV export.',
     'faq.q1': 'Is my data sent anywhere?',
     'faq.a1':
-      'Not during normal editing. Files are read inside the browser and saved back to your own device. Only when you use the Google Drive integration in the web app are files exchanged, at your request, directly between your browser and Google Drive.',
+      'Not during normal editing. Files are read inside the browser and saved back to your own device. Only when you use the Google Drive integration in the web app are files exchanged, at your request, directly between your browser and Google Drive. Downloading the AI assistant’s model (only when you choose to) contacts Hugging Face, but your sheet is not sent.',
     'faq.q11': 'Can I use it on a computer that isn’t connected to the internet?',
     'faq.a11':
-      'Yes. Download the offline version (ZIP) from the releases page, unzip it and open index.html in your browser. It works from file:// and never connects to the network.',
+      'Yes. Download the offline version (ZIP) from the releases page, unzip it and open index.html in your browser. It works from file:// and never connects to the network. The web app also works offline after your first visit.',
     'faq.q3': 'How large a file can it open?',
     'faq.a3':
-      'The default limit is 512 MiB (adjustable from 16 MiB to 2 GiB) and oversized files are refused before their bytes are read. Rendering is virtualized, but files of hundreds of megabytes can still feel slow.',
+      'The default limit is 512 MiB (adjustable from 16 MiB to 2 GiB) and oversized files are refused before their bytes are read. Rendering is virtualized, but files of hundreds of megabytes can still feel slow. An RSF spreadsheet recalculates mainly the formulas that depend on the cell you change; in our benchmark, a workbook with one million rows and two million formulas recalculated in about 0.1 seconds after an edit.',
     'faq.q9': 'Can I open a broken CSV file?',
     'faq.a9':
       'Yes. Problems such as unclosed quotes or field-count mismatches are listed with their rows and columns, and you choose whether to open the file without any automatic repair. Broken regions are kept byte-for-byte unless you edit them, but there is no guarantee the receiving system will accept the damaged data.',
@@ -535,7 +585,13 @@ export const I18N = {
       'Yes. The interface switches between Japanese and English, and the theme can follow your system setting or be set to light or dark. Display settings never change the contents of your files.',
     'faq.q14': 'Can I use it on a phone or tablet?',
     'faq.a14':
-      'Yes, in the browser. On narrow screens and touch devices, text and controls are shown at larger, touch-friendly sizes.',
+      'Yes, in the browser. You can also add the web app to your home screen and open it like an app. On narrow screens and touch devices, text and controls are shown at larger, touch-friendly sizes.',
+    'faq.q15': 'Does the AI assistant send my sheet anywhere?',
+    'faq.a15':
+      'No. The AI assistant in the web app runs its model inside your browser, so the sheet is never sent. The model is downloaded from Hugging Face only when you press the download button (the default model is about 190 MB). Once downloaded, it stays in your browser until you delete it. The offline version does not include the assistant.',
+    'faq.q16': 'Can I protect a file with a password?',
+    'faq.a16':
+      'Yes. An RSF spreadsheet can be saved encrypted with a password, using AES-256-GCM. The password must be at least 12 characters and is case-sensitive. Only RSF files can be encrypted; CSV files are not included. If the password is lost, the file cannot be opened and cannot be recovered.',
     'start.h2': 'Get started in three steps.',
     'start.s1h': 'Open it in your browser',
     'start.s1p': 'No install, no sign-in, no account.',
@@ -581,10 +637,10 @@ export const I18N = {
     'privacy.drive.googleLink': 'Google Privacy Policy',
     'privacy.app.h2': 'The CSV editor itself',
     'privacy.app.p':
-      'Unless you use the Google Drive integration, opening, editing, and saving a CSV makes no network requests at all. Files are processed entirely inside your browser and are never sent anywhere.',
+      'Unless you use the Google Drive integration, opening, editing, and saving a CSV makes no network requests at all. Files are processed entirely inside your browser and are never sent anywhere. Only when you choose to download the AI assistant’s model does the browser contact Hugging Face, and that request carries no sheet content.',
     'privacy.storage.h2': 'Cookies and local storage',
     'privacy.storage.p':
-      "Your analytics consent choice on the introduction page, and the theme if you pick Light or Dark, are stored in your browser's localStorage. You can delete them at any time from your browser's settings.",
+      "Your analytics consent choice on the introduction page, and the theme if you pick Light or Dark, are stored in your browser's localStorage. You can delete them at any time from your browser's settings. The hosted app also keeps its display and toolbar settings and your recent colors in your browser. None of these are written into your files. A downloaded AI assistant model also stays in your browser.",
     'privacy.changes.h2': 'Changes to this policy',
     'privacy.changes.p':
       'This policy may be updated as features change or as required by law. Material changes will be reflected on this page.',
@@ -609,7 +665,7 @@ export const I18N = {
       "Do not use the Service to violate any law, to place undue load on the Service or its infrastructure, to exploit a vulnerability, or to otherwise interfere with the Service's normal operation.",
     'terms.third.h2': 'Third-party services',
     'terms.third.p':
-      "The Service may use third-party services, such as Google Analytics on the introduction page (only with consent) and the Google Drive integration in the hosted app. Use of those services is separately governed by each provider's own terms and privacy policy.",
+      "The Service may use third-party services, such as Google Analytics on the introduction page (only with consent) and the Google Drive integration in the hosted app. Use of those services is separately governed by each provider's own terms and privacy policy. The hosted app's AI assistant downloads its model from Hugging Face, only when you choose to.",
     'terms.changes.h2': 'Changes to these Terms',
     'terms.changes.p':
       'These Terms may change without notice as features change or as required by law. Continuing to use the Service after a change means you accept the revised Terms.',

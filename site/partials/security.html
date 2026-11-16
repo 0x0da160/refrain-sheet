@@ -51,6 +51,19 @@
           と通信します。アクセスできるのは、この機能で開いたファイルと作ったファイルだけです（drive.file）。
         </p>
       </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="sec.c7h">RSFファイルをパスワードで暗号化</h3>
+        <p data-i18n="sec.c7p">
+          RSFファイルは、AES-256-GCMで暗号化して保存できます（鍵の導出はArgon2id）。パスワードは12文字以上です。パスワードを忘れると、ファイルは復元できません。
+        </p>
+      </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="sec.c8h">AIアシスタントも、シートを送らない</h3>
+        <p data-i18n="sec.c8p">
+          AIアシスタントのモデルは、ブラウザの中で動きます。シートの内容は送信しません。モデルを取得するのは、ダウンロードを押したときだけで、そのときに限り
+          Hugging Face と通信します。
+        </p>
+      </li>
     </ul>
   </div>
 </section>

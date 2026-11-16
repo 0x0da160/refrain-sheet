@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.44] - 2026-11-16
+
 ### Fixed
 
 - On an iPhone, the home-screen app keeps the bottom bar and its buttons clear of the rounded screen corners and the home indicator. The top edge and, in landscape, the sides are kept clear the same way.

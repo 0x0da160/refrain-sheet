@@ -24,6 +24,7 @@ import {
 import { toSquares } from '../../core/workbook/grid-paper';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
+import { isPhonePortrait } from '../phone-layout';
 import type { ConvertReason, NotifyPort } from '../ui-port';
 
 /** The kinds Insert > Rectangle… makes (an image comes from a picture: {@link ObjectCommands.insertImage}). */
@@ -152,8 +153,12 @@ export class ObjectCommands {
       return false;
     }
     const source = { sheetId: doc.activeSheetId, ...range };
-    // Beside the data, not over it.
-    const at = { row: range.top, col: Math.min(range.right + 1, doc.columnCount - 1) };
+    // Beside the data, not over it. A phone has no room beside it on screen,
+    // so there it goes under the data, where its left edge is in view. The
+    // size stays 480 × 300 either way, so the file does not depend on the device.
+    const at = isPhonePortrait()
+      ? { row: Math.min(range.bottom + 1, doc.rowCount - 1), col: range.left }
+      : { row: range.top, col: Math.min(range.right + 1, doc.columnCount - 1) };
     return this.place(tab, 'chart', () => ({ width: 480, height: 300, chart: { type: 'bar', source } }), at);
   }
 

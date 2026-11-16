@@ -51,6 +51,8 @@
 .welcome-header p {
   margin: 0;
   color: var(--fg-muted);
+  /* Break a Japanese line only at its punctuation, not inside a word such as エディタ. */
+  word-break: keep-all;
 }
 
 .welcome-groups {

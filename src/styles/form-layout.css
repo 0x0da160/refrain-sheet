@@ -93,6 +93,14 @@ dialog .form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* On a phone the pair stacks: two columns of about 170 px cut a select's
+   label short (for example 「指定しない（最後に…」). */
+@media (max-width: 43.75em) {
+  dialog .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .form-stack {
   display: flex;
   flex-direction: column;

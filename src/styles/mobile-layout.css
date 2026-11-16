@@ -191,11 +191,12 @@
      but a wrapped menu can still be taller than the viewport on a short
      phone screen; capping the height and scrolling vertically keeps it fully
      reachable without overflowing the page (#478). */
-  /* Laid out as an even grid of four columns (#594) rather than wrapping
-     wherever each name happens to end — still no horizontal scrolling. */
+  /* Laid out as an even grid of three columns, so the nine top-level menus
+     fill three full rows instead of leaving one alone on a third row (#594
+     used four) — still no horizontal scrolling. */
   .menu-row.open {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     /* The safe-area insets come off the same budget, since `#app` pads by them. */
     max-height: calc(100dvh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow-y: auto;
@@ -296,10 +297,12 @@
   }
 
   /* One line: no desktop Details button, and zoom and full screen stay in
-     the View menu (a phone also zooms with two fingers). */
+     the View menu (a phone also zooms with two fingers). The full-screen
+     button is matched with its element name: the bare class loses to the
+     `button` rule in status-bar.css on specificity and stays visible. */
   .status-bar button.status-more,
   .status-bar .status-zoom,
-  .status-bar .status-fullscreen {
+  .status-bar button.status-fullscreen {
     display: none;
   }
 
@@ -312,6 +315,25 @@
   .status-bar .sel-stats,
   .status-bar .status-selection {
     gap: var(--space-0-5) var(--space-2);
+  }
+
+  /* A selected range shows one figure in the bar on a phone (its sum, or its
+     count when nothing is numeric), so the bar stays one line (#594). The
+     other statistics come back when Details is open. */
+  .status-bar:not(.details-open) .status-selection .sel-stat:not(.sel-stat-lead, .calculating) {
+    display: none;
+  }
+
+  /* Once a range has its figure in the bar, the name box above already shows
+     the range's address, so the cell label is hidden visually here (it stays
+     in the accessibility tree for the status announcement). */
+  .status-bar:not(.details-open) .status-selection:has(.sel-stat) > span:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   /* Shorten the version text to just "v1.2.3" here, opposite the base rule
@@ -416,5 +438,29 @@
   .markdown-editor-source,
   .markdown-editor-preview {
     min-height: 160px;
+  }
+}
+
+/* Portrait phones: every side panel is a full-height sheet docked to the
+   bottom (`ui/dialogs/side-panel.ts`), so the dock and size controls have
+   nothing to choose. A short grip bar marks the top edge of the sheet; its ×
+   closes it (there is no drag-to-close). */
+@media (max-width: 43.75em) and (orientation: portrait) {
+  .side-panel-positions,
+  .side-panel-maximize-btn,
+  .side-panel > .side-panel-resize-handle {
+    display: none;
+  }
+
+  .side-panel:not(.collapsed)[data-side-panel-position='bottom']::before {
+    content: '';
+    display: block;
+    flex: none;
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    margin-block: var(--space-1-5) 0;
+    border-radius: 2px;
+    background: var(--border-strong, var(--border-default));
   }
 }

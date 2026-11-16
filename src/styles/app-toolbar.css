@@ -28,6 +28,20 @@
   }
 }
 
+/* Touch: a larger tap area around each 28 × 26 px icon. It is drawn in the
+   toolbar's own padding, so the bar keeps its height at every width. */
+@media (pointer: coarse) {
+  .app-toolbar-button {
+    position: relative;
+  }
+
+  .app-toolbar-button::before {
+    content: '';
+    position: absolute;
+    inset: -4px -5px;
+  }
+}
+
 .app-toolbar-button {
   display: inline-flex;
   flex: none;

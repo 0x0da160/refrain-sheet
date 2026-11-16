@@ -172,6 +172,14 @@
   font-size: var(--text-caption);
 }
 
+/* A touch screen has no keyboard to press these key combinations on, so the
+   menus and context menus leave the hints out there (Ctrl and Cmd labels). */
+@media (pointer: coarse) {
+  .menu-item .shortcut {
+    display: none;
+  }
+}
+
 .menu-item .check {
   width: 1em;
   display: flex;

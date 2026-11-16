@@ -643,15 +643,17 @@ export class StatusBar {
   }
 
   private statsSpans(stats: SelectionStats): HTMLElement[] {
+    // The lead figure is the one a phone keeps in the bar (see mobile-layout.css):
+    // the sum when there is one, otherwise the count.
+    const stat = (text: string, lead = false): HTMLElement =>
+      el('span', { className: lead ? 'sel-stat sel-stat-lead' : 'sel-stat', text });
     const spans: HTMLElement[] = [
-      el('span', { className: 'sel-stat', text: t('status.sel.count', { n: stats.count }) }),
-      el('span', { className: 'sel-stat', text: t('status.sel.nonEmpty', { n: stats.nonEmpty }) }),
-      el('span', { className: 'sel-stat', text: t('status.sel.numeric', { n: stats.numeric }) }),
+      stat(t('status.sel.count', { n: stats.count }), stats.numeric === 0),
+      stat(t('status.sel.nonEmpty', { n: stats.nonEmpty })),
+      stat(t('status.sel.numeric', { n: stats.numeric })),
     ];
     if (stats.numeric > 0) {
-      spans.push(
-        el('span', { className: 'sel-stat', text: t('status.sel.sum', { v: formatStat(stats.sum) }) }),
-      );
+      spans.push(stat(t('status.sel.sum', { v: formatStat(stats.sum) }), true));
     }
     if (stats.numeric > 0 && stats.average !== null && stats.min !== null && stats.max !== null) {
       spans.push(

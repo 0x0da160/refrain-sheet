@@ -748,6 +748,19 @@ interface PanelsPort {
   ): Promise<VersionHistoryChoice | null>;
 }
 
+/** Grid view actions the command layer asks for; the UI moves the view, nothing else. */
+export interface GridViewPort {
+  /**
+   * Scroll the grid so an object of `height` sheet pixels placed on this cell
+   * is in view: its left edge at the left of the scrolled columns, and the
+   * view moves vertically only as far as it must (its top goes to the top of
+   * the view when it cannot fit). A phone uses it for a chart placed under the
+   * data. Selects nothing and changes no cell. Optional: a UI without a grid
+   * has nothing to scroll.
+   */
+  scrollObjectIntoView?(tab: Tab, row: number, col: number, height: number): void;
+}
+
 /**
  * The UI surface the command layer talks to. Menu items, context menus,
  * keyboard shortcuts, and drag-and-drop all execute the same commands; the
@@ -762,4 +775,5 @@ export interface UiPort
     RangeDialogsPort,
     FormatDialogsPort,
     WorksheetDialogsPort,
-    PanelsPort {}
+    PanelsPort,
+    GridViewPort {}

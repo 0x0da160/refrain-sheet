@@ -42,7 +42,7 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - On a phone, a selected range shows one figure in the status bar: its sum, or its count when nothing is numeric. The other statistics come back when Details is open, so the bar stays on one line.
 - On a phone, the side panels (Find, Filter, Comments and the others) open as a full-height sheet. The panel you open fills the space and the others collapse to their title bars. A grip bar marks the top of the sheet, and the position and maximize buttons are hidden there.
-- On a phone, a new chart is placed under the selected data, where its left edge is on screen. Its size stays 480 × 300 px on every device.
+- On a phone, a new chart is placed under the selected data, and the sheet scrolls just far enough to show it, with its left edge on screen. Its size stays 480 × 300 px on every device.
 - On a phone, the menus open in three columns instead of four, so the nine top-level menus fill three full rows.
 - On a phone, the two-column fields in dialogs such as Settings stack into one column, so labels are not cut short.
 - The AI assistant panel shows the model's name. Its build identifier moves under Details, and a phone shows a note to connect to Wi-Fi before downloading.

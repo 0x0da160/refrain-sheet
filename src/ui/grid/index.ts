@@ -239,6 +239,11 @@ export class Grid {
     return this.core.navigation.reveal(row, col);
   }
 
+  /** Scroll so an object of `height` sheet pixels placed on this cell is in view (see the navigation). */
+  scrollObjectIntoView(tab: Tab, row: number, col: number, height: number): void {
+    return this.core.navigation.scrollObjectIntoView(tab, row, col, height);
+  }
+
   /** The on-screen keyboard opened or closed — see `KeyboardViewport.openChanged`. */
   keyboardOpenChanged(open: boolean): void {
     return this.core.navigation.keyboardOpenChanged(open);

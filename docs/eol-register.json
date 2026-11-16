@@ -147,7 +147,7 @@
     },
     "npm:eslint-config-prettier@10": { "eol": null, "support": "Current major.", "plan": null },
     "npm:prettier@3": { "eol": null, "support": "Current major.", "plan": null },
-    "npm:jsdom@30": { "eol": null, "support": "Rolling; only the newest major is maintained.", "plan": null },
+    "npm:jsdom@31": { "eol": null, "support": "Rolling; only the newest major is maintained.", "plan": null },
     "npm:fast-check@4": { "eol": null, "support": "Current major.", "plan": null },
     "npm:knip@6": { "eol": null, "support": "Current major.", "plan": null },
     "npm:playwright@1": {

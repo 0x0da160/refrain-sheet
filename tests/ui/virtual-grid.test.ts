@@ -158,10 +158,13 @@ describe('virtualized rendering', () => {
   });
 
   it('sizes the scroll canvas to the full document height', () => {
-    const { grid } = setup(bigCsv(100_000));
+    // 10k rows, not 100k: jsdom 31's style serializer keeps six significant
+    // digits, so 2400024px reads back as 2400020px. 240024px reads back exactly.
+    // (A real browser lays out either height exactly.)
+    const { grid } = setup(bigCsv(10_000));
     const canvas = grid.element.querySelector<HTMLElement>('.vgrid-canvas')!;
-    // 100k rows * 26px + header row.
-    expect(parseInt(canvas.style.height, 10)).toBe(100_000 * ROW_HEIGHT + ROW_HEIGHT);
+    // 10k rows * ROW_HEIGHT + header row.
+    expect(parseInt(canvas.style.height, 10)).toBe(10_000 * ROW_HEIGHT + ROW_HEIGHT);
   });
 
   it('renders distant rows after scrolling', () => {

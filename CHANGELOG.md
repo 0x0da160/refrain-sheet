@@ -47,6 +47,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - On a phone, the two-column fields in dialogs such as Settings stack into one column, so labels are not cut short.
 - The AI assistant panel shows the model's name. Its build identifier moves under Details, and a phone shows a note to connect to Wi-Fi before downloading.
 - On a touch screen, the toolbar buttons have a larger tap area, and menus and context menus leave out keyboard shortcut hints.
+- On a phone, the top toolbar stays on one row and scrolls sideways, rather than wrapping onto a second row.
 
 ### Fixed
 

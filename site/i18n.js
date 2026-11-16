@@ -301,10 +301,10 @@ export const I18N = {
     'privacy.drive.googleLink': 'Google プライバシーポリシー',
     'privacy.app.h2': 'CSVエディタ本体の通信',
     'privacy.app.p':
-      'Googleドライブ連携を使わない限り、CSVを開く・編集する・保存するといった操作は、いかなるネットワーク通信も発生させません。ファイルはすべてブラウザの中だけで処理され、外部に送信されることはありません。AIアシスタントのモデルを取得するときだけ（ダウンロードを押したときに限り）、Hugging Face と通信します。その通信にシートの内容は含まれません。',
+      'Googleドライブ連携を使わない限り、CSVを開く・編集する・保存するといった操作は、いかなるネットワーク通信も発生させません。ファイルはすべてブラウザの中だけで処理され、外部に送信されることはありません。',
     'privacy.storage.h2': 'Cookieとローカルストレージ',
     'privacy.storage.p':
-      '紹介ページの同意設定（Analyticsに同意したかどうか）と、ライト・ダークを選んだときのテーマの設定は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。ホスト版アプリは、表示やツールバーの設定、最近使った色などを、同じくブラウザの中に保存します。これらはファイルには保存されません。AIアシスタントのモデルも、取得すればブラウザに残ります。',
+      '紹介ページの同意設定（Analyticsに同意したかどうか）と、ライト・ダークを選んだときのテーマの設定は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。',
     'privacy.changes.h2': '本ポリシーの変更',
     'privacy.changes.p':
       '機能の追加や法令の変更に応じて、本ポリシーを更新することがあります。重要な変更がある場合は、このページの内容を更新してお知らせします。',
@@ -329,7 +329,7 @@ export const I18N = {
       '本サービスに対して、法令に違反する行為、本サービスや関連インフラへ過度な負荷をかける行為、脆弱性を悪用する行為、その他本サービスの通常の提供を妨げる行為を行わないでください。',
     'terms.third.h2': '第三者サービス',
     'terms.third.p':
-      '本サービスは、紹介ページでのGoogle Analytics（同意時のみ）、ホスト版アプリでのGoogleドライブ連携など、第三者のサービスを利用する場合があります。これらの利用には、各サービス提供者自身の利用規約・プライバシーポリシーが別途適用されます。ホスト版アプリのAIアシスタントは、モデルの取得に Hugging Face を利用します（ダウンロードを押したときだけ）。',
+      '本サービスは、紹介ページでのGoogle Analytics（同意時のみ）、ホスト版アプリでのGoogleドライブ連携など、第三者のサービスを利用する場合があります。これらの利用には、各サービス提供者自身の利用規約・プライバシーポリシーが別途適用されます。',
     'terms.changes.h2': '規約の変更',
     'terms.changes.p':
       '本規約は、機能の追加や法令の変更に応じて、予告なく変更されることがあります。変更後も本サービスの利用を継続した場合、変更後の規約に同意したものとみなします。',
@@ -637,10 +637,10 @@ export const I18N = {
     'privacy.drive.googleLink': 'Google Privacy Policy',
     'privacy.app.h2': 'The CSV editor itself',
     'privacy.app.p':
-      'Unless you use the Google Drive integration, opening, editing, and saving a CSV makes no network requests at all. Files are processed entirely inside your browser and are never sent anywhere. Only when you choose to download the AI assistant’s model does the browser contact Hugging Face, and that request carries no sheet content.',
+      'Unless you use the Google Drive integration, opening, editing, and saving a CSV makes no network requests at all. Files are processed entirely inside your browser and are never sent anywhere.',
     'privacy.storage.h2': 'Cookies and local storage',
     'privacy.storage.p':
-      "Your analytics consent choice on the introduction page, and the theme if you pick Light or Dark, are stored in your browser's localStorage. You can delete them at any time from your browser's settings. The hosted app also keeps its display and toolbar settings and your recent colors in your browser. None of these are written into your files. A downloaded AI assistant model also stays in your browser.",
+      "Your analytics consent choice on the introduction page, and the theme if you pick Light or Dark, are stored in your browser's localStorage. You can delete them at any time from your browser's settings.",
     'privacy.changes.h2': 'Changes to this policy',
     'privacy.changes.p':
       'This policy may be updated as features change or as required by law. Material changes will be reflected on this page.',
@@ -665,7 +665,7 @@ export const I18N = {
       "Do not use the Service to violate any law, to place undue load on the Service or its infrastructure, to exploit a vulnerability, or to otherwise interfere with the Service's normal operation.",
     'terms.third.h2': 'Third-party services',
     'terms.third.p':
-      "The Service may use third-party services, such as Google Analytics on the introduction page (only with consent) and the Google Drive integration in the hosted app. Use of those services is separately governed by each provider's own terms and privacy policy. The hosted app's AI assistant downloads its model from Hugging Face, only when you choose to.",
+      "The Service may use third-party services, such as Google Analytics on the introduction page (only with consent) and the Google Drive integration in the hosted app. Use of those services is separately governed by each provider's own terms and privacy policy.",
     'terms.changes.h2': 'Changes to these Terms',
     'terms.changes.p':
       'These Terms may change without notice as features change or as required by law. Continuing to use the Service after a change means you accept the revised Terms.',

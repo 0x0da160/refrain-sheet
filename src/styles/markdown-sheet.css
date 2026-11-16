@@ -226,6 +226,48 @@
   color: var(--fg-default);
 }
 
+/* Phone width: the mode switch and the theme picker share the first row, and
+   the formatting tools take a full row of their own below, so nothing is
+   squeezed or scrolled sideways. The theme label is hidden visually to make
+   room; the picker keeps it as its accessible name. */
+@media (max-width: 43.75em) {
+  .markdown-sheet-view .markdown-editor-toolbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    row-gap: var(--space-1-5);
+  }
+
+  .markdown-sheet-view .markdown-mode-switch {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .markdown-sheet-view .markdown-theme-field {
+    position: relative;
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .markdown-sheet-view .markdown-theme-field > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .markdown-sheet-view .markdown-visual-tools {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
 /* An empty list item or quote paragraph (just made from `- ` or `> `) keeps
    a line's height, so the caret has somewhere to sit. */
 .markdown-visual-block :is(p, li):empty {

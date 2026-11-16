@@ -38,6 +38,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On an iPhone, the home-screen app keeps the bottom bar and its buttons clear of the rounded screen corners and the home indicator. The top edge and, in landscape, the sides are kept clear the same way.
+- On a phone, the top toolbar wraps onto a second row instead of scrolling sideways.
+- On a phone, the Markdown editor's toolbar fits the screen. The Markdown and formatted mode switch and the display theme picker share the first row, and the formatting tools sit on a row below. The picker's label is hidden on a phone to make room, but screen readers still announce it.
+- On a phone, the drop hint on the home screen is no longer shown, because drag and drop is not used there. The desktop keeps it.
+
 ## [0.9.41] - 2026-11-16
 
 ### Changed

@@ -7,7 +7,11 @@
          substituted here by vite.config.ts. The two modes emit a byte-identical
          policy today; see knowledge/operations/security-threat-model.md. -->
     <meta http-equiv="Content-Security-Policy" content="__CSP__" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- viewport-fit=cover lets the page run under the notch, the rounded
+         screen corners and the home indicator, so the env(safe-area-inset-*)
+         padding on #app (src/styles/base.css) keeps the bars clear of them.
+         Those insets are 0 everywhere else, so desktop is unchanged. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!-- Both schemes, so the browser draws its defaults for the theme the
          person may have chosen before the script runs; theme.ts sets the
          resolved scheme on the root once it does. -->

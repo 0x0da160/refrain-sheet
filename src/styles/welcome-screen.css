@@ -259,6 +259,12 @@
   .welcome-recent-time {
     display: none;
   }
+
+  /* Drag and drop is a desktop gesture. A phone opens files from the picker,
+     so the drop hint under the home screen is not shown here. */
+  .welcome-drop {
+    display: none;
+  }
 }
 
 /* Hide the document-specific surfaces while the welcome screen is up. */

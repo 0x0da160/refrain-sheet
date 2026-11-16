@@ -20,6 +20,14 @@
   display: none;
 }
 
+/* Phone width: the buttons wrap onto a second row rather than scrolling
+   sideways, the same way the menu row wraps on a phone (mobile-layout.css). */
+@media (max-width: 43.75em) {
+  .app-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
 .app-toolbar-button {
   display: inline-flex;
   flex: none;

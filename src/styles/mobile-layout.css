@@ -63,6 +63,13 @@
    and the rows stay compact; padding here never adds to that height. The
    16px input-zoom floor further below is left exactly as-is. */
 @media (max-width: 43.75em) {
+  /* The safe-area insets around the bars (`#app` padding, base.css) show the
+     body behind them, so on a phone the body takes the bars' surface colour
+     instead of the page colour, and the strip under the bottom bar matches it. */
+  body {
+    background: var(--bg-surface);
+  }
+
   #app {
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -189,7 +196,8 @@
   .menu-row.open {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    max-height: calc(100dvh - 96px);
+    /* The safe-area insets come off the same budget, since `#app` pads by them. */
+    max-height: calc(100dvh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow-y: auto;
   }
 

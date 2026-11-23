@@ -32,7 +32,7 @@ miniz_oxide = "=0.9.1"
 # the ruzstd-0-9-1 fixtures (see tests/core/rsf-fixtures.test.ts).
 ruzstd = "=0.9.1"
 # lz4_flex: pure-Rust LZ4 with the Frame format (frame feature, default on).
-lz4_flex = "=0.14.0"
+lz4_flex = "=0.14.2"
 # Argon2id key derivation for the encrypted `.rsf` container (RFC 9106, version
 # 0x13). Pinned exactly. Default features are off: only the `alloc` feature is
 # needed, and no RNG, thread pool, or secret/associated data is used because
